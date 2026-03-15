@@ -3,10 +3,16 @@ Shared configuration for Dots CLI.
 
 This module provides a single source of truth for all runtime context,
 eliminating fragile path resolution via __file__ parent chains.
+
+Repo detection uses a marker file strategy: dots.toml must exist at the
+root of the dotfiles repository. This is portable across machines and
+operating systems, with no hardcoded assumptions about installed tools.
 """
 from dataclasses import dataclass
 from pathlib import Path
 from dots.core.system import detect_os
+
+MARKER_FILE = "dots.toml"
 
 
 @dataclass(frozen=True)
@@ -22,31 +28,34 @@ class DotsConfig:
     def load(cls) -> "DotsConfig":
         """
         Load configuration by finding the Dotfiles repository.
-        
-        Searches from current working directory upward for a directory containing
-        a .git folder and known dotfile module directories.
+
+        Searches from the current working directory upward for a directory
+        containing a 'dots.toml' marker file. This approach is portable
+        across machines and OS — no hardcoded tool names required.
+
+        To set up a dotfiles repo for use with dots, create a dots.toml
+        at the root of that repository:
+
+            echo '[dots]\nversion = "1"' > ~/your-dotfiles/dots.toml
         """
         search_from = Path.cwd()
-        
+
         for parent in [search_from] + list(search_from.parents):
-            if (parent / ".git").exists():
-                potential_root = parent
-                module_indicators = ["Alacritty", "Fish", "Git", "Hypr", "Kitty", "Nvim", "Zsh"]
-                has_modules = sum(1 for m in module_indicators if (potential_root / m).exists())
-                
-                if has_modules >= 3:
-                    repo_root = potential_root
-                    cli_dir = repo_root / "cli"
-                    return cls(
-                        repo_root=repo_root.resolve(),
-                        current_os=detect_os(),
-                        home_dir=Path.home(),
-                        cli_dir=cli_dir.resolve()
-                    )
-        
+            if (parent / MARKER_FILE).exists():
+                repo_root = parent
+                cli_dir = repo_root / "cli"
+                return cls(
+                    repo_root=repo_root.resolve(),
+                    current_os=detect_os(),
+                    home_dir=Path.home(),
+                    cli_dir=cli_dir.resolve()
+                )
+
         raise RuntimeError(
-            "Could not find Dotfiles repository. "
-            "Please run from within your Dot.files directory."
+            f"Could not find a dotfiles repository. "
+            f"No '{MARKER_FILE}' marker file found in '{search_from}' or any parent directory.\n"
+            f"Create one at the root of your dotfiles repo:\n"
+            f"  echo '[dots]\\nversion = \"1\"' > <your-dotfiles-root>/{MARKER_FILE}"
         )
     
     def get_module_dirs(self) -> list[Path]:
