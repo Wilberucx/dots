@@ -22,6 +22,8 @@ dots init
 
 This creates a `dots.toml` file. From then on, you can run `dots` from within that directory (or any subdirectory).
 
+> **Global Usage**: If you run `dots` from outside your dotfiles repository, it will automatically look for the marker file in `~/Dot.files`, `~/.dotfiles`, and `~/dotfiles`. You can also override the path by setting the `DOTS_REPO` environment variable (e.g., `export DOTS_REPO=~/my-custom-path`).
+
 ---
 
 ## Installation

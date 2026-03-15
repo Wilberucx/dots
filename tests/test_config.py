@@ -11,11 +11,12 @@ def test_load_finds_marker_file(tmp_path):
     marker = tmp_path / MARKER_FILE
     marker.write_text("[dots]\nversion = \"1\"\n")
 
-    with patch("dots.core.config.Path.cwd", return_value=tmp_path):
+    with patch.dict("os.environ", {}, clear=True), \
+         patch("dots.core.config.Path.cwd", return_value=tmp_path), \
+         patch("dots.core.config.Path.home", return_value=tmp_path / "home"):
         config = DotsConfig.load()
 
     assert config.repo_root == tmp_path.resolve()
-    assert config.home_dir.exists()
     assert config.current_os in ("linux", "mac", "windows", "unknown")
 
 
@@ -26,7 +27,9 @@ def test_load_finds_marker_in_parent(tmp_path):
     nested = tmp_path / "subdir" / "deeper"
     nested.mkdir(parents=True)
 
-    with patch("dots.core.config.Path.cwd", return_value=nested):
+    with patch.dict("os.environ", {}, clear=True), \
+         patch("dots.core.config.Path.cwd", return_value=nested), \
+         patch("dots.core.config.Path.home", return_value=tmp_path / "home"):
         config = DotsConfig.load()
 
     assert config.repo_root == tmp_path.resolve()
@@ -39,7 +42,9 @@ def test_load_raises_when_no_marker(tmp_path):
     isolated = tmp_path / "no_marker_here"
     isolated.mkdir()
 
-    with patch("dots.core.config.Path.cwd", return_value=isolated):
+    with patch.dict("os.environ", {}, clear=True), \
+         patch("dots.core.config.Path.cwd", return_value=isolated), \
+         patch("dots.core.config.Path.home", return_value=isolated / "home"):
         with pytest.raises(RuntimeError, match=MARKER_FILE):
             DotsConfig.load()
 
@@ -57,7 +62,9 @@ def test_get_module_dirs_returns_dirs_with_path_yaml(tmp_path):
     # Create a dir without path.yaml (should be excluded)
     (tmp_path / "random_dir").mkdir()
 
-    with patch("dots.core.config.Path.cwd", return_value=tmp_path):
+    with patch.dict("os.environ", {}, clear=True), \
+         patch("dots.core.config.Path.cwd", return_value=tmp_path), \
+         patch("dots.core.config.Path.home", return_value=tmp_path / "home"):
         config = DotsConfig.load()
 
     dirs = config.get_module_dirs()

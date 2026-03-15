@@ -25,37 +25,51 @@ class DotsConfig:
     cli_dir: Path        # cli/ subdirectory
     
     @classmethod
+    def _create(cls, repo_root: Path) -> "DotsConfig":
+        return cls(
+            repo_root=repo_root.resolve(),
+            current_os=detect_os(),
+            home_dir=Path.home(),
+            cli_dir=(repo_root / "cli").resolve()
+        )
+
+    @classmethod
     def load(cls) -> "DotsConfig":
         """
         Load configuration by finding the Dotfiles repository.
 
-        Searches from the current working directory upward for a directory
-        containing a 'dots.toml' marker file. This approach is portable
-        across machines and OS — no hardcoded tool names required.
-
-        To set up a dotfiles repo for use with dots, create a dots.toml
-        at the root of that repository:
-
-            echo '[dots]\nversion = "1"' > ~/your-dotfiles/dots.toml
+        Search order:
+        1. Custom path in DOTS_REPO environment variable
+        2. Walk up from current working directory
+        3. Common locations in user's home (~/Dot.files, ~/.dotfiles, ~/dotfiles)
         """
-        search_from = Path.cwd()
+        import os
+        
+        # 1. Environment variable override
+        if "DOTS_REPO" in os.environ:
+            potential_root = Path(os.environ["DOTS_REPO"]).resolve()
+            if (potential_root / MARKER_FILE).exists():
+                return cls._create(potential_root)
 
+        # 2. Walk up from CWD
+        search_from = Path.cwd()
         for parent in [search_from] + list(search_from.parents):
             if (parent / MARKER_FILE).exists():
-                repo_root = parent
-                cli_dir = repo_root / "cli"
-                return cls(
-                    repo_root=repo_root.resolve(),
-                    current_os=detect_os(),
-                    home_dir=Path.home(),
-                    cli_dir=cli_dir.resolve()
-                )
+                return cls._create(parent)
+                
+        # 3. Common fallback locations
+        home = Path.home()
+        for common_dir in ["Dot.files", ".dotfiles", "dotfiles"]:
+            potential_root = home / common_dir
+            if (potential_root / MARKER_FILE).exists():
+                return cls._create(potential_root)
 
         raise RuntimeError(
-            f"Could not find a dotfiles repository. "
-            f"No '{MARKER_FILE}' marker file found in '{search_from}' or any parent directory.\n"
-            f"Create one at the root of your dotfiles repo:\n"
-            f"  echo '[dots]\\nversion = \"1\"' > <your-dotfiles-root>/{MARKER_FILE}"
+            f"Could not find a dotfiles repository.\n"
+            f"No '{MARKER_FILE}' marker file found in current directory tree or common locations.\n"
+            f"To fix this, create the marker file at the root of your dotfiles repo:\n"
+            f"  cd ~/your-dotfiles && dots init\n"
+            f"Or specify the location explicitly: export DOTS_REPO=~/your-dotfiles"
         )
     
     def get_module_dirs(self) -> list[Path]:
