@@ -28,8 +28,9 @@ def main_callback(ctx: typer.Context):
         dashboard()
 
 
-from dots.commands import link, install, adopt, status, unlink, backup
+from dots.commands import link, install, adopt, status, unlink, backup, init
 
+app.command(name="init")(init.init_cmd)
 app.command(name="link")(link.link_cmd)
 app.command(name="unlink")(unlink.unlink_cmd)
 app.command(name="install")(install.install_cmd)

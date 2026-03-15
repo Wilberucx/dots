@@ -13,13 +13,14 @@ CLI for managing dotfiles across Linux, macOS, and Windows.
 
 ## Setup: dotfiles repository
 
-`dots` needs a **marker file** at the root of your dotfiles repository to locate it:
+`dots` needs a **marker file** at the root of your dotfiles repository to locate it. You can generate this automatically:
 
 ```bash
-echo '[dots]\nversion = "1"' > ~/your-dotfiles/dots.toml
+cd ~/your-dotfiles
+dots init
 ```
 
-Then run `dots` from within that directory (or any subdirectory).
+This creates a `dots.toml` file. From then on, you can run `dots` from within that directory (or any subdirectory).
 
 ---
 
@@ -89,6 +90,7 @@ pipx reinstall dots
 
 ```bash
 dots --help
+dots init
 dots status
 dots link
 dots unlink
