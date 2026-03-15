@@ -42,6 +42,16 @@ def _update_dotsrc(dotsrc_path: Path, repo_path: Path):
     try:
         with open(dotsrc_path, "w") as f:
             f.write(f"DOTS_REPO=\"{repo_path.resolve()}\"\n")
-        console.print(f"[dim]Updated global config at {dotsrc_path} to point to this repository.[/dim]")
+        
+        console.print(f"\n[bold]➤ Global path registered[/bold]")
+        console.print(f"[dim]The file {dotsrc_path} was created so this repo can be found automatically.[/dim]")
+        
+        console.print(f"\n[bold cyan]Optional (for advanced users):[/bold cyan]")
+        console.print(f"If you prefer not to have a `.dotsrc` file in your home directory,")
+        console.print(f"you can export the path directly in your shell profile (e.g. `~/.zshrc` or `~/.bashrc`):")
+        console.print(f"\n[green]  export DOTS_REPO=\"{repo_path.resolve()}\"[/green]")
+        console.print(f"\nOr run this to append it automatically to your zsh profile:")
+        console.print(f"[bold]  echo 'export DOTS_REPO=\"{repo_path.resolve()}\"' >> ~/.zshrc && source ~/.zshrc[/bold]\n")
+        
     except Exception as e:
         console.print(f"[red]Failed to update global {dotsrc_path}: {e}[/red]")
