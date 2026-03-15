@@ -15,9 +15,12 @@ def init_cmd():
     """
     cwd = Path.cwd()
     marker_path = cwd / MARKER_FILE
+    dotsrc_path = Path.home() / ".dotsrc"
     
     if marker_path.exists():
         console.print(f"[yellow]Marker file '{MARKER_FILE}' already exists in {cwd}[/yellow]")
+        # Even if marker exists, ensure .dotsrc points here
+        _update_dotsrc(dotsrc_path, cwd)
         return
         
     try:
@@ -29,6 +32,16 @@ def init_cmd():
             
         console.print(f"[green]Successfully initialized dotfiles repository in {cwd}[/green]")
         console.print(f"Created '{MARKER_FILE}' marker file.")
+        _update_dotsrc(dotsrc_path, cwd)
     except Exception as e:
         console.print(f"[red]Error creating marker file: {e}[/red]")
         raise typer.Exit(code=1)
+
+def _update_dotsrc(dotsrc_path: Path, repo_path: Path):
+    """Update or create the ~/.dotsrc file with the repository path."""
+    try:
+        with open(dotsrc_path, "w") as f:
+            f.write(f"DOTS_REPO=\"{repo_path.resolve()}\"\n")
+        console.print(f"[dim]Updated global config at {dotsrc_path} to point to this repository.[/dim]")
+    except Exception as e:
+        console.print(f"[red]Failed to update global {dotsrc_path}: {e}[/red]")

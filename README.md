@@ -20,9 +20,9 @@ cd ~/your-dotfiles
 dots init
 ```
 
-This creates a `dots.toml` file. From then on, you can run `dots` from within that directory (or any subdirectory).
+This creates a `dots.toml` file in that directory, and also **writes a `~/.dotsrc` file in your home directory** storing the absolute path to your repo. From then on, you can run `dots` from within that directory (or any subdirectory).
 
-> **Global Usage**: If you run `dots` from outside your dotfiles repository, it will automatically look for the marker file in `~/Dot.files`, `~/.dotfiles`, and `~/dotfiles`. You can also override the path by setting the `DOTS_REPO` environment variable (e.g., `export DOTS_REPO=~/my-custom-path`).
+> **Global Usage**: Because `dots init` creates a `~/.dotsrc` pointing to your repo, you can run `dots` from **anywhere on your system**. If you ever move your dotfiles repo, simply run `dots init` again in the new location. You can also override the path dynamically by setting the `DOTS_REPO` environment variable.
 
 ---
 

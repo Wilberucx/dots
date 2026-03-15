@@ -40,8 +40,9 @@ class DotsConfig:
 
         Search order:
         1. Custom path in DOTS_REPO environment variable
-        2. Walk up from current working directory
-        3. Common locations in user's home (~/Dot.files, ~/.dotfiles, ~/dotfiles)
+        2. Global configuration file (~/.dotsrc) created by `dots init`
+        3. Walk up from current working directory
+        4. Common locations in user's home (~/Dot.files, ~/.dotfiles, ~/dotfiles)
         """
         import os
         
@@ -51,14 +52,27 @@ class DotsConfig:
             if (potential_root / MARKER_FILE).exists():
                 return cls._create(potential_root)
 
-        # 2. Walk up from CWD
+        # 2. Global configuration file (~/.dotsrc)
+        home = Path.home()
+        dotsrc = home / ".dotsrc"
+        if dotsrc.exists():
+            try:
+                for line in dotsrc.read_text().splitlines():
+                    if line.startswith("DOTS_REPO="):
+                        path_str = line.split("=", 1)[1].strip('"\'')
+                        potential_root = Path(path_str).resolve()
+                        if (potential_root / MARKER_FILE).exists():
+                            return cls._create(potential_root)
+            except Exception:
+                pass  # Ignore malformed file
+
+        # 3. Walk up from CWD
         search_from = Path.cwd()
         for parent in [search_from] + list(search_from.parents):
             if (parent / MARKER_FILE).exists():
                 return cls._create(parent)
                 
-        # 3. Common fallback locations
-        home = Path.home()
+        # 4. Common fallback locations
         for common_dir in ["Dot.files", ".dotfiles", "dotfiles"]:
             potential_root = home / common_dir
             if (potential_root / MARKER_FILE).exists():
