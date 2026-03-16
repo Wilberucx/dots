@@ -54,14 +54,28 @@ TUI_STYLE_DICT = {
     "border.active": f"bold {BORDER_ACT}",
     "panel.title": f"bold {FG}",
     "panel.title.active": f"bold {ACCENT}",
-    # Modules
-    "mod.healthy": SUCCESS,
-    "mod.warning": WARNING,
-    "mod.error": ERROR,
-    "mod.sel.healthy": f"bg:{SEL_BG} bold {SUCCESS}",
-    "mod.sel.warning": f"bg:{SEL_BG} bold {WARNING}",
-    "mod.sel.error": f"bg:{SEL_BG} bold {ERROR}",
-    # Details
+
+    # Module table rows
+    "row": FG,
+    "row.sel": f"fg:{ACCENT} bold",
+
+    # Column header
+    "col.header": f"bold {ACCENT}",
+
+    # Status colors
+    "status.linked": f"bold {SUCCESS}",
+    "status.unlinked": DIM,
+    "status.broken": f"bold {ERROR}",
+
+    # Selection circles (Visual mode)
+    "select.on": f"bold {ACCENT}",
+    "select.off": DIM,
+
+    # Tab bar
+    "tab.active": f"bold {ACCENT}",
+    "tab.inactive": DIM,
+
+    # Details (kept for tab content)
     "det.label": f"bold {FG}",
     "det.dim": DIM,
     "det.linked": SUCCESS,
@@ -69,19 +83,34 @@ TUI_STYLE_DICT = {
     "det.conflict": ERROR,
     "det.unsafe": ERROR,
     "det.missing": DIM,
+
     # Backups
     "bkp.item": FG,
-    "bkp.sel": f"bg:{SEL_BG} bold {FG}",
+    "bkp.sel": f"bold {ACCENT}",
+
     # Log
     "log.ts": DIM,
     "log.info": ACCENT,
     "log.success": SUCCESS,
     "log.warning": WARNING,
     "log.error": ERROR,
-    # Footer (dimmed)
+
+    # Footer
     "footer": f"{DIM}",
-    "footer.key": f"bold {DIM}",
+    "footer.key": f"bold {ACCENT}",
     "footer.sep": BORDER_DIM,
+
+    # Sub-binding overlay (edit/order sub-modes)
+    "sub.key": f"bold {ACCENT}",
+    "sub.label": DIM,
+
+    # Mode indicator
+    "mode.normal": f"bold {SUCCESS}",
+    "mode.visual": f"bold {WARNING}",
+
+    # Inline filter
+    "filter.prompt": f"bold {ACCENT}",
+    "filter.text": FG,
 }
 
 # ── InquirerPy Styles (shared for all prompts) ──

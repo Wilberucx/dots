@@ -10,6 +10,7 @@ src/dots.egg-info/requires.txt
 src/dots.egg-info/top_level.txt
 src/dots/commands/adopt.py
 src/dots/commands/backup.py
+src/dots/commands/init.py
 src/dots/commands/install.py
 src/dots/commands/link.py
 src/dots/commands/status.py
