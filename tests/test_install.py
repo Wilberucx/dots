@@ -208,3 +208,124 @@ class TestInstallPackageDep:
             install_package_dep(dep, mock_manager, dry_run=False)
             actual_cmd = mock_run.call_args[0][0]
             assert actual_cmd[0] != "sudo"
+
+# ─── install_binary_dep ──────────────────────────────────────────────────────
+
+class TestInstallBinaryDep:
+
+    def test_skips_when_dest_exists(self, tmp_path):
+        """Caso 1: Skip silencioso si el destino ya existe."""
+        target = tmp_path / "mybin"
+        target.touch()
+        dep = Dependency(
+            name="mybin",
+            type="binary",
+            source="https://example.com/mybin",
+            target=str(target),
+        )
+        with patch("dots.commands.install.requests.get") as mock_get:
+            install_binary_dep(dep, dry_run=False)
+            mock_get.assert_not_called()
+
+    def test_dry_run_no_side_effects(self, tmp_path):
+        """Caso 2: dry_run=True no ejecuta requests ni toca filesystem."""
+        target = tmp_path / "mybin"
+        dep = Dependency(
+            name="mybin",
+            type="binary",
+            source="https://example.com/mybin",
+            target=str(target),
+        )
+        with patch("dots.commands.install.requests.get") as mock_get:
+            install_binary_dep(dep, dry_run=True)
+            mock_get.assert_not_called()
+            assert not target.exists()
+
+    def test_template_arch_resolution(self, tmp_path):
+        """Caso 3: {{arch}} se reemplaza por el arch detectado."""
+        target = tmp_path / "mybin"
+        dep = Dependency(
+            name="mybin",
+            type="binary",
+            source="https://example.com/mybin-{{arch}}",
+            target=str(target),
+        )
+        mock_response = MagicMock()
+        mock_response.iter_content.return_value = [b"data"]
+        mock_response.raise_for_status = MagicMock()
+        with patch("dots.commands.install.get_system_arch", return_value="x86_64"), \
+             patch("dots.commands.install.requests.get", return_value=mock_response) as mock_get, \
+             patch("dots.commands.install.shutil.move"):
+            install_binary_dep(dep, dry_run=False)
+            mock_get.assert_called_once()
+            assert "x86_64" in mock_get.call_args[0][0]
+
+    def test_arch_map_overrides_template(self, tmp_path):
+        """Caso 4: arch_map sobreescribe {{arch}}."""
+        target = tmp_path / "mybin"
+        dep = Dependency(
+            name="mybin",
+            type="binary",
+            source="https://example.com/mybin-{{arch}}",
+            target=str(target),
+            arch_map={"x86_64": "amd64"},
+        )
+        mock_response = MagicMock()
+        mock_response.iter_content.return_value = [b"data"]
+        mock_response.raise_for_status = MagicMock()
+        with patch("dots.commands.install.get_system_arch", return_value="x86_64"), \
+             patch("dots.commands.install.requests.get", return_value=mock_response) as mock_get, \
+             patch("dots.commands.install.shutil.move"):
+            install_binary_dep(dep, dry_run=False)
+            mock_get.assert_called_once()
+            url_called = mock_get.call_args[0][0]
+            assert "amd64" in url_called
+            assert "x86_64" not in url_called
+
+    def test_template_version_resolution(self, tmp_path):
+        """Caso 5: {{version}} se reemplaza cuando dep.version está presente."""
+        target = tmp_path / "mybin"
+        dep = Dependency(
+            name="mybin",
+            type="binary",
+            source="https://example.com/mybin-{{version}}",
+            target=str(target),
+            version="1.2.3",
+        )
+        mock_response = MagicMock()
+        mock_response.iter_content.return_value = [b"data"]
+        mock_response.raise_for_status = MagicMock()
+        with patch("dots.commands.install.requests.get", return_value=mock_response) as mock_get, \
+             patch("dots.commands.install.shutil.move"):
+            install_binary_dep(dep, dry_run=False)
+            mock_get.assert_called_once()
+            assert "1.2.3" in mock_get.call_args[0][0]
+
+    def test_raw_binary_moved_and_chmod(self, tmp_path):
+        """Caso 6: Binario raw se mueve al destino y se le da chmod 755."""
+        target = tmp_path / "mybin"
+        dep = Dependency(
+            name="mybin",
+            type="binary",
+            source="https://example.com/mybin",
+            target=str(target),
+        )
+        mock_response = MagicMock()
+        mock_response.iter_content.return_value = [b"fake_binary_data"]
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("dots.commands.install.requests.get", return_value=mock_response), \
+             patch("dots.commands.install.shutil.move") as mock_move, \
+             patch("dots.commands.install.Path.chmod") as mock_chmod:
+            install_binary_dep(dep, dry_run=False)
+            mock_move.assert_called_once()
+            # arg 0 es el src temp_path, arg 1 es el destino
+            assert mock_move.call_args[0][1] == target
+            mock_chmod.assert_called_once_with(0o755)
+
+    def test_warns_when_source_or_target_missing(self):
+        """Caso 7: Falla (warns) si source o target están ausentes."""
+        dep = Dependency(name="mybin", type="binary")
+        with patch("dots.commands.install.requests.get") as mock_get:
+            install_binary_dep(dep, dry_run=False)
+            mock_get.assert_not_called()
