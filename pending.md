@@ -77,27 +77,47 @@ dots install --type minimal     # instalar deps solo de ese grupo
 `src/dots/commands/link.py`, `src/dots/commands/status.py`,
 `src/dots/commands/install.py`, `src/dots/core/resolver.py`
 
-### [x] Flag `--state` / `-s` en status
+### [ ] Flag `--format` en status
+**Contexto:** El output actual de `dots status` está pensado para lectura humana.
+`--format` permite consumir el mismo dato en otros formatos sin cambiar el comando.
 
-### [~~show subcomando~~] Eliminado — redundante con status
-**Contexto:** Vista inline de todos los módulos y sus archivos en formato tabla.
-Complementa `status` (que muestra estado de symlinks) con una vista
-de qué archivos gestiona cada módulo y sus metadatos.
+**Valores:**
+- Sin flag (default): output actual agrupado por estado — sin cambios
+- `--format table`: tabla Rich con columnas Module / Source / Destination / State / Type
+- `--format json`: JSON estructurado para scripting e integración con otros tools
 
-**Comportamiento:**
-```bash
-dots status                       # tabla completa de todos los módulos
-dots status --type minimal        # filtrar por tipo declarado en path.yaml
-dots status --state unlinked      # filtrar por estado de symlink
-dots status --type minimal --state linked  # combinable
+**Estructura JSON esperada:**
+```json
+{
+  "modules": {
+    "Zsh": {
+      "type": "minimal",
+      "files": [
+        {
+          "source": ".zshrc",
+          "destination": "~/.zshrc",
+          "state": "linked"
+        }
+      ]
+    }
+  },
+  "summary": {
+    "linked": 23,
+    "unlinked": 4,
+    "broken": 0,
+    "missing": 0,
+    "unsafe": 0
+  }
+}
 ```
 
-**Columnas de la tabla:**
-- Módulo
-- Archivo fuente
-- Destino
-- Estado (linked / unlinked / broken)
-- Tipo del módulo (si está declarado)
+**Implementación:**
+- Agregar `--format` / `-f` con enum `OutputFormat` (default, table, json)
+  en `status_cmd`
+- Extraer lógica de renderizado en funciones separadas:
+  `_render_default`, `_render_table`, `_render_json`
+- `_render_table` reutiliza la lógica visual que tenía `show.py`
+- `_render_json` usa `json.dumps` con `indent=2`, respeta filtros activos
 
 **Archivos involucrados:** `src/dots/commands/status.py`
 
