@@ -329,3 +329,91 @@ class TestInstallBinaryDep:
         with patch("dots.commands.install.requests.get") as mock_get:
             install_binary_dep(dep, dry_run=False)
             mock_get.assert_not_called()
+
+    def test_extract_path_extracts_specific_member(self, tmp_path):
+        """Con extract_path definido, extrae solo ese miembro del tarball."""
+        import tarfile
+        import io
+
+        # Crear un tarball sintético en memoria con estructura típica de release
+        tar_buffer = io.BytesIO()
+        with tarfile.open(fileobj=tar_buffer, mode="w:gz") as tar:
+            # Simular: eza-linux-x86_64/eza
+            binary_data = b"#!/bin/sh\necho eza"
+            info = tarfile.TarInfo(name="eza-linux-x86_64/eza")
+            info.size = len(binary_data)
+            info.mode = 0o755
+            tar.addfile(info, io.BytesIO(binary_data))
+            # Archivo extra que NO debe extraerse
+            readme_data = b"readme content"
+            info2 = tarfile.TarInfo(name="eza-linux-x86_64/README.md")
+            info2.size = len(readme_data)
+            tar.addfile(info2, io.BytesIO(readme_data))
+        tar_buffer.seek(0)
+
+        dest = tmp_path / "eza"
+        dep = Dependency(
+            name="eza",
+            type="binary",
+            source="https://example.com/eza-{{arch}}.tar.gz",
+            target=str(dest),
+            extract_path="eza-linux-x86_64/eza",
+        )
+
+        mock_response = MagicMock()
+        mock_response.iter_content.return_value = [tar_buffer.read()]
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("dots.commands.install.requests.get", return_value=mock_response), \
+             patch("dots.commands.install.get_system_arch", return_value="x86_64"), \
+             patch("dots.commands.install.tempfile.NamedTemporaryFile") as mock_tmp:
+            # Escribir el tarball real en un archivo temporal real para que tarfile lo abra
+            real_tmp = tmp_path / "download.tar.gz"
+            tar_buffer.seek(0)
+            real_tmp.write_bytes(tar_buffer.read())
+            mock_tmp.return_value.__enter__.return_value.name = str(real_tmp)
+
+            install_binary_dep(dep, dry_run=False)
+
+        assert dest.exists()
+        assert dest.read_bytes() == b"#!/bin/sh\necho eza"
+
+
+    def test_extract_path_errors_when_member_not_found(self, tmp_path):
+        """Si extract_path no existe en el tarball, reporta error sin explotar."""
+        import tarfile
+        import io
+
+        tar_buffer = io.BytesIO()
+        with tarfile.open(fileobj=tar_buffer, mode="w:gz") as tar:
+            data = b"binary"
+            info = tarfile.TarInfo(name="other-dir/other-binary")
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+        tar_buffer.seek(0)
+
+        dest = tmp_path / "mytool"
+        dep = Dependency(
+            name="mytool",
+            type="binary",
+            source="https://example.com/mytool.tar.gz",
+            target=str(dest),
+            extract_path="wrong-dir/mytool",  # no existe en el tarball
+        )
+
+        mock_response = MagicMock()
+        mock_response.iter_content.return_value = [tar_buffer.read()]
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("dots.commands.install.requests.get", return_value=mock_response), \
+             patch("dots.commands.install.get_system_arch", return_value="x86_64"), \
+             patch("dots.commands.install.tempfile.NamedTemporaryFile") as mock_tmp:
+            real_tmp = tmp_path / "download.tar.gz"
+            tar_buffer.seek(0)
+            real_tmp.write_bytes(tar_buffer.read())
+            mock_tmp.return_value.__enter__.return_value.name = str(real_tmp)
+
+            install_binary_dep(dep, dry_run=False)
+
+        # El destino no debe haberse creado
+        assert not dest.exists()

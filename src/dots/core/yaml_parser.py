@@ -16,6 +16,7 @@ class Dependency:
     arch_map: Optional[Dict[str, str]] = None  # Mapping for architecture-specific URLs
     post_install: Optional[str] = None # Command to run after installation
     package_managers: Optional[Dict[str, str]] = None  # {"pacman": "pkg", "apt": "pkg"}
+    extract_path: Optional[str] = None  # ruta relativa del binario dentro del tarball
 
 @dataclass(frozen=True)
 class DotFileMapping:
@@ -128,7 +129,8 @@ def parse_dependencies(yaml_path: Path) -> List[Dependency]:
                 ref=d.get('ref'),
                 arch_map=d.get('arch_map'),
                 post_install=d.get('post_install'),
-                package_managers=d.get('package-managers')
+                package_managers=d.get('package-managers'),
+                extract_path=d.get('extract-path')
             ))
             
     return dependencies

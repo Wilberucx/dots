@@ -75,7 +75,7 @@ files:
 
 ## Core / install
 
-### [ ] Extracción de tar.gz en install_binary_dep
+### [x] Extracción de tar.gz en install_binary_dep
 **Contexto:** La rama `.tar.gz` / `.tgz` de `install_binary_dep` usa `tar.extractall`
 sin lógica de subrutas. Si el binario está dentro de un subdirectorio del tarball
 (caso común en releases de GitHub), la extracción deposita todo en `dest.parent`
@@ -102,6 +102,20 @@ Reemplazar con Textual cuando se inicie la fase de UI polish.
 
 **Scope:** Rewrite completo, no refactor incremental.
 **Prerequisito:** Cerrar todas las features de core primero.
+
+### [ ] TUI panel 1 — columna ícono .bak
+**Contexto:** En el panel principal de la TUI mostrar visualmente si un módulo
+tiene un archivo `.bak` activo usando un ícono Nerd Font.
+Comunica al instante que hay un backup pendiente de revisión sin necesidad
+de leer texto.
+
+**Comportamiento:**
+- Si existe `<destination>.bak` para algún archivo del módulo → mostrar ícono (ej: )
+- Si no hay .bak → sin ícono o ícono neutro
+- El ícono debe usar color amarillo/warning — es información, no error
+
+**Prerequisito:** Rewrite de dashboard.py con Textual completado primero.
+**Archivos involucrados:** TBD cuando se inicie el rewrite con Textual.
 
 ---
 

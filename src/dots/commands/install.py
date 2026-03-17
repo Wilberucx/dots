@@ -2,6 +2,7 @@ import typer
 import subprocess
 import shutil
 import os
+import tempfile
 import platform
 import tarfile
 import zipfile
@@ -140,12 +141,28 @@ def install_binary_dep(dep: Dependency, dry_run: bool):
 
         # Extract or move
         if url.endswith(".tar.gz") or url.endswith(".tgz"):
-             with tarfile.open(tmp_path, "r:gz") as tar:
-                # Security: simplistic extraction, filtering members usually recommended
-                tar.extractall(path=dest.parent)
-                # Assume binary name matches dep.name or we might need a specific 'extract_file' field
-                # For now, just extracting to parent dir. 
-                # Improvement: handle 'extract_path' logic.
+            with tarfile.open(tmp_path, "r:gz") as tar:
+                if dep.extract_path:
+                    # Extraer solo el miembro especificado
+                    try:
+                        member = tar.getmember(dep.extract_path)
+                        # Extraer a un directorio temporal y mover al destino
+                        import tempfile
+                        with tempfile.TemporaryDirectory() as extract_dir:
+                            tar.extract(member, path=extract_dir, filter="data")
+                            extracted = Path(extract_dir) / dep.extract_path
+                            dest.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.move(str(extracted), dest)
+                            dest.chmod(0o755)
+                    except KeyError:
+                        print_error(
+                            f"  extract-path '{dep.extract_path}' not found in archive."
+                            f" Available members: {[m.name for m in tar.getmembers()]}"
+                        )
+                        return
+                else:
+                    # Comportamiento anterior: extraer todo en dest.parent
+                    tar.extractall(path=dest.parent, filter="data")
         else:
              # Assume raw binary
              shutil.move(tmp_path, dest)
