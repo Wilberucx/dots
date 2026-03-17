@@ -13,6 +13,10 @@ def link_cmd(
         None, "--module", "-m",
         help="Link only specific modules (repeatable: -m Zsh -m Nvim)"
     ),
+    type: list[str] | None = typer.Option(
+        None, "--type", "-t",
+        help="Link only modules of this type (repeatable: -t minimal -t work)"
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show what would happen"),
     force: bool = typer.Option(False, "--force", help="Overwrite existing symlinks"),
     interactive: bool = typer.Option(False, "--interactive", "-i", help="Interactively select modules to link"),
@@ -80,7 +84,7 @@ def link_cmd(
                 )
     
     # Pass variant to resolver (cascade handled inside if variant is None)
-    modules = resolve_modules(config, modules=selected_modules, variant=variant)
+    modules = resolve_modules(config, modules=selected_modules, types=type, variant=variant)
     
     if not modules:
         print_warning("No modules found.")

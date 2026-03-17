@@ -63,3 +63,113 @@ def test_get_module_dirs_single_module(mock_config):
     dirs = mock_config.get_module_dirs(modules=["Git"])
     assert len(dirs) == 1
     assert dirs[0].name == "Git"
+
+class TestTypeFilter:
+
+    def test_type_filter_returns_matching_modules(self, tmp_path):
+        """Solo retorna módulos cuyo path.yaml tiene el type solicitado."""
+        (tmp_path / "dots.toml").touch()
+
+        # Módulo con type: minimal
+        zsh = tmp_path / "Zsh"
+        zsh.mkdir()
+        (zsh / "path.yaml").write_text("type: minimal\nfiles: []\n")
+
+        # Módulo con type: work
+        nvim = tmp_path / "Nvim"
+        nvim.mkdir()
+        (nvim / "path.yaml").write_text("type: work\nfiles: []\n")
+
+        # Módulo sin type
+        git = tmp_path / "Git"
+        git.mkdir()
+        (git / "path.yaml").write_text("files: []\n")
+
+        config = DotsConfig(
+            repo_root=tmp_path,
+            current_os="linux",
+            home_dir=Path.home(),
+            cli_dir=tmp_path / "cli",
+        )
+
+        result = config.get_module_dirs(types=["minimal"])
+        names = [d.name for d in result]
+        assert names == ["Zsh"]
+
+    def test_type_filter_excludes_modules_without_type(self, tmp_path):
+        """Módulo sin campo type queda excluido cuando se filtra por tipo."""
+        (tmp_path / "dots.toml").touch()
+
+        mod = tmp_path / "Git"
+        mod.mkdir()
+        (mod / "path.yaml").write_text("files: []\n")
+
+        config = DotsConfig(
+            repo_root=tmp_path,
+            current_os="linux",
+            home_dir=Path.home(),
+            cli_dir=tmp_path / "cli",
+        )
+
+        result = config.get_module_dirs(types=["minimal"])
+        assert result == []
+
+    def test_type_filter_multiple_types(self, tmp_path):
+        """Múltiples tipos actúan como OR — retorna módulos de cualquiera."""
+        (tmp_path / "dots.toml").touch()
+
+        for name, t in [("Zsh", "minimal"), ("Nvim", "work"), ("Git", "gaming")]:
+            d = tmp_path / name
+            d.mkdir()
+            (d / "path.yaml").write_text(f"type: {t}\nfiles: []\n")
+
+        config = DotsConfig(
+            repo_root=tmp_path,
+            current_os="linux",
+            home_dir=Path.home(),
+            cli_dir=tmp_path / "cli",
+        )
+
+        result = config.get_module_dirs(types=["minimal", "work"])
+        names = {d.name for d in result}
+        assert names == {"Zsh", "Nvim"}
+
+    def test_module_and_type_filters_combine_as_and(self, tmp_path):
+        """--module y --type combinados: AND — solo módulos que cumplen ambos."""
+        (tmp_path / "dots.toml").touch()
+
+        for name, t in [("Zsh", "minimal"), ("Nvim", "minimal"), ("Git", "work")]:
+            d = tmp_path / name
+            d.mkdir()
+            (d / "path.yaml").write_text(f"type: {t}\nfiles: []\n")
+
+        config = DotsConfig(
+            repo_root=tmp_path,
+            current_os="linux",
+            home_dir=Path.home(),
+            cli_dir=tmp_path / "cli",
+        )
+
+        # Pide Zsh y Nvim por nombre, pero solo type:work → ninguno pasa
+        result = config.get_module_dirs(modules=["Zsh", "Nvim"], types=["work"])
+        assert result == []
+
+    def test_no_type_filter_returns_all(self, tmp_path):
+        """Sin filtro de tipo, retorna todos independiente de si tienen type."""
+        (tmp_path / "dots.toml").touch()
+
+        (tmp_path / "Zsh").mkdir()
+        (tmp_path / "Zsh" / "path.yaml").write_text("type: minimal\nfiles: []\n")
+        (tmp_path / "Git").mkdir()
+        (tmp_path / "Git" / "path.yaml").write_text("files: []\n")
+
+        config = DotsConfig(
+            repo_root=tmp_path,
+            current_os="linux",
+            home_dir=Path.home(),
+            cli_dir=tmp_path / "cli",
+        )
+
+        result = config.get_module_dirs()
+        names = {d.name for d in result}
+        assert names == {"Zsh", "Git"}

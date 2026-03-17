@@ -185,6 +185,10 @@ def install_cmd(
     module: list[str] | None = typer.Option(
         None, "--module", "-m",
         help="Install deps only for specific modules (repeatable)"
+    ),
+    type: list[str] | None = typer.Option(
+        None, "--type", "-t",
+        help="Install deps only for modules of this type (repeatable)"
     )
 ):
     """
@@ -204,7 +208,7 @@ def install_cmd(
     all_dependencies: List[Dependency] = []
 
     # Load dependencies from modules
-    module_dirs = config.get_module_dirs(modules=module)
+    module_dirs = config.get_module_dirs(modules=module, types=type)
 
     for module_dir in module_dirs:
         yaml_path = module_dir / "path.yaml"

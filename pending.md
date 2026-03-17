@@ -43,7 +43,7 @@ el cambio se hace una vez y se propaga.
 **Archivos involucrados:** `src/dots/commands/link.py`, `src/dots/commands/unlink.py`,
 `src/dots/commands/status.py`, `src/dots/commands/install.py`
 
-### [ ] Flag `--type` / `-t` en link (y otros comandos)
+### [x] Flag `--type` / `-t` en link, status, install
 **Contexto:** Permite agrupar módulos por tipo declarado en path.yaml y
 operar solo sobre ese grupo. Más flexible que un flag `--default` hardcodeado
 — el usuario define sus propios nombres de grupo.

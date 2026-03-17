@@ -8,6 +8,10 @@ def status_cmd(
     module: list[str] | None = typer.Option(
         None, "--module", "-m",
         help="Show status only for specific modules (repeatable)"
+    ),
+    type: list[str] | None = typer.Option(
+        None, "--type", "-t",
+        help="Show status only for modules of this type (repeatable)"
     )
 ):
     """
@@ -16,7 +20,7 @@ def status_cmd(
     print_header("Dots Status")
     
     config = DotsConfig.load()
-    modules = resolve_modules(config, modules=module)
+    modules = resolve_modules(config, modules=module, types=type)
     
     if not modules:
         console.print("[yellow]⚠[/yellow] No modules found.")

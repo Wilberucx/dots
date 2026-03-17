@@ -196,3 +196,28 @@ def filter_by_variant(mappings: List[DotFileMapping], variant: str) -> List[DotF
         return mappings
     
     return [m for m in mappings if m.source == variant]
+
+
+def parse_module_meta(yaml_path: Path) -> dict:
+    """
+    Parse top-level metadata fields from a path.yaml.
+    Returns a dict with optional keys: 'type'.
+    Returns empty dict if file doesn't exist or has no metadata.
+    """
+    if not yaml_path.exists():
+        return {}
+
+    try:
+        with open(yaml_path, 'r') as f:
+            data = yaml.safe_load(f)
+    except yaml.YAMLError:
+        return {}
+
+    if not data or not isinstance(data, dict):
+        return {}
+
+    meta = {}
+    if 'type' in data:
+        meta['type'] = str(data['type'])
+
+    return meta
