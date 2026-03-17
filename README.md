@@ -106,12 +106,6 @@ No timestamp clutter. One `.bak` per file, intentional friction.
 
 ---
 
-# dots
-
-CLI for managing dotfiles across Linux, macOS, and Windows.
-
----
-
 ## Requirements
 
 - Python 3.10+
