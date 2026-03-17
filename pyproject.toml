@@ -9,19 +9,16 @@ description = "Your dotfiles management CLI"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "rich>=13.0.0",
-    "pyyaml>=6.0",
-    "typer>=0.9.0",
-    "InquirerPy>=0.3.4",
-    "prompt_toolkit>=3.0.0",
-    "requests>=2.28.0",
+  "rich>=13.0.0",
+  "pyyaml>=6.0",
+  "typer>=0.9.0",
+  "InquirerPy>=0.3.4",
+  "prompt_toolkit>=3.0.0",
+  "requests>=2.28.0",
 ]
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=7.0",
-    "pytest-cov",
-]
+dev = ["pytest>=7.0", "pytest-cov"]
 
 [project.scripts]
 dots = "dots.__main__:main"

@@ -34,7 +34,7 @@ Install once. Only updates when you explicitly run `pipx upgrade`.
 Your dotfiles are **never affected** by development work you do in the `dev` branch.
 
 ```bash
-pipx install /home/cantoarch/Work/dots
+pipx install ~/dots
 ```
 
 To upgrade after a new release (merged to `main` and tagged):
