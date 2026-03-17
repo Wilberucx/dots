@@ -1,13 +1,13 @@
 """
 Centralized theme for the dots CLI TUI and terminal output.
-Uses a professional 'Gentleman' palette (inspired by Kanagawa/Ghostty).
+Inspired by Kanagawa/Ghostty palette.
 """
 
 from prompt_toolkit.styles import Style
 from InquirerPy.utils import get_style
 
 # ── Color Palette (HEX) ──
-# Main tones (Gentleman / Kanagawa inspired)
+# Main tones (Kanagawa inspired)
 # ACCENT     = "#7fb4ca"  # Muted blue/cyan (Kanagawa: Blue)
 # SUCCESS    = "#b7cc85"  # Muted green (Kanagawa: Green)
 # WARNING    = "#ffe066"  # Soft yellow (Kanagawa: Yellow)

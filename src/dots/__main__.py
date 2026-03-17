@@ -5,7 +5,7 @@ from dots.ui.output import console
 
 app = typer.Typer(
     name="dots",
-    help="Gentleman Dotfiles Manager",
+    help="dots — dotfile manager",
     add_completion=False,
 )
 
