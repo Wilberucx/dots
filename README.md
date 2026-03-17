@@ -3,6 +3,7 @@
 dotfile manager — declarative, symlink-based, yours.
 
 ## Install
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Wilberucx/dots/main/install.sh | bash
 ```
@@ -14,6 +15,7 @@ Requires Python 3.10+ and git. `pipx` is installed automatically.
 ## path.yaml reference
 
 Each module is a directory with a `path.yaml` and its config files.
+
 ```yaml
 # Optional: group modules for filtered operations
 type: minimal
@@ -67,26 +69,27 @@ dependencies:
 
 ## Commands
 
-| Command | Description |
-|---|---|
-| `dots init` | Initialize repo — creates `dots.toml` marker |
-| `dots link` | Create symlinks for all modules |
-| `dots unlink` | Remove symlinks |
-| `dots status` | Show link state grouped by status |
-| `dots adopt <path>` | Import an existing config into the repo |
-| `dots install` | Install dependencies from all `path.yaml` files |
-| `dots backup` | Git commit and optional push |
+| Command             | Description                                     |
+| ------------------- | ----------------------------------------------- |
+| `dots init`         | Initialize repo — creates `dots.toml` marker    |
+| `dots link`         | Create symlinks for all modules                 |
+| `dots unlink`       | Remove symlinks                                 |
+| `dots status`       | Show link state grouped by status               |
+| `dots adopt <path>` | Import an existing config into the repo         |
+| `dots install`      | Install dependencies from all `path.yaml` files |
+| `dots backup`       | Git commit and optional push                    |
 
 ## Flags
 
 Available on `link`, `unlink`, `status`, and `install`:
 
-| Flag | Description |
-|---|---|
-| `-m / --module` | Filter by module name (repeatable) |
-| `-t / --type` | Filter by module type (repeatable) |
-| `-s / --state` | Filter by state: `linked` `unlinked` `broken` (status only) |
-| `--dry-run` | Preview without executing |
+| Flag            | Description                                                 |
+| --------------- | ----------------------------------------------------------- |
+| `-m / --module` | Filter by module name (repeatable)                          |
+| `-t / --type`   | Filter by module type (repeatable)                          |
+| `-s / --state`  | Filter by state: `linked` `unlinked` `broken` (status only) |
+| `--dry-run`     | Preview without executing                                   |
+
 ```bash
 dots status --type minimal
 dots link -m Zsh -m Nvim
@@ -96,11 +99,11 @@ dots install --module Packages
 
 ## Conflict resolution
 
-| Situation | Behavior |
-|---|---|
-| File exists, not a symlink | Creates `.bak`, then links |
-| Symlink exists, points elsewhere | Replaces with correct symlink |
-| `.bak` already exists | **Blocks** — review and clean manually |
+| Situation                        | Behavior                               |
+| -------------------------------- | -------------------------------------- |
+| File exists, not a symlink       | Creates `.bak`, then links             |
+| Symlink exists, points elsewhere | Replaces with correct symlink          |
+| `.bak` already exists            | **Blocks** — review and clean manually |
 
 No timestamp clutter. One `.bak` per file, intentional friction.
 
