@@ -86,9 +86,27 @@ class DotsConfig:
             f"Or specify the location explicitly: export DOTS_REPO=~/your-dotfiles"
         )
     
-    def get_module_dirs(self) -> list[Path]:
-        """Return sorted list of all valid module directories (directories containing path.yaml)."""
-        return sorted([
+    def get_module_dirs(self, modules: list[str] | None = None) -> list[Path]:
+        """
+        Return sorted list of all valid module directories.
+        If modules is provided, return only those that match by name.
+        Unknown module names are warned but do not raise.
+        """
+        all_dirs = sorted([
             d for d in self.repo_root.iterdir()
             if d.is_dir() and not d.name.startswith(".") and (d / "path.yaml").exists()
         ])
+
+        if not modules:
+            return all_dirs
+
+        all_names = {d.name: d for d in all_dirs}
+        result = []
+        for name in modules:
+            if name in all_names:
+                result.append(all_names[name])
+            else:
+                # Import aquí para evitar circular
+                from dots.ui.output import print_warning
+                print_warning(f"Module '{name}' not found in repo — skipping.")
+        return result

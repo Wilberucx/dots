@@ -24,7 +24,7 @@ Los colores deben comunicar estado al instante, sin necesidad de leer el texto.
 
 ## CLI / Comandos
 
-### [ ] Flag `--module` / `-m` en link, unlink, status, install
+### [x] Flag `--module` / `-m` en link, unlink, status, install
 **Contexto:** Hoy los comandos operan sobre todos los módulos o ninguno.
 Con 31+ módulos en el repo real, la ausencia de filtro por módulo genera fricción.
 

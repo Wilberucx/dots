@@ -182,7 +182,10 @@ def run_post_install(dep: Dependency, dry_run: bool):
 
 def install_cmd(
     dry_run: bool = typer.Option(False, "--dry-run", help="Show commands without executing"),
-    modules: List[str] = typer.Argument(None, help="Specific modules to install (default: all)")
+    module: list[str] | None = typer.Option(
+        None, "--module", "-m",
+        help="Install deps only for specific modules (repeatable)"
+    )
 ):
     """
     Install dependencies declared in path.yaml files across all modules.
@@ -201,9 +204,7 @@ def install_cmd(
     all_dependencies: List[Dependency] = []
 
     # Load dependencies from modules
-    module_dirs = config.get_module_dirs()
-    if modules:
-        module_dirs = [d for d in module_dirs if d.name in modules]
+    module_dirs = config.get_module_dirs(modules=module)
 
     for module_dir in module_dirs:
         yaml_path = module_dir / "path.yaml"

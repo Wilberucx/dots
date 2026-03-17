@@ -4,14 +4,19 @@ from dots.ui.output import console, print_header
 from dots.core.config import DotsConfig
 from dots.core.resolver import resolve_modules
 
-def status_cmd():
+def status_cmd(
+    module: list[str] | None = typer.Option(
+        None, "--module", "-m",
+        help="Show status only for specific modules (repeatable)"
+    )
+):
     """
     Show status of all dotfiles modules grouped by state.
     """
     print_header("Dots Status")
     
     config = DotsConfig.load()
-    modules = resolve_modules(config)
+    modules = resolve_modules(config, modules=module)
     
     if not modules:
         console.print("[yellow]⚠[/yellow] No modules found.")
