@@ -43,33 +43,62 @@ el cambio se hace una vez y se propaga.
 **Archivos involucrados:** `src/dots/commands/link.py`, `src/dots/commands/unlink.py`,
 `src/dots/commands/status.py`, `src/dots/commands/install.py`
 
-### [ ] Flag `--default` en link
-**Contexto:** Al bootstrapear una máquina nueva, el usuario necesita linkear
-un subconjunto de módulos esenciales sin tener que especificarlos uno a uno.
-`dots link --default` resuelve esto de forma declarativa, sin configuración
-separada — consistente con el principio de que `path.yaml` es la única
-fuente de verdad por módulo.
+### [ ] Flag `--type` / `-t` en link (y otros comandos)
+**Contexto:** Permite agrupar módulos por tipo declarado en path.yaml y
+operar solo sobre ese grupo. Más flexible que un flag `--default` hardcodeado
+— el usuario define sus propios nombres de grupo.
 
-**Schema — campo nuevo en path.yaml:**
+**Schema — campo nuevo top-level en path.yaml:**
 ```yaml
-default: true   # top-level, opcional, false por omisión
+type: minimal   # libre, opcional, sin valores predefinidos
 files:
   - source: .zshrc
     destination: ~/.zshrc
 ```
 
 **Comportamiento:**
-- `dots link` → linkea todos los módulos (comportamiento actual sin cambios)
-- `dots link --default` → linkea solo módulos con `default: true` en su path.yaml
+```bash
+dots link --type minimal        # linkea solo módulos con type: minimal
+dots link -t minimal -t work    # múltiples tipos (OR)
+dots link                       # sin flag = todos los módulos (sin cambios)
+dots status --type minimal      # filtrar status por tipo
+dots install --type minimal     # instalar deps solo de ese grupo
+```
 
 **Implementación:**
-- Agregar lectura del campo `default` en `yaml_parser.py` (función nueva
-  `parse_module_meta` o campo en el return de `parse_path_yaml`)
-- Agregar flag `--default` en `link.py`
-- El filtro se aplica antes de iterar módulos en `resolve_modules`
+- Agregar lectura del campo `type` top-level en `yaml_parser.py`
+  (función `parse_module_meta(yaml_path) -> dict` que retorna metadata
+  del módulo: type, default, etc.)
+- Agregar flag `--type` / `-t` con `multiple=True` en link, status, install
+- El filtro se aplica en el punto de iteración de módulos
+- Sin conflicto con `--module` — pueden combinarse
 
 **Archivos involucrados:** `src/dots/core/yaml_parser.py`,
-`src/dots/commands/link.py`, `src/dots/core/resolver.py`
+`src/dots/commands/link.py`, `src/dots/commands/status.py`,
+`src/dots/commands/install.py`, `src/dots/core/resolver.py`
+
+### [ ] Subcomando `show`
+**Contexto:** Vista inline de todos los módulos y sus archivos en formato tabla.
+Complementa `status` (que muestra estado de symlinks) con una vista
+de qué archivos gestiona cada módulo y sus metadatos.
+
+**Comportamiento:**
+```bash
+dots show                       # tabla completa de todos los módulos
+dots show --type minimal        # filtrar por tipo declarado en path.yaml
+dots show --state unlinked      # filtrar por estado de symlink
+dots show --type minimal --state linked  # combinable
+```
+
+**Columnas de la tabla:**
+- Módulo
+- Archivo fuente
+- Destino
+- Estado (linked / unlinked / broken)
+- Tipo del módulo (si está declarado)
+
+**Archivos involucrados:** `src/dots/commands/` (archivo nuevo `show.py`),
+`src/dots/core/resolver.py`, `__main__.py` (registro del subcomando)
 
 ---
 
