@@ -1,2 +1,0 @@
-[console_scripts]
-dots = dots.__main__:main
