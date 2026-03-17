@@ -22,7 +22,8 @@ import yaml
 
 def _load_package_map() -> dict:
     """Load package mappings from packages.yaml."""
-    data_dir = Path(__file__).parent.parent / "data"
+    config = DotsConfig.load()
+    data_dir = config.repo_root / "data"
     yaml_path = data_dir / "packages.yaml"
     if not yaml_path.exists():
         return {}
@@ -76,10 +77,23 @@ def install_git_dep(dep: Dependency, dry_run: bool):
     print_info(f"  [git] Cloning {dep.name} to {dest}...")
     if not dry_run:
         try:
-            subprocess.run(["git", "clone", dep.source, str(dest)], check=True, stdout=subprocess.DEVNULL)
+            subprocess.run(
+                ["git", "clone", dep.source, str(dest)],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            if dep.ref:
+                print_info(f"  [git] Checking out ref: {dep.ref}")
+                subprocess.run(
+                    ["git", "-C", str(dest), "checkout", dep.ref],
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
             print_success(f"  Installed {dep.name}")
         except subprocess.CalledProcessError:
-            print_error(f"  Failed to clone {dep.name}")
+            print_error(f"  Failed to install {dep.name}")
 
 def install_binary_dep(dep: Dependency, dry_run: bool):
     """Handle binary download and extraction."""
@@ -171,7 +185,8 @@ def install_cmd(
     
     if not tools:
         # Load from default_packages.yaml
-        data_dir = Path(__file__).parent.parent / "data"
+        config = DotsConfig.load()
+        data_dir = config.repo_root / "data"
         default_yaml = data_dir / "default_packages.yaml"
         if default_yaml.exists():
             with open(default_yaml, 'r') as f:

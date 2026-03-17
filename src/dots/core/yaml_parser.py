@@ -12,6 +12,7 @@ class Dependency:
     source: Optional[str] = None  # URL, package name, or script content
     target: Optional[str] = None  # Destination path (for git/binary)
     version: Optional[str] = None
+    ref: Optional[str] = None          # git tag/branch/commit hash
     arch_map: Optional[Dict[str, str]] = None  # Mapping for architecture-specific URLs
     post_install: Optional[str] = None # Command to run after installation
 
@@ -65,7 +66,18 @@ def parse_path_yaml(yaml_path: Path, current_os: str = None) -> List[DotFileMapp
         # 1. explicit 'destination-OS'
         # 2. default 'destination'
         
-        dest = item.get(f'destination-{current_os}')
+        dest = None
+
+        # 1. Nuevo override explícito por OS
+        override = item.get('destination-override', {})
+        if isinstance(override, dict):
+            dest = override.get(current_os)
+
+        # 2. Retrocompatibilidad con destination-linux / destination-mac
+        if not dest:
+            dest = item.get(f'destination-{current_os}')
+
+        # 3. Destino genérico
         if not dest:
             dest = item.get('destination')
         
@@ -112,6 +124,7 @@ def parse_dependencies(yaml_path: Path) -> List[Dependency]:
                 source=d.get('source'),
                 target=d.get('target'),
                 version=d.get('version'),
+                ref=d.get('ref'),
                 arch_map=d.get('arch_map'),
                 post_install=d.get('post_install')
             ))
