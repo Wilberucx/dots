@@ -77,7 +77,7 @@ dots install --type minimal     # instalar deps solo de ese grupo
 `src/dots/commands/link.py`, `src/dots/commands/status.py`,
 `src/dots/commands/install.py`, `src/dots/core/resolver.py`
 
-### [ ] Subcomando `show`
+### [x] Subcomando `show`
 **Contexto:** Vista inline de todos los módulos y sus archivos en formato tabla.
 Complementa `status` (que muestra estado de symlinks) con una vista
 de qué archivos gestiona cada módulo y sus metadatos.
@@ -146,10 +146,3 @@ de leer texto.
 **Prerequisito:** Rewrite de dashboard.py con Textual completado primero.
 **Archivos involucrados:** TBD cuando se inicie el rewrite con Textual.
 
----
-
-## Backlog sin especificar aún
-
-### [ ] Flag adicional (a definir con el orquestador)
-**Contexto:** El usuario tiene una idea de flag pendiente de detallar.
-Especificar cuando se retome el trabajo de CLI.
