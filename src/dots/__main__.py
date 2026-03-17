@@ -1,5 +1,6 @@
 import typer
 from pathlib import Path
+from importlib.metadata import version as get_version
 from dots.ui.output import console
 
 app = typer.Typer(
@@ -17,8 +18,22 @@ def show_banner():
             console.print(f"[bold cyan]{banner}[/bold cyan]")
             console.print()  # Empty line after banner
 
+def version_callback(value: bool):
+    if value:
+        ver = get_version("dots")
+        typer.echo(f"dots v{ver}")
+        raise typer.Exit()
+
 @app.callback(invoke_without_command=True)
-def main_callback(ctx: typer.Context):
+def main_callback(
+    ctx: typer.Context,
+    version: bool = typer.Option(
+        None, "--version", "-v",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version and exit."
+    )
+):
     """
     Unified CLI for managing dotfiles on Linux, macOS, and Windows.
     """
