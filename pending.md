@@ -8,7 +8,7 @@ Actualizar este archivo al cerrar cada sesión de trabajo.
 
 ## UI / Output
 
-### [ ] Status command — labels y colores semánticos
+### [x] Status command — labels y colores semánticos
 **Contexto:** El output actual de `dots status` muestra "Needs Review" para módulos
 no linkeados, lo que implica que algo salió mal cuando en realidad es un estado neutral.
 Los colores deben comunicar estado al instante, sin necesidad de leer el texto.
