@@ -34,7 +34,13 @@ def _load_package_map() -> dict:
             return {}
     return data if data else {}
 
-PACKAGE_MAP = _load_package_map()
+_PACKAGE_MAP_CACHE: dict | None = None
+
+def _get_package_map() -> dict:
+    global _PACKAGE_MAP_CACHE
+    if _PACKAGE_MAP_CACHE is None:
+        _PACKAGE_MAP_CACHE = _load_package_map()
+    return _PACKAGE_MAP_CACHE
 
 
 def get_mapped_package(tool: str, manager_name: str) -> Optional[str]:
@@ -44,10 +50,11 @@ def get_mapped_package(tool: str, manager_name: str) -> Optional[str]:
     Returns:
         Package name, or None if not available for this manager
     """
-    if tool not in PACKAGE_MAP:
+    package_map = _get_package_map()
+    if tool not in package_map:
         return tool
     
-    mapping = PACKAGE_MAP[tool]
+    mapping = package_map[tool]
     return mapping.get(manager_name)
 
 def get_system_arch() -> str:
