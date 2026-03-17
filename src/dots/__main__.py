@@ -38,6 +38,7 @@ app.command(name="status")(status.status_cmd)
 app.command(name="adopt")(adopt.adopt_cmd)
 app.command(name="backup")(backup.backup_cmd)
 
+
 if __name__ == "__main__":
     app()
 

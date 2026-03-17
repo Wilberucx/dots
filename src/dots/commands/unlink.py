@@ -8,7 +8,10 @@ from dots.core.transaction import TransactionLog
 from dots.ui.selector import select_modules
 
 def unlink_cmd(
-    modules_args: list[str] = typer.Argument(None, help="Specific modules to unlink (e.g. GentlemanZsh)"),
+    module: list[str] | None = typer.Option(
+        None, "--module", "-m",
+        help="Unlink only specific modules (repeatable: -m Zsh -m Nvim)"
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show what would happen"),
     interactive: bool = typer.Option(False, "--interactive", "-i", help="Interactively select modules to unlink"),
 ):
@@ -21,13 +24,8 @@ def unlink_cmd(
     
     config = DotsConfig.load()
     
-    if modules_args:
-        available = [d.name for d in config.get_module_dirs()]
-        invalid = [m for m in modules_args if m not in available]
-        if invalid:
-            print_error(f"Invalid modules: {', '.join(invalid)}")
-            raise typer.Exit(1)
-        selected_modules = modules_args
+    if module:
+        selected_modules = module
         print_info(f"Unlinking specified modules: {', '.join(selected_modules)}")
     elif interactive:
         selected_modules = select_modules(config, preselect_all=False)
@@ -39,14 +37,11 @@ def unlink_cmd(
     else:
         selected_modules = None  # Unlink all modules
     
-    modules = resolve_modules(config)
+    modules = resolve_modules(config, modules=selected_modules)
     
     if not modules:
         print_warning("No modules found.")
         return
-    
-    if selected_modules:
-        modules = {k: v for k, v in modules.items() if k in selected_modules}
     
     stats = {"unlinked": 0, "not_linked": 0, "errors": 0}
     transaction = TransactionLog()

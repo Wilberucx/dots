@@ -9,7 +9,14 @@ from dots.core.transaction import TransactionLog
 from dots.ui.selector import select_modules
 
 def link_cmd(
-    modules_args: list[str] = typer.Argument(None, help="Specific modules to link (e.g. GentlemanZsh)"),
+    module: list[str] | None = typer.Option(
+        None, "--module", "-m",
+        help="Link only specific modules (repeatable: -m Zsh -m Nvim)"
+    ),
+    type: list[str] | None = typer.Option(
+        None, "--type", "-t",
+        help="Link only modules of this type (repeatable: -t minimal -t work)"
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show what would happen"),
     force: bool = typer.Option(False, "--force", help="Overwrite existing symlinks"),
     interactive: bool = typer.Option(False, "--interactive", "-i", help="Interactively select modules to link"),
@@ -25,14 +32,8 @@ def link_cmd(
     config = DotsConfig.load()
     
     # Handle module selection
-    if modules_args:
-        # Validate they exist
-        available = [d.name for d in config.get_module_dirs()]
-        invalid = [m for m in modules_args if m not in available]
-        if invalid:
-            print_error(f"Invalid modules: {', '.join(invalid)}")
-            raise typer.Exit(1)
-        selected_modules = modules_args
+    if module:
+        selected_modules = module
         print_info(f"Linking specified modules: {', '.join(selected_modules)}")
     elif interactive:
         selected_modules = select_modules(config, preselect_all=True)
@@ -47,7 +48,7 @@ def link_cmd(
     # If variant is specified, module must also be specified
     if variant and not selected_modules:
         print_error("When using --variant, you must specify the module name.")
-        print_info("Example: dots link Nvim --variant notevim")
+        print_info("Example: dots link -m Nvim --variant notevim")
         raise typer.Exit(1)
     
     # Validate variant if specified with specific modules
@@ -83,15 +84,11 @@ def link_cmd(
                 )
     
     # Pass variant to resolver (cascade handled inside if variant is None)
-    modules = resolve_modules(config, variant=variant)
+    modules = resolve_modules(config, modules=selected_modules, types=type, variant=variant)
     
     if not modules:
         print_warning("No modules found.")
         return
-    
-    # Filter modules if interactive mode
-    if selected_modules:
-        modules = {k: v for k, v in modules.items() if k in selected_modules}
     
     stats = {"linked": 0, "conflicts": 0, "pending": 0, "errors": 0}
     transaction = TransactionLog()

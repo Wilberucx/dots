@@ -77,12 +77,14 @@ def get_module_available_sources(config: DotsConfig, module_name: str) -> list[s
     return [m.source for m in mappings]
 
 
-def resolve_modules(config: DotsConfig, variant: str | None = None) -> dict[str, list[LinkStatus]]:
+def resolve_modules(config: DotsConfig, modules: list[str] | None = None, types: list[str] | None = None, variant: str | None = None) -> dict[str, list[LinkStatus]]:
     """
     Scan all configuration modules and return link status for each.
     
     Args:
         config: DotsConfig with module directories and OS info
+        modules: Optional list of module names to filter down to
+        types: Optional list of module types to filter by
         variant: Optional variant name to filter by. If None and module has variants,
                  uses the default variant (last one - cascade behavior).
     
@@ -91,7 +93,7 @@ def resolve_modules(config: DotsConfig, variant: str | None = None) -> dict[str,
     """
     results = {}
     
-    for module_dir in config.get_module_dirs():
+    for module_dir in config.get_module_dirs(modules=modules, types=types):
         yaml_path = module_dir / "path.yaml"
         if not yaml_path.exists():
             continue

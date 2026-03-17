@@ -8,12 +8,15 @@ from dots.core.system import detect_os
 class Dependency:
     """Represents a dependency to be installed."""
     name: str
-    type: str = "system"  # system, git, binary, script, curl
+    type: str = "package"  # system, git, binary, script, curl, package
     source: Optional[str] = None  # URL, package name, or script content
     target: Optional[str] = None  # Destination path (for git/binary)
     version: Optional[str] = None
+    ref: Optional[str] = None          # git tag/branch/commit hash
     arch_map: Optional[Dict[str, str]] = None  # Mapping for architecture-specific URLs
     post_install: Optional[str] = None # Command to run after installation
+    package_managers: Optional[Dict[str, str]] = None  # {"pacman": "pkg", "apt": "pkg"}
+    extract_path: Optional[str] = None  # ruta relativa del binario dentro del tarball
 
 @dataclass(frozen=True)
 class DotFileMapping:
@@ -65,7 +68,18 @@ def parse_path_yaml(yaml_path: Path, current_os: str = None) -> List[DotFileMapp
         # 1. explicit 'destination-OS'
         # 2. default 'destination'
         
-        dest = item.get(f'destination-{current_os}')
+        dest = None
+
+        # 1. Nuevo override explícito por OS
+        override = item.get('destination-override', {})
+        if isinstance(override, dict):
+            dest = override.get(current_os)
+
+        # 2. Retrocompatibilidad con destination-linux / destination-mac
+        if not dest:
+            dest = item.get(f'destination-{current_os}')
+
+        # 3. Destino genérico
         if not dest:
             dest = item.get('destination')
         
@@ -98,8 +112,8 @@ def parse_dependencies(yaml_path: Path) -> List[Dependency]:
     
     for d in raw_deps:
         if isinstance(d, str):
-            # Legacy string format -> System package
-            dependencies.append(Dependency(name=d, type="system"))
+            # Legacy string format -> Package
+            dependencies.append(Dependency(name=d))
         elif isinstance(d, dict):
             # Complex object format
             name = d.get('name')
@@ -108,12 +122,15 @@ def parse_dependencies(yaml_path: Path) -> List[Dependency]:
             
             dependencies.append(Dependency(
                 name=name,
-                type=d.get('type', 'system'),
+                type=d.get('type', 'package'),
                 source=d.get('source'),
                 target=d.get('target'),
                 version=d.get('version'),
+                ref=d.get('ref'),
                 arch_map=d.get('arch_map'),
-                post_install=d.get('post_install')
+                post_install=d.get('post_install'),
+                package_managers=d.get('package-managers'),
+                extract_path=d.get('extract-path')
             ))
             
     return dependencies
@@ -179,3 +196,28 @@ def filter_by_variant(mappings: List[DotFileMapping], variant: str) -> List[DotF
         return mappings
     
     return [m for m in mappings if m.source == variant]
+
+
+def parse_module_meta(yaml_path: Path) -> dict:
+    """
+    Parse top-level metadata fields from a path.yaml.
+    Returns a dict with optional keys: 'type'.
+    Returns empty dict if file doesn't exist or has no metadata.
+    """
+    if not yaml_path.exists():
+        return {}
+
+    try:
+        with open(yaml_path, 'r') as f:
+            data = yaml.safe_load(f)
+    except yaml.YAMLError:
+        return {}
+
+    if not data or not isinstance(data, dict):
+        return {}
+
+    meta = {}
+    if 'type' in data:
+        meta['type'] = str(data['type'])
+
+    return meta
