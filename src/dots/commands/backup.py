@@ -3,6 +3,7 @@ import typer
 from datetime import datetime
 from pathlib import Path
 from dots.ui.output import console, print_header
+from dots.core.config import DotsConfig
 from rich.prompt import Confirm
 
 
@@ -80,7 +81,8 @@ def backup_cmd():
     """
     print_header("Dots Backup")
 
-    dots_dir = Path(__file__).parent.parent.parent.parent
+    config = DotsConfig.load()
+    dots_dir = config.repo_root
     commit_msg = default_commit_message()
 
     push = False
