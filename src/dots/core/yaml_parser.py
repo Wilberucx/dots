@@ -8,7 +8,7 @@ from dots.core.system import detect_os
 class Dependency:
     """Represents a dependency to be installed."""
     name: str
-    type: str = "system"  # system, git, binary, script, curl
+    type: str = "package"  # system, git, binary, script, curl, package
     source: Optional[str] = None  # URL, package name, or script content
     target: Optional[str] = None  # Destination path (for git/binary)
     version: Optional[str] = None
@@ -111,8 +111,8 @@ def parse_dependencies(yaml_path: Path) -> List[Dependency]:
     
     for d in raw_deps:
         if isinstance(d, str):
-            # Legacy string format -> System package
-            dependencies.append(Dependency(name=d, type="system"))
+            # Legacy string format -> Package
+            dependencies.append(Dependency(name=d))
         elif isinstance(d, dict):
             # Complex object format
             name = d.get('name')
@@ -121,7 +121,7 @@ def parse_dependencies(yaml_path: Path) -> List[Dependency]:
             
             dependencies.append(Dependency(
                 name=name,
-                type=d.get('type', 'system'),
+                type=d.get('type', 'package'),
                 source=d.get('source'),
                 target=d.get('target'),
                 version=d.get('version'),

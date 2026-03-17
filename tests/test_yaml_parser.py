@@ -171,3 +171,39 @@ dependencies:
     git_dep = deps[2]
     assert git_dep.type == "system"
     assert git_dep.package_managers is None
+
+def test_string_shorthand_is_package_type(tmp_path):
+    """String shorthand usa type: package por default (no system)."""
+    from dots.core.yaml_parser import parse_dependencies
+    yaml_content = """
+dependencies:
+  - git
+  - curl
+  - name: zsh
+"""
+    yaml_path = tmp_path / "path.yaml"
+    yaml_path.write_text(yaml_content)
+
+    deps = parse_dependencies(yaml_path)
+    assert len(deps) == 3
+    for dep in deps:
+        assert dep.type == "package"
+    assert deps[0].name == "git"
+    assert deps[1].name == "curl"
+    assert deps[2].name == "zsh"
+
+def test_type_system_still_parsed(tmp_path):
+    """type: system legacy se parsea sin error (alias tolerado)."""
+    from dots.core.yaml_parser import parse_dependencies
+    yaml_content = """
+dependencies:
+  - name: git
+    type: system
+"""
+    yaml_path = tmp_path / "path.yaml"
+    yaml_path.write_text(yaml_content)
+
+    deps = parse_dependencies(yaml_path)
+    assert len(deps) == 1
+    assert deps[0].type == "system"
+    assert deps[0].name == "git"
