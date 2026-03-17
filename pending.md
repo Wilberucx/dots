@@ -77,17 +77,19 @@ dots install --type minimal     # instalar deps solo de ese grupo
 `src/dots/commands/link.py`, `src/dots/commands/status.py`,
 `src/dots/commands/install.py`, `src/dots/core/resolver.py`
 
-### [x] Subcomando `show`
+### [x] Flag `--state` / `-s` en status
+
+### [~~show subcomando~~] Eliminado — redundante con status
 **Contexto:** Vista inline de todos los módulos y sus archivos en formato tabla.
 Complementa `status` (que muestra estado de symlinks) con una vista
 de qué archivos gestiona cada módulo y sus metadatos.
 
 **Comportamiento:**
 ```bash
-dots show                       # tabla completa de todos los módulos
-dots show --type minimal        # filtrar por tipo declarado en path.yaml
-dots show --state unlinked      # filtrar por estado de symlink
-dots show --type minimal --state linked  # combinable
+dots status                       # tabla completa de todos los módulos
+dots status --type minimal        # filtrar por tipo declarado en path.yaml
+dots status --state unlinked      # filtrar por estado de symlink
+dots status --type minimal --state linked  # combinable
 ```
 
 **Columnas de la tabla:**
@@ -97,8 +99,7 @@ dots show --type minimal --state linked  # combinable
 - Estado (linked / unlinked / broken)
 - Tipo del módulo (si está declarado)
 
-**Archivos involucrados:** `src/dots/commands/` (archivo nuevo `show.py`),
-`src/dots/core/resolver.py`, `__main__.py` (registro del subcomando)
+**Archivos involucrados:** `src/dots/commands/status.py`
 
 ---
 

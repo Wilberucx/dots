@@ -12,6 +12,10 @@ def status_cmd(
     type: list[str] | None = typer.Option(
         None, "--type", "-t",
         help="Show status only for modules of this type (repeatable)"
+    ),
+    state: list[str] | None = typer.Option(
+        None, "--state", "-s",
+        help="Show only modules in this state: linked, unlinked, broken, missing, unsafe (repeatable)"
     )
 ):
     """
@@ -26,6 +30,17 @@ def status_cmd(
         console.print("[yellow]⚠[/yellow] No modules found.")
         return
     
+    state_filter = None
+    if state:
+        state_filter = set()
+        for s in state:
+            if s == "unlinked":
+                state_filter.add("pending")
+            elif s == "broken":
+                state_filter.add("conflict")
+            else:
+                state_filter.add(s)
+
     # Categorize modules
     linked = []
     broken = []
@@ -41,22 +56,27 @@ def status_cmd(
         
         # Categorize module by worst state
         if module_broken > 0:
-            reason = []
-            conflicts = sum(1 for s in statuses if s.state == "conflict")
-            unsafe = sum(1 for s in statuses if s.state == "unsafe")
-            if conflicts > 0:
-                reason.append(f"{conflicts} conflict{'s' if conflicts > 1 else ''}")
-            if unsafe > 0:
-                reason.append(f"{unsafe} unsafe path{'s' if unsafe > 1 else ''}")
-            broken.append((module_name, ", ".join(reason)))
+            if not state_filter or "conflict" in state_filter or "unsafe" in state_filter:
+                reason = []
+                conflicts = sum(1 for s in statuses if s.state == "conflict")
+                unsafe = sum(1 for s in statuses if s.state == "unsafe")
+                if conflicts > 0:
+                    reason.append(f"{conflicts} conflict{'s' if conflicts > 1 else ''}")
+                if unsafe > 0:
+                    reason.append(f"{unsafe} unsafe path{'s' if unsafe > 1 else ''}")
+                broken.append((module_name, ", ".join(reason)))
         elif module_missing > 0:
-            missing_src.append((module_name, f"{module_missing} missing source{'s' if module_missing > 1 else ''}"))
+            if not state_filter or "missing" in state_filter:
+                missing_src.append((module_name, f"{module_missing} missing source{'s' if module_missing > 1 else ''}"))
         elif module_pending > 0:
-            unlinked.append((module_name, f"{module_pending} unlinked"))
+            if not state_filter or "pending" in state_filter:
+                unlinked.append((module_name, f"{module_pending} unlinked"))
         elif module_linked > 0:
-            linked.append((module_name, f"{module_linked} linked"))
+            if not state_filter or "linked" in state_filter:
+                linked.append((module_name, f"{module_linked} linked"))
         else:
             not_linked.append((module_name, "no files to link"))
+
     
     # Display results
     if linked:
