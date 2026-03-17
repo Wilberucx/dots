@@ -133,3 +133,41 @@ dependencies:
 
     autosugg = deps[1]
     assert autosugg.ref is None
+
+def test_dependency_package_managers_field(tmp_path):
+    """Campo package-managers se parsea correctamente en type: package."""
+    from dots.core.yaml_parser import parse_dependencies
+    yaml_content = """
+dependencies:
+  - name: ripgrep
+    type: package
+    package-managers:
+      pacman: ripgrep
+      apt: ripgrep
+      brew: ripgrep
+  - name: eza
+    type: package
+    package-managers:
+      pacman: eza
+      brew: eza
+  - name: git
+    type: system
+"""
+    yaml_path = tmp_path / "path.yaml"
+    yaml_path.write_text(yaml_content)
+
+    deps = parse_dependencies(yaml_path)
+    assert len(deps) == 3
+
+    rg = deps[0]
+    assert rg.type == "package"
+    assert rg.package_managers == {"pacman": "ripgrep", "apt": "ripgrep", "brew": "ripgrep"}
+
+    eza = deps[1]
+    assert eza.type == "package"
+    assert eza.package_managers == {"pacman": "eza", "brew": "eza"}
+    assert eza.package_managers.get("apt") is None
+
+    git_dep = deps[2]
+    assert git_dep.type == "system"
+    assert git_dep.package_managers is None

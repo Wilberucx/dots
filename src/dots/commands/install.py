@@ -102,6 +102,43 @@ def install_git_dep(dep: Dependency, dry_run: bool):
         except subprocess.CalledProcessError:
             print_error(f"  Failed to install {dep.name}")
 
+def install_package_dep(dep: Dependency, manager: PackageManager, dry_run: bool):
+    """
+    Handle type: package dependencies with per-manager name mapping.
+    
+    Looks up the package name for the current manager in dep.package_managers.
+    If the current manager is not listed, skips with a warning.
+    If already installed (shutil.which), skips silently.
+    """
+    if not dep.package_managers:
+        # Fallback: use dep.name directly (same as type: system)
+        pkg_name = dep.name
+    else:
+        pkg_name = dep.package_managers.get(manager.name)
+        if pkg_name is None:
+            print_warning(f"  [skip] {dep.name}: not available for {manager.name}")
+            return
+
+    if shutil.which(dep.name):
+        print_info(f"  [skip] {dep.name} already installed")
+        return
+
+    cmd = manager.install_command([pkg_name])
+    if manager.needs_sudo:
+        cmd = ["sudo"] + cmd
+
+    print_info(f"  [pkg] Installing {dep.name} as '{pkg_name}' via {manager.name}...")
+
+    if dry_run:
+        print_info(f"  [DRY] Would run: {' '.join(cmd)}")
+        return
+
+    try:
+        subprocess.run(cmd, check=True)
+        print_success(f"  Installed {dep.name}")
+    except subprocess.CalledProcessError:
+        print_error(f"  Failed to install {dep.name}")
+
 def install_binary_dep(dep: Dependency, dry_run: bool):
     """Handle binary download and extraction."""
     if not dep.source or not dep.target:
@@ -286,6 +323,8 @@ def install_cmd(
                 install_git_dep(dep, dry_run)
             elif dep.type == "binary":
                 install_binary_dep(dep, dry_run)
+            elif dep.type == "package":
+                install_package_dep(dep, manager, dry_run)
             
             run_post_install(dep, dry_run)
 

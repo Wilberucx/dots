@@ -15,6 +15,7 @@ class Dependency:
     ref: Optional[str] = None          # git tag/branch/commit hash
     arch_map: Optional[Dict[str, str]] = None  # Mapping for architecture-specific URLs
     post_install: Optional[str] = None # Command to run after installation
+    package_managers: Optional[Dict[str, str]] = None  # {"pacman": "pkg", "apt": "pkg"}
 
 @dataclass(frozen=True)
 class DotFileMapping:
@@ -126,7 +127,8 @@ def parse_dependencies(yaml_path: Path) -> List[Dependency]:
                 version=d.get('version'),
                 ref=d.get('ref'),
                 arch_map=d.get('arch_map'),
-                post_install=d.get('post_install')
+                post_install=d.get('post_install'),
+                package_managers=d.get('package-managers')
             ))
             
     return dependencies
