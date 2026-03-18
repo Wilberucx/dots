@@ -209,6 +209,72 @@ class TestInstallPackageDep:
             actual_cmd = mock_run.call_args[0][0]
             assert actual_cmd[0] != "sudo"
 
+    def test_fallback_binary_used_when_manager_not_in_package_managers(
+        self, mock_manager, tmp_path
+    ):
+        """Cuando el manager no está en package_managers y hay fallback binary,
+        lo usa en lugar de hacer skip."""
+        dest = tmp_path / "starship"
+        dep = Dependency(
+            name="starship",
+            type="package",
+            package_managers={"pacman": "starship", "brew": "starship"},
+            fallback={
+                "type": "binary",
+                "source": "https://example.com/starship.tar.gz",
+                "target": str(dest),
+            },
+        )
+        mock_manager.name = "apt"
+
+        with patch("dots.commands.install.install_binary_dep") as mock_binary:
+            install_package_dep(dep, mock_manager, dry_run=False)
+            mock_binary.assert_called_once()
+            called_dep = mock_binary.call_args[0][0]
+            assert called_dep.name == "starship"
+            assert called_dep.type == "binary"
+
+    def test_fallback_not_used_when_manager_available(self, mock_manager, tmp_path):
+        """Si el manager está en package_managers, instala normal sin tocar fallback."""
+        dep = Dependency(
+            name="starship",
+            type="package",
+            package_managers={"pacman": "starship"},
+            fallback={
+                "type": "binary",
+                "source": "https://example.com/starship.tar.gz",
+                "target": str(tmp_path / "starship"),
+            },
+        )
+
+        with patch("dots.commands.install.shutil.which", return_value=None), \
+             patch("dots.commands.install.subprocess.run") as mock_run, \
+             patch("dots.commands.install.install_binary_dep") as mock_binary:
+            install_package_dep(dep, mock_manager, dry_run=False)
+            mock_run.assert_called_once()
+            mock_binary.assert_not_called()
+
+    def test_fallback_git_used_correctly(self, mock_manager):
+        """Fallback de type:git delega a install_git_dep."""
+        dep = Dependency(
+            name="oh-my-zsh",
+            type="package",
+            package_managers={"brew": "oh-my-zsh"},
+            fallback={
+                "type": "git",
+                "source": "https://github.com/ohmyzsh/ohmyzsh.git",
+                "target": "~/.oh-my-zsh",
+            },
+        )
+        mock_manager.name = "apt"
+
+        with patch("dots.commands.install.install_git_dep") as mock_git:
+            install_package_dep(dep, mock_manager, dry_run=False)
+            mock_git.assert_called_once()
+            called_dep = mock_git.call_args[0][0]
+            assert called_dep.type == "git"
+            assert called_dep.source == "https://github.com/ohmyzsh/ohmyzsh.git"
+
 # ─── install_binary_dep ──────────────────────────────────────────────────────
 
 class TestInstallBinaryDep:

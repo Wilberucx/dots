@@ -17,6 +17,7 @@ class Dependency:
     post_install: Optional[str] = None # Command to run after installation
     package_managers: Optional[Dict[str, str]] = None  # {"pacman": "pkg", "apt": "pkg"}
     extract_path: Optional[str] = None  # ruta relativa del binario dentro del tarball
+    fallback: Optional[Dict[str, Any]] = None  # inline dep para cuando PM no tiene el paquete
 
 @dataclass(frozen=True)
 class DotFileMapping:
@@ -130,7 +131,8 @@ def parse_dependencies(yaml_path: Path) -> List[Dependency]:
                 arch_map=d.get('arch_map'),
                 post_install=d.get('post_install'),
                 package_managers=d.get('package-managers'),
-                extract_path=d.get('extract-path')
+                extract_path=d.get('extract-path'),
+                fallback=d.get('fallback'),
             ))
             
     return dependencies
