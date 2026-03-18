@@ -62,6 +62,23 @@ def install_git_dep(dep: Dependency, dry_run: bool):
         except subprocess.CalledProcessError:
             print_error(f"  Failed to install {dep.name}")
 
+def _build_fallback_dep(name: str, fallback: dict) -> Dependency:
+    """
+    Build a Dependency from a fallback dict declared inline in path.yaml.
+    Inherits the parent dep name if fallback doesn't declare one.
+    """
+    return Dependency(
+        name=fallback.get('name', name),
+        type=fallback.get('type', 'binary'),
+        source=fallback.get('source'),
+        target=fallback.get('target'),
+        version=fallback.get('version'),
+        ref=fallback.get('ref'),
+        arch_map=fallback.get('arch_map'),
+        post_install=fallback.get('post_install'),
+        extract_path=fallback.get('extract-path'),
+    )
+
 def install_package_dep(dep: Dependency, manager: PackageManager, dry_run: bool):
     """
     Handle type: package dependencies with per-manager name mapping.
@@ -69,13 +86,29 @@ def install_package_dep(dep: Dependency, manager: PackageManager, dry_run: bool)
     Looks up the package name for the current manager in dep.package_managers.
     If the current manager is not listed, skips with a warning.
     If already installed (shutil.which), skips silently.
+    If fallback is present and manager not in package_managers, uses fallback.
     """
     if not dep.package_managers:
-        # Fallback: use dep.name directly (same as type: system)
         pkg_name = dep.name
     else:
         pkg_name = dep.package_managers.get(manager.name)
         if pkg_name is None:
+            if dep.fallback:
+                print_info(
+                    f"  [{manager.name}] {dep.name} not available — "
+                    f"using fallback ({dep.fallback.get('type', 'binary')})"
+                )
+                fallback_dep = _build_fallback_dep(dep.name, dep.fallback)
+                if fallback_dep.type == "binary":
+                    install_binary_dep(fallback_dep, dry_run)
+                elif fallback_dep.type == "git":
+                    install_git_dep(fallback_dep, dry_run)
+                else:
+                    print_warning(
+                        f"  [skip] {dep.name}: fallback type "
+                        f"'{fallback_dep.type}' not supported"
+                    )
+                return
             print_warning(f"  [skip] {dep.name}: not available for {manager.name}")
             return
 

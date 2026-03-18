@@ -143,6 +143,13 @@ sin ubicar el binario correcto.
 
 ---
 
+### [x] Campo `fallback` en dependencies
+**Contexto:** Paquetes no disponibles en ciertos PM (ej: starship, eza en apt)
+pueden declarar un fallback binary o git como alternativa automática.
+Sin fallback el comportamiento es skip con warning (sin cambios).
+
+---
+
 ## TUI
 
 ### [ ] Rewrite de dashboard.py con Textual
