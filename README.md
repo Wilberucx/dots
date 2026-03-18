@@ -79,6 +79,8 @@ dependencies:
 | `dots install`      | Install dependencies from all `path.yaml` files |
 | `dots backup`       | Git commit and optional push                    |
 
+For full `path.yaml` documentation see [docs/path-yaml-reference.md](docs/path-yaml-reference.md).
+
 ## Flags
 
 Available on `link`, `unlink`, `status`, and `install`:
