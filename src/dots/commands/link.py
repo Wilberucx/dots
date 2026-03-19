@@ -128,14 +128,20 @@ def link_cmd(
                 
                 elif status.state == "pending":
                     if status.detail == "backup needed":
-                        if dry_run:
-                            module_tree.add(f"[yellow]⚠[/yellow] {src.name} → {final_dest} [yellow](backup needed)[/yellow]")
+                        backup_path = Path(str(final_dest) + "-backup")
+                        if backup_path.exists():
+                            # Backup already exists -> require user attention and do not auto-create another backup
+                            module_tree.add(
+                                f"[yellow]⚠[/yellow] {src.name} → {final_dest} [yellow](backup exists at {backup_path}, review before creating new backups)[/yellow]"
+                            )
                             module_stats["pending"] += 1
                         else:
-                            module_tree.add(f"[green]✔[/green] {src.name} → {final_dest} [green](backed up and created)[/green]")
-                            module_stats["linked"] += 1
-                            backup_path = Path(str(final_dest) + "-backup")
-                            if not backup_path.exists():
+                            if dry_run:
+                                module_tree.add(f"[yellow]⚠[/yellow] {src.name} → {final_dest} [yellow](backup needed)[/yellow]")
+                                module_stats["pending"] += 1
+                            else:
+                                module_tree.add(f"[green]✔[/green] {src.name} → {final_dest} [green](backed up and created)[/green]")
+                                module_stats["linked"] += 1
                                 transaction.backup(final_dest, backup_path)
                                 transaction.symlink(final_dest, src.resolve())
                     else:
@@ -196,4 +202,3 @@ def link_cmd(
     
     if dry_run:
         console.print("\n[dim]This was a dry run. No changes were made.[/dim]")
-
