@@ -20,7 +20,7 @@ def link_cmd(
     dry_run: bool = typer.Option(False, "--dry-run", help="Show what would happen"),
     force: bool = typer.Option(False, "--force", help="Overwrite existing symlinks"),
     interactive: bool = typer.Option(False, "--interactive", "-i", help="Interactively select modules to link"),
-    variant: str = typer.Option(None, "--variant", help="Specific variant to use (when module has multiple variants sharing same destination)"),
+    variant: str | None = typer.Option(None, "--variant", help="Specific variant to use (when module has multiple variants sharing same destination)"),
 ):
     """
     Create symlinks for dotfiles modules.
