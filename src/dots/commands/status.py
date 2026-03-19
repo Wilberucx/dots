@@ -185,7 +185,7 @@ def _render_table(
     table.add_column("Source",      no_wrap=True)
     table.add_column("Destination", no_wrap=True)
     table.add_column("State",       no_wrap=True)
-    table.add_column("Type",        style="dim", no_wrap=True)
+    table.add_column("Type",        style="dim", no_wrap=True, min_width=10)
 
     total = 0
 
