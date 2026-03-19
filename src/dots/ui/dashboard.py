@@ -1670,6 +1670,8 @@ def _action_backup(event, state: TUIState):
     else:
         state.log("warning", "Backup: nothing to commit or failed")
     state.refresh_backups()
+    state.active_tab = "logs"
+    state.active_panel = TUIState.PANEL_TABS
 
 
 def _action_link_home_items(event, state: TUIState):
@@ -1737,8 +1739,8 @@ def _action_switch_variant(event, state: TUIState):
     if not vrs or not (0 <= state.flavors_cursor < len(vrs)):
         return
 
-    target_variant = vrs[state.flavors_cursor]
-    active_variant = state.module_active_variant.get(name, "")
+    target_variant = vrs[state.flavors_cursor].rstrip("/")
+    active_variant = state.module_active_variant.get(name, "").rstrip("/")
 
     if target_variant == active_variant:
         state.log("info", f"Variant {target_variant} is already active")

@@ -4,24 +4,30 @@ from dataclasses import dataclass
 import yaml
 from dots.core.system import detect_os
 
+
 @dataclass(frozen=True)
 class Dependency:
     """Represents a dependency to be installed."""
+
     name: str
     type: str = "package"  # system, git, binary, script, curl, package
     source: Optional[str] = None  # URL, package name, or script content
     target: Optional[str] = None  # Destination path (for git/binary)
     version: Optional[str] = None
-    ref: Optional[str] = None          # git tag/branch/commit hash
+    ref: Optional[str] = None  # git tag/branch/commit hash
     arch_map: Optional[Dict[str, str]] = None  # Mapping for architecture-specific URLs
-    post_install: Optional[str] = None # Command to run after installation
+    post_install: Optional[str] = None  # Command to run after installation
     package_managers: Optional[Dict[str, str]] = None  # {"pacman": "pkg", "apt": "pkg"}
     extract_path: Optional[str] = None  # ruta relativa del binario dentro del tarball
-    fallback: Optional[Dict[str, Any]] = None  # inline dep para cuando PM no tiene el paquete
+    fallback: Optional[Dict[str, Any]] = (
+        None  # inline dep para cuando PM no tiene el paquete
+    )
+
 
 @dataclass(frozen=True)
 class DotFileMapping:
     """Immutable mapping from source file to destination."""
+
     source: str
     destination: str
 
@@ -29,10 +35,12 @@ class DotFileMapping:
 @dataclass
 class VariantInfo:
     """Information about variant configurations in a module."""
+
     has_variants: bool
-    variants: List[str]                    # sources that share destinations
-    default_variant: str                   # last variant (cascade)
+    variants: List[str]  # sources that share destinations
+    default_variant: str  # last variant (cascade)
     variant_destinations: Dict[str, str]  # source -> destination mapping
+
 
 def parse_path_yaml(yaml_path: Path, current_os: str = None) -> List[DotFileMapping]:
     """
@@ -45,51 +53,52 @@ def parse_path_yaml(yaml_path: Path, current_os: str = None) -> List[DotFileMapp
         current_os = detect_os()
 
     try:
-        with open(yaml_path, 'r') as f:
+        with open(yaml_path, "r") as f:
             data = yaml.safe_load(f)
     except yaml.YAMLError:
         return []
 
-    if not data or 'files' not in data:
+    if not data or "files" not in data:
         return []
 
     mappings: List[DotFileMapping] = []
 
-    for item in data.get('files', []):
-        source = item.get('source')
+    for item in data.get("files", []):
+        source = item.get("source")
         if not source:
             continue
 
         # OS Filtering at item level
-        allowed_os = item.get('os')
+        allowed_os = item.get("os")
         if allowed_os and current_os not in allowed_os:
             continue
 
         # Determine destination
         # 1. explicit 'destination-OS'
         # 2. default 'destination'
-        
+
         dest = None
 
         # 1. Nuevo override explícito por OS
-        override = item.get('destination-override', {})
+        override = item.get("destination-override", {})
         if isinstance(override, dict):
             dest = override.get(current_os)
 
         # 2. Retrocompatibilidad con destination-linux / destination-mac
         if not dest:
-            dest = item.get(f'destination-{current_os}')
+            dest = item.get(f"destination-{current_os}")
 
         # 3. Destino genérico
         if not dest:
-            dest = item.get('destination')
-        
+            dest = item.get("destination")
+
         if not dest:
             continue
 
         mappings.append(DotFileMapping(source, dest))
 
     return mappings
+
 
 def parse_dependencies(yaml_path: Path) -> List[Dependency]:
     """
@@ -98,50 +107,52 @@ def parse_dependencies(yaml_path: Path) -> List[Dependency]:
     """
     if not yaml_path.exists():
         return []
-        
+
     try:
-        with open(yaml_path, 'r') as f:
+        with open(yaml_path, "r") as f:
             data = yaml.safe_load(f)
     except yaml.YAMLError:
         return []
-        
-    if not data or 'dependencies' not in data:
+
+    if not data or "dependencies" not in data:
         return []
-        
-    raw_deps = data.get('dependencies', [])
+
+    raw_deps = data.get("dependencies", [])
     dependencies: List[Dependency] = []
-    
+
     for d in raw_deps:
         if isinstance(d, str):
             # Legacy string format -> Package
             dependencies.append(Dependency(name=d))
         elif isinstance(d, dict):
             # Complex object format
-            name = d.get('name')
+            name = d.get("name")
             if not name:
-                continue # Skip unnamed dependencies
-            
-            dependencies.append(Dependency(
-                name=name,
-                type=d.get('type', 'package'),
-                source=d.get('source'),
-                target=d.get('target'),
-                version=d.get('version'),
-                ref=d.get('ref'),
-                arch_map=d.get('arch_map'),
-                post_install=d.get('post_install'),
-                package_managers=d.get('package-managers'),
-                extract_path=d.get('extract-path'),
-                fallback=d.get('fallback'),
-            ))
-            
+                continue  # Skip unnamed dependencies
+
+            dependencies.append(
+                Dependency(
+                    name=name,
+                    type=d.get("type", "package"),
+                    source=d.get("source"),
+                    target=d.get("target"),
+                    version=d.get("version"),
+                    ref=d.get("ref"),
+                    arch_map=d.get("arch_map"),
+                    post_install=d.get("post_install"),
+                    package_managers=d.get("package-managers"),
+                    extract_path=d.get("extract-path"),
+                    fallback=d.get("fallback"),
+                )
+            )
+
     return dependencies
 
 
 def detect_variants(mappings: List[DotFileMapping]) -> VariantInfo:
     """
     Detect variants in mappings: same destination + multiple sources.
-    
+
     Returns VariantInfo with:
     - has_variants: True if any destination has multiple sources
     - variants: list of all source names that are variants
@@ -150,53 +161,55 @@ def detect_variants(mappings: List[DotFileMapping]) -> VariantInfo:
     """
     if not mappings:
         return VariantInfo(
-            has_variants=False,
-            variants=[],
-            default_variant="",
-            variant_destinations={}
+            has_variants=False, variants=[], default_variant="", variant_destinations={}
         )
-    
+
     # Group by destination
     dest_to_sources: Dict[str, List[str]] = {}
     for m in mappings:
         dest_to_sources.setdefault(m.destination, []).append(m.source)
-    
+
     # Find destinations with multiple sources (variants)
     all_variants: List[str] = []
     variant_destinations: Dict[str, str] = {}
-    
+
     for destination, sources in dest_to_sources.items():
         if len(sources) > 1:
-            all_variants.extend(sources)
-            # Map each variant to its destination
-            for source in sources:
+            # Normalize: strip trailing slash for consistent variant matching
+            normalized_sources = [s.rstrip("/") for s in sources]
+            all_variants.extend(normalized_sources)
+            # Map each variant to its destination (normalized)
+            for source in normalized_sources:
                 variant_destinations[source] = destination
-    
+
     # Sort to maintain order and get last for cascade
     all_variants_ordered = []
     seen = set()
     for m in mappings:
-        if m.source not in seen and m.source in all_variants:
-            all_variants_ordered.append(m.source)
-            seen.add(m.source)
-    
+        normalized_source = m.source.rstrip("/")
+        if normalized_source not in seen and normalized_source in all_variants:
+            all_variants_ordered.append(normalized_source)
+            seen.add(normalized_source)
+
     return VariantInfo(
         has_variants=len(all_variants_ordered) > 0,
         variants=all_variants_ordered,
         default_variant=all_variants_ordered[-1] if all_variants_ordered else "",
-        variant_destinations=variant_destinations
+        variant_destinations=variant_destinations,
     )
 
 
-def filter_by_variant(mappings: List[DotFileMapping], variant: str) -> List[DotFileMapping]:
+def filter_by_variant(
+    mappings: List[DotFileMapping], variant: str
+) -> List[DotFileMapping]:
     """
     Filter mappings to only include a specific variant source.
-    
+
     If variant is empty/None, returns all mappings.
     """
     if not variant:
         return mappings
-    
+
     return [m for m in mappings if m.source == variant]
 
 
@@ -210,7 +223,7 @@ def parse_module_meta(yaml_path: Path) -> dict:
         return {}
 
     try:
-        with open(yaml_path, 'r') as f:
+        with open(yaml_path, "r") as f:
             data = yaml.safe_load(f)
     except yaml.YAMLError:
         return {}
@@ -219,7 +232,7 @@ def parse_module_meta(yaml_path: Path) -> dict:
         return {}
 
     meta = {}
-    if 'type' in data:
-        meta['type'] = str(data['type'])
+    if "type" in data:
+        meta["type"] = str(data["type"])
 
     return meta
