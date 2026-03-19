@@ -77,6 +77,13 @@ dots install --type minimal     # instalar deps solo de ese grupo
 `src/dots/commands/link.py`, `src/dots/commands/status.py`,
 `src/dots/commands/install.py`, `src/dots/core/resolver.py`
 
+### [x] Variants / Flavors — implementado, testeado
+**Contexto:** Múltiples sources apuntando al mismo destination en path.yaml.
+Cascade: último en YAML es el default. `--variant` para selección explícita.
+UI: tab "flavors" en TUI. Core: `detect_variants`, `filter_by_variant` en yaml_parser.
+
+**Tests:** `tests/test_yaml_parser.py` — clase `TestVariants` (8 tests).
+
 ### [ ] Flag `--format` en status
 **Contexto:** El output actual de `dots status` está pensado para lectura humana.
 `--format` permite consumir el mismo dato en otros formatos sin cambiar el comando.

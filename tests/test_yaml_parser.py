@@ -1,7 +1,15 @@
 import tempfile
 from pathlib import Path
 import yaml
-from dots.core.yaml_parser import parse_path_yaml
+from dots.core.yaml_parser import (
+    parse_path_yaml,
+    parse_dependencies,
+    detect_variants,
+    filter_by_variant,
+    DotFileMapping,
+    VariantInfo,
+    Dependency,
+)
 
 def test_basic_parsing():
     with tempfile.TemporaryDirectory() as tmp:
@@ -207,3 +215,96 @@ dependencies:
     assert len(deps) == 1
     assert deps[0].type == "system"
     assert deps[0].name == "git"
+
+
+class TestVariants:
+
+    def test_detect_variants_when_two_sources_share_destination(self, tmp_path):
+        """Dos sources con mismo destination son detectados como variants."""
+        mappings = [
+            DotFileMapping("nvim-stdlib/init.vim", "~/.config/nvim/init.vim"),
+            DotFileMapping("nvim-lazy/init.vim",   "~/.config/nvim/init.vim"),
+        ]
+        info = detect_variants(mappings)
+
+        assert info.has_variants is True
+        assert set(info.variants) == {"nvim-stdlib/init.vim", "nvim-lazy/init.vim"}
+
+    def test_detect_variants_cascade_default_is_last(self, tmp_path):
+        """El default variant es el último declarado en el YAML (cascade)."""
+        mappings = [
+            DotFileMapping("nvim-stdlib/init.vim", "~/.config/nvim/init.vim"),
+            DotFileMapping("nvim-lazy/init.vim",   "~/.config/nvim/init.vim"),
+        ]
+        info = detect_variants(mappings)
+
+        assert info.default_variant == "nvim-lazy/init.vim"
+
+    def test_detect_variants_no_variants_when_destinations_differ(self):
+        """Sources con destinations distintos NO son variants."""
+        mappings = [
+            DotFileMapping(".zshrc",  "~/.zshrc"),
+            DotFileMapping(".zshenv", "~/.zshenv"),
+        ]
+        info = detect_variants(mappings)
+
+        assert info.has_variants is False
+        assert info.variants == []
+        assert info.default_variant == ""
+
+    def test_detect_variants_empty_mappings(self):
+        """Lista vacía devuelve VariantInfo vacío."""
+        info = detect_variants([])
+
+        assert info.has_variants is False
+        assert info.variants == []
+
+    def test_filter_by_variant_returns_only_matching_source(self):
+        """filter_by_variant retorna solo el mapping con el source indicado."""
+        mappings = [
+            DotFileMapping("nvim-stdlib/init.vim", "~/.config/nvim/init.vim"),
+            DotFileMapping("nvim-lazy/init.vim",   "~/.config/nvim/init.vim"),
+        ]
+        result = filter_by_variant(mappings, "nvim-stdlib/init.vim")
+
+        assert len(result) == 1
+        assert result[0].source == "nvim-stdlib/init.vim"
+
+    def test_filter_by_variant_empty_returns_all(self):
+        """Sin variant (None o empty string), devuelve todos los mappings."""
+        mappings = [
+            DotFileMapping("nvim-stdlib/init.vim", "~/.config/nvim/init.vim"),
+            DotFileMapping("nvim-lazy/init.vim",   "~/.config/nvim/init.vim"),
+        ]
+        assert filter_by_variant(mappings, "") == mappings
+        assert filter_by_variant(mappings, None) == mappings
+
+    def test_variant_destinations_maps_source_to_destination(self):
+        """variant_destinations mapea cada source a su destination."""
+        mappings = [
+            DotFileMapping("nvim-stdlib/init.vim", "~/.config/nvim/init.vim"),
+            DotFileMapping("nvim-lazy/init.vim",   "~/.config/nvim/init.vim"),
+        ]
+        info = detect_variants(mappings)
+
+        assert info.variant_destinations["nvim-stdlib/init.vim"] == "~/.config/nvim/init.vim"
+        assert info.variant_destinations["nvim-lazy/init.vim"]   == "~/.config/nvim/init.vim"
+
+    def test_detect_variants_from_path_yaml(self, tmp_path):
+        """detect_variants integrado con parse_path_yaml detecta variants reales."""
+        yaml_content = """
+files:
+  - source: nvim-stdlib/init.vim
+    destination: ~/.config/nvim/init.vim
+  - source: nvim-lazy/init.vim
+    destination: ~/.config/nvim/init.vim
+"""
+        yaml_path = tmp_path / "path.yaml"
+        yaml_path.write_text(yaml_content)
+
+        mappings = parse_path_yaml(yaml_path, "linux")
+        info = detect_variants(mappings)
+
+        assert info.has_variants is True
+        assert info.default_variant == "nvim-lazy/init.vim"
+        assert len(info.variants) == 2
