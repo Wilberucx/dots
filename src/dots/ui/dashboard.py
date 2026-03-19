@@ -1154,6 +1154,7 @@ def _build_app(state: TUIState) -> Application:
         if state.sub_mode:
             return
         state.active_tab = "home"
+        state.active_panel = TUIState.PANEL_TABS
 
     @kb.add("F")
     def _tab_flavors(_):
@@ -1162,12 +1163,14 @@ def _build_app(state: TUIState) -> Application:
         if state.mode == "visual":
             return
         state.active_tab = "flavors"
+        state.active_panel = TUIState.PANEL_TABS
 
     @kb.add("L")
     def _tab_logs(_):
         if state.filter_active or state.sub_mode:
             return
         state.active_tab = "logs"
+        state.active_panel = TUIState.PANEL_TABS
 
     @kb.add("T")
     def _tab_tree(_):
@@ -1176,6 +1179,7 @@ def _build_app(state: TUIState) -> Application:
         if state.mode == "visual":
             return
         state.active_tab = "tree"
+        state.active_panel = TUIState.PANEL_TABS
 
     @kb.add("B")
     def _tab_backup(_):
@@ -1184,6 +1188,7 @@ def _build_app(state: TUIState) -> Application:
         if state.mode == "visual":
             return
         state.active_tab = "backup"
+        state.active_panel = TUIState.PANEL_TABS
 
     @kb.add("?")
     def _tab_help(_):
@@ -1566,20 +1571,29 @@ def _build_app(state: TUIState) -> Application:
 #  ACTIONS (link, unlink, backup)
 # ═══════════════════════════════════════════════════════════════════════
 
-import io
-import re
-import sys
-
 
 def _capture_cmd(fn, *args, **kwargs) -> tuple[bool, list[str]]:
     """
-    Execute a CLI command function capturing its stdout/stderr output.
-    Returns (success: bool, lines: list[str]).
-    Prevents CLI Rich output from corrupting the TUI layout.
+    Execute a CLI command capturing both sys.stdout and Rich console output.
+    Prevents CLI output from corrupting the TUI layout.
     """
+    import io
+    import re
+    import sys
+    from rich.console import Console
+
     buf = io.StringIO()
+
+    # Capture sys.stdout/stderr
     old_stdout, old_stderr = sys.stdout, sys.stderr
     sys.stdout = sys.stderr = buf
+
+    # Capture Rich console — redirect the shared console's file handle
+    from dots.ui.output import console as rich_console
+
+    old_file = rich_console.file
+    rich_console.file = buf
+
     success = True
     try:
         fn(*args, **kwargs)
@@ -1589,6 +1603,7 @@ def _capture_cmd(fn, *args, **kwargs) -> tuple[bool, list[str]]:
         success = False
     finally:
         sys.stdout, sys.stderr = old_stdout, old_stderr
+        rich_console.file = old_file
 
     raw = buf.getvalue()
     ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
