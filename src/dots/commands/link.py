@@ -5,8 +5,23 @@ from rich.tree import Tree
 from dots.ui.output import console, print_header, print_warning, print_error, print_info
 from dots.core.config import DotsConfig
 from dots.core.resolver import resolve_modules, get_module_variant_info, get_module_available_sources
+from dots.core.yaml_parser import detect_variants, parse_path_yaml
 from dots.core.transaction import TransactionLog
 from dots.ui.selector import select_modules
+
+
+def _get_effective_variant(config, module_name: str, variant: str | None) -> str | None:
+    """Returns the variant that will be used — explicit or cascade default."""
+    if variant:
+        return variant
+    yaml_path = config.repo_root / module_name / "path.yaml"
+    if not yaml_path.exists():
+        return None
+    mappings = parse_path_yaml(yaml_path, config.current_os)
+    vinfo = detect_variants(mappings)
+    if vinfo.has_variants:
+        return vinfo.default_variant
+    return None
 
 def link_cmd(
     module: list[str] | None = typer.Option(
@@ -20,7 +35,7 @@ def link_cmd(
     dry_run: bool = typer.Option(False, "--dry-run", help="Show what would happen"),
     force: bool = typer.Option(False, "--force", help="Overwrite existing symlinks"),
     interactive: bool = typer.Option(False, "--interactive", "-i", help="Interactively select modules to link"),
-    variant: str = typer.Option(None, "--variant", help="Specific variant to use (when module has multiple variants sharing same destination)"),
+    variant: str | None = typer.Option(None, "--variant", help="Specific variant to use (when module has multiple variants sharing same destination)"),
 ):
     """
     Create symlinks for dotfiles modules.
@@ -99,6 +114,10 @@ def link_cmd(
             module_tree = Tree(f"📦 [bold cyan]{module_name}[/bold cyan]")
             module_stats = {"linked": 0, "conflicts": 0, "pending": 0}
             
+            # Calculate effective variant for this module
+            effective_variant = _get_effective_variant(config, module_name, variant)
+            variant_tag = f" [dim][{effective_variant}][/dim]" if effective_variant else ""
+            
             for status in statuses:
                 src = status.source
                 final_dest = status.destination
@@ -140,7 +159,7 @@ def link_cmd(
                                 module_tree.add(f"[yellow]⚠[/yellow] {src.name} → {final_dest} [yellow](backup needed)[/yellow]")
                                 module_stats["pending"] += 1
                             else:
-                                module_tree.add(f"[green]✔[/green] {src.name} → {final_dest} [green](backed up and created)[/green]")
+                                module_tree.add(f"[green]✔[/green] {src.name} → {final_dest} [green](backed up and created)[/green]{variant_tag}")
                                 module_stats["linked"] += 1
                                 transaction.backup(final_dest, backup_path)
                                 transaction.symlink(final_dest, src.resolve())
@@ -149,7 +168,7 @@ def link_cmd(
                             module_tree.add(f"[blue]ℹ[/blue] {src.name} → {final_dest} [dim](to be created)[/dim]")
                             module_stats["pending"] += 1
                         else:
-                            module_tree.add(f"[green]✔[/green] {src.name} → {final_dest} [green](created)[/green]")
+                            module_tree.add(f"[green]✔[/green] {src.name} → {final_dest} [green](created)[/green]{variant_tag}")
                             module_stats["linked"] += 1
                             if not final_dest.parent.exists():
                                 transaction.mkdir(final_dest.parent)

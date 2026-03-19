@@ -81,10 +81,29 @@ dots install --type minimal     # instalar deps solo de ese grupo
 **Contexto:** Múltiples sources apuntando al mismo destination en path.yaml.
 Cascade: último en YAML es el default. `--variant` para selección explícita.
 UI: tab "flavors" en TUI. Core: `detect_variants`, `filter_by_variant` en yaml_parser.
+Visual: `status` muestra variants expandidos con ● activo y ○ inactivos.
+Link output muestra `[variant]` tag cuando el módulo tiene variants.
 
 **Tests:** `tests/test_yaml_parser.py` — clase `TestVariants` (8 tests).
 
-### [ ] Flag `--format` en status
+### [x] `adopt` inteligente — detecta módulo existente
+**Contexto:** Al adoptar un archivo cuyo módulo ya existe y el destino ya está
+declarado en path.yaml, ofrece crear un variant en lugar de sobreescribir.
+**Comportamiento:**
+- `_destination_already_declared()` detecta conflictos en path.yaml existente
+- Si módulo existe + destino duplicado → pregunta si crear variant
+- Variant flow: pide nombre de subcarpeta, crea dir, mueve archivo, agrega entry
+- Caso normal: comportamiento anterior intacto
+**Archivos involucrados:** `src/dots/commands/adopt.py`
+
+### [x] `select_modules` — helper reutilizable de selección interactiva
+**Contexto:** La lógica de `--interactive` en varios comandos estaba
+duplicada. Extraída a helper compartido.
+**Implementado:** `_checkbox` base privada, `select_modules` con filtros
+`modules`/`types`, `select_variant` (single-choice), `confirm` (yes/no).
+**Archivos involucrados:** `src/dots/ui/selector.py`
+
+### [x] Flag `--format` en status
 **Contexto:** El output actual de `dots status` está pensado para lectura humana.
 `--format` permite consumir el mismo dato en otros formatos sin cambiar el comando.
 

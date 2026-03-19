@@ -1442,7 +1442,7 @@ def _action_link(event, state: TUIState, names: list[str]):
     """Link modules."""
     from dots.commands.link import link_cmd
     try:
-        link_cmd(modules_args=names, dry_run=False, force=False, interactive=False)
+        link_cmd(module=names, dry_run=False, force=False, interactive=False)
         state.log("success", f"Linked: {', '.join(names)}")
     except (SystemExit, Exception) as exc:
         state.log("error", f"Link failed: {exc}")
@@ -1453,7 +1453,7 @@ def _action_unlink(event, state: TUIState, names: list[str]):
     """Unlink modules."""
     from dots.commands.unlink import unlink_cmd
     try:
-        unlink_cmd(modules_args=names, dry_run=False, interactive=False)
+        unlink_cmd(module=names, dry_run=False, interactive=False)
         state.log("success", f"Unlinked: {', '.join(names)}")
     except (SystemExit, Exception) as exc:
         state.log("error", f"Unlink failed: {exc}")
@@ -1549,7 +1549,7 @@ def _action_switch_variant(event, state: TUIState):
         old_stdout, old_stderr = sys.stdout, sys.stderr
         sys.stdout = sys.stderr = devnull
         try:
-            link_cmd(modules_args=[name], dry_run=False, force=True, interactive=False, variant=target_variant)
+            link_cmd(module=[name], dry_run=False, force=True, interactive=False, variant=target_variant)
         finally:
             sys.stdout, sys.stderr = old_stdout, old_stderr
             devnull.close()
