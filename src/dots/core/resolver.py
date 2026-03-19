@@ -55,6 +55,45 @@ def get_module_variant_info(config: DotsConfig, module_name: str) -> VariantInfo
     return detect_variants(mappings)
 
 
+def get_active_variant(config: DotsConfig, module_name: str) -> str | None:
+    """
+    Determine which variant is currently active for a module by
+    inspecting existing symlinks.
+
+    Returns the source name of the active variant, or None if
+    the module has no variants or none is linked.
+    """
+    module_dir = config.repo_root / module_name
+    yaml_path = module_dir / "path.yaml"
+
+    if not yaml_path.exists():
+        return None
+
+    mappings = parse_path_yaml(yaml_path, config.current_os)
+    variant_info = detect_variants(mappings)
+
+    if not variant_info.has_variants:
+        return None
+
+    for variant_source, destination in variant_info.variant_destinations.items():
+        dest_path = expand_path(destination)
+        src_path = (module_dir / variant_source.lstrip('/')).resolve()
+
+        if dest_path.is_symlink():
+            try:
+                link_target = dest_path.readlink()
+                if not link_target.is_absolute():
+                    link_target = (dest_path.parent / link_target).resolve()
+                else:
+                    link_target = link_target.resolve()
+                if link_target == src_path:
+                    return variant_source
+            except (OSError, ValueError):
+                continue
+
+    return None
+
+
 def get_module_available_sources(config: DotsConfig, module_name: str) -> list[str]:
     """
     Get all available source names for a specific module.

@@ -3,7 +3,8 @@ from enum import Enum
 from rich.tree import Tree
 from dots.ui.output import console, print_header, print_warning
 from dots.core.config import DotsConfig
-from dots.core.resolver import resolve_modules
+from dots.core.resolver import resolve_modules, get_active_variant
+from dots.core.yaml_parser import detect_variants, parse_path_yaml
 
 
 class OutputFormat(str, Enum):
@@ -108,14 +109,38 @@ def _render_default(
     if linked:
         linked_tree = Tree(f"[success]✔ Linked ({len(linked)} modules)[/success]")
         for name, info in linked:
-            linked_tree.add(f"[dim]{name}[/dim] [success]({info})[/success]")
+            # Check if module has variants
+            yaml_path = config.repo_root / name / "path.yaml"
+            mappings = parse_path_yaml(yaml_path, config.current_os)
+            variant_info = detect_variants(mappings)
+
+            if variant_info.has_variants:
+                # Expand with flavor indicators
+                module_branch = linked_tree.add(f"[dim]{name}[/dim]")
+                active = get_active_variant(config, name)
+                for v in variant_info.variants:
+                    if v == active:
+                        module_branch.add(f"[success]●[/success] [bold]{v}[/bold] [dim]← active[/dim]")
+                    else:
+                        module_branch.add(f"[dim]○ {v}[/dim]")
+            else:
+                linked_tree.add(f"[dim]{name}[/dim] [success]({info})[/success]")
         console.print(linked_tree)
         console.print()
 
     if unlinked:
         unlinked_tree = Tree(f"[dim]ℹ Unlinked ({len(unlinked)} modules)[/dim]")
         for name, reason in unlinked:
-            unlinked_tree.add(f"[dim]{name}[/dim] [dim]({reason})[/dim]")
+            yaml_path = config.repo_root / name / "path.yaml"
+            mappings = parse_path_yaml(yaml_path, config.current_os)
+            variant_info = detect_variants(mappings)
+
+            if variant_info.has_variants:
+                module_branch = unlinked_tree.add(f"[dim]{name}[/dim]")
+                for v in variant_info.variants:
+                    module_branch.add(f"[dim]○ {v}[/dim]")
+            else:
+                unlinked_tree.add(f"[dim]{name}[/dim] [dim]({reason})[/dim]")
         console.print(unlinked_tree)
         console.print()
 

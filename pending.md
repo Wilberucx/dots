@@ -81,8 +81,27 @@ dots install --type minimal     # instalar deps solo de ese grupo
 **Contexto:** Múltiples sources apuntando al mismo destination en path.yaml.
 Cascade: último en YAML es el default. `--variant` para selección explícita.
 UI: tab "flavors" en TUI. Core: `detect_variants`, `filter_by_variant` en yaml_parser.
+Visual: `status` muestra variants expandidos con ● activo y ○ inactivos.
+Link output muestra `[variant]` tag cuando el módulo tiene variants.
 
 **Tests:** `tests/test_yaml_parser.py` — clase `TestVariants` (8 tests).
+
+### [ ] `adopt` inteligente — detecta módulo existente
+**Contexto:** Al adoptar un archivo cuyo módulo ya existe, ofrecer
+crear un variant en lugar de sobreescribir.
+**Comportamiento:**
+- Si el módulo existe → preguntar: "Module X exists. Create variant? [y/N]"
+- Si sí → modo interactivo para elegir nombre del variant
+- Si no → comportamiento actual
+
+**Archivos involucrados:** `src/dots/commands/adopt.py`
+
+### [ ] `select_modules` — helper reutilizable de selección interactiva
+**Contexto:** La lógica de `--interactive` en varios comandos está
+duplicada o acoplada. Extraer a un helper compartido.
+**Comportamiento:** Función en `src/dots/ui/selector.py` (ya existe el archivo)
+invocable desde cualquier comando que necesite selección de módulos.
+**Archivos involucrados:** `src/dots/ui/selector.py`, comandos que usan `--interactive`
 
 ### [x] Flag `--format` en status
 **Contexto:** El output actual de `dots status` está pensado para lectura humana.
