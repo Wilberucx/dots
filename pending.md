@@ -86,22 +86,22 @@ Link output muestra `[variant]` tag cuando el módulo tiene variants.
 
 **Tests:** `tests/test_yaml_parser.py` — clase `TestVariants` (8 tests).
 
-### [ ] `adopt` inteligente — detecta módulo existente
-**Contexto:** Al adoptar un archivo cuyo módulo ya existe, ofrecer
-crear un variant en lugar de sobreescribir.
+### [x] `adopt` inteligente — detecta módulo existente
+**Contexto:** Al adoptar un archivo cuyo módulo ya existe y el destino ya está
+declarado en path.yaml, ofrece crear un variant en lugar de sobreescribir.
 **Comportamiento:**
-- Si el módulo existe → preguntar: "Module X exists. Create variant? [y/N]"
-- Si sí → modo interactivo para elegir nombre del variant
-- Si no → comportamiento actual
-
+- `_destination_already_declared()` detecta conflictos en path.yaml existente
+- Si módulo existe + destino duplicado → pregunta si crear variant
+- Variant flow: pide nombre de subcarpeta, crea dir, mueve archivo, agrega entry
+- Caso normal: comportamiento anterior intacto
 **Archivos involucrados:** `src/dots/commands/adopt.py`
 
-### [ ] `select_modules` — helper reutilizable de selección interactiva
-**Contexto:** La lógica de `--interactive` en varios comandos está
-duplicada o acoplada. Extraer a un helper compartido.
-**Comportamiento:** Función en `src/dots/ui/selector.py` (ya existe el archivo)
-invocable desde cualquier comando que necesite selección de módulos.
-**Archivos involucrados:** `src/dots/ui/selector.py`, comandos que usan `--interactive`
+### [x] `select_modules` — helper reutilizable de selección interactiva
+**Contexto:** La lógica de `--interactive` en varios comandos estaba
+duplicada. Extraída a helper compartido.
+**Implementado:** `_checkbox` base privada, `select_modules` con filtros
+`modules`/`types`, `select_variant` (single-choice), `confirm` (yes/no).
+**Archivos involucrados:** `src/dots/ui/selector.py`
 
 ### [x] Flag `--format` en status
 **Contexto:** El output actual de `dots status` está pensado para lectura humana.
