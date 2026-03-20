@@ -95,7 +95,7 @@ def parse_path_yaml(yaml_path: Path, current_os: str = None) -> List[DotFileMapp
         if not dest:
             continue
 
-        mappings.append(DotFileMapping(source, dest))
+        mappings.append(DotFileMapping(source.rstrip("/"), dest))
 
     return mappings
 
@@ -175,21 +175,17 @@ def detect_variants(mappings: List[DotFileMapping]) -> VariantInfo:
 
     for destination, sources in dest_to_sources.items():
         if len(sources) > 1:
-            # Normalize: strip trailing slash for consistent variant matching
-            normalized_sources = [s.rstrip("/") for s in sources]
-            all_variants.extend(normalized_sources)
-            # Map each variant to its destination (normalized)
-            for source in normalized_sources:
+            all_variants.extend(sources)
+            for source in sources:
                 variant_destinations[source] = destination
 
-    # Sort to maintain order and get last for cascade
+    # Maintain original order
     all_variants_ordered = []
     seen = set()
     for m in mappings:
-        normalized_source = m.source.rstrip("/")
-        if normalized_source not in seen and normalized_source in all_variants:
-            all_variants_ordered.append(normalized_source)
-            seen.add(normalized_source)
+        if m.source not in seen and m.source in all_variants:
+            all_variants_ordered.append(m.source)
+            seen.add(m.source)
 
     return VariantInfo(
         has_variants=len(all_variants_ordered) > 0,
@@ -210,7 +206,7 @@ def filter_by_variant(
     if not variant:
         return mappings
 
-    return [m for m in mappings if m.source == variant]
+    return [m for m in mappings if m.source.rstrip("/") == variant.rstrip("/")]
 
 
 def parse_module_meta(yaml_path: Path) -> dict:
