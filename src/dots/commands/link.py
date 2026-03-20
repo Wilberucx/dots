@@ -69,11 +69,13 @@ def link_cmd(
     # When --variant is explicitly requested, auto-swap active variant conflicts.
     # If the destination already has a symlink to a different variant,
     # we treat it as a requested force-overwrite (variant switch).
+    is_variant_swap = False
     if variant and not force:
         for module_name in selected_modules or []:
             active = get_active_variant(config, module_name)
             if active and active != variant:
                 force = True
+                is_variant_swap = True
                 print_info(f"Auto-swap: {module_name} variant '{active}' → '{variant}'")
                 break
     
@@ -145,10 +147,30 @@ def link_cmd(
                 elif status.state == "conflict":
                     if force:
                         if dry_run:
-                            module_tree.add(f"[yellow]⚠[/yellow] {src.name} → {final_dest} [yellow](to be overwritten)[/yellow]")
+                            if is_variant_swap:
+                                active = get_active_variant(config, module_name)
+                                module_tree.add(
+                                    f"[cyan]↔[/cyan] {src.name} → {final_dest} "
+                                    f"[cyan](swapped: {active} → {variant})[/cyan]"
+                                )
+                            else:
+                                module_tree.add(
+                                    f"[yellow]⚠[/yellow] {src.name} → {final_dest} "
+                                    f"[yellow](to be overwritten)[/yellow]"
+                                )
                             module_stats["pending"] += 1
                         else:
-                            module_tree.add(f"[green]✔[/green] {src.name} → {final_dest} [green](overwritten)[/green]")
+                            if is_variant_swap:
+                                active = get_active_variant(config, module_name)
+                                module_tree.add(
+                                    f"[cyan]↔[/cyan] {src.name} → {final_dest} "
+                                    f"[cyan](swapped: {active} → {variant})[/cyan]"
+                                )
+                            else:
+                                module_tree.add(
+                                    f"[green]✔[/green] {src.name} → {final_dest} "
+                                    f"[green](overwritten)[/green]"
+                                )
                             module_stats["linked"] += 1
                             transaction.unlink(final_dest)
                             transaction.symlink(final_dest, src.resolve())
