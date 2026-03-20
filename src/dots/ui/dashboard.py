@@ -1752,7 +1752,7 @@ def _action_switch_variant(event, state: TUIState):
         link_cmd,
         module=[name],
         dry_run=False,
-        force=True,
+        force=False,
         interactive=False,
         variant=target_variant,
     )
