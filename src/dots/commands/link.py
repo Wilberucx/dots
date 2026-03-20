@@ -4,7 +4,7 @@ from pathlib import Path
 from rich.tree import Tree
 from dots.ui.output import console, print_header, print_warning, print_error, print_info
 from dots.core.config import DotsConfig
-from dots.core.resolver import resolve_modules, get_module_variant_info, get_module_available_sources
+from dots.core.resolver import resolve_modules, get_module_variant_info, get_module_available_sources, get_active_variant
 from dots.core.yaml_parser import detect_variants, parse_path_yaml
 from dots.core.transaction import TransactionLog
 from dots.ui.selector import select_modules
@@ -65,6 +65,17 @@ def link_cmd(
         print_error("When using --variant, you must specify the module name.")
         print_info("Example: dots link -m Nvim --variant notevim")
         raise typer.Exit(1)
+
+    # When --variant is explicitly requested, auto-swap active variant conflicts.
+    # If the destination already has a symlink to a different variant,
+    # we treat it as a requested force-overwrite (variant switch).
+    if variant and not force:
+        for module_name in selected_modules or []:
+            active = get_active_variant(config, module_name)
+            if active and active != variant:
+                force = True
+                print_info(f"Auto-swap: {module_name} variant '{active}' → '{variant}'")
+                break
     
     # Validate variant if specified with specific modules
     if variant and selected_modules:
