@@ -1597,8 +1597,11 @@ def _capture_cmd(fn, *args, **kwargs) -> tuple[bool, list[str]]:
     success = True
     try:
         fn(*args, **kwargs)
-    except SystemExit:
-        pass
+    except SystemExit as e:
+        # Typer uses SystemExit with exit code 0 (success) or 1 (error)
+        code = getattr(e, "exit_code", None)
+        if code is not None and code != 0:
+            success = False
     except Exception:
         success = False
     finally:
