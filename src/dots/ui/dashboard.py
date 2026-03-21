@@ -35,7 +35,13 @@ from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.styles import Style
 
 from dots.core.config import DotsConfig
-from dots.core.resolver import resolve_modules, LinkStatus, get_module_variant_info
+from dots.core.services import DotsService
+from dots.core.resolver import (
+    resolve_modules,
+    LinkStatus,
+    get_active_variant,
+    get_module_variant_info,
+)
 from dots.core.transaction import TransactionLog
 
 from dots.ui.theme import TUI_STYLE_DICT, ACCENT, FG
@@ -148,8 +154,9 @@ class TUIState:
     PANEL_TABLE = 0
     PANEL_TABS = 1
 
-    def __init__(self, config: DotsConfig):
-        self.config = config
+    def __init__(self, service: DotsService):
+        self.service = service
+        self.config = service.config
 
         # Mode
         self.mode: Literal["normal", "visual"] = "normal"
@@ -157,15 +164,6 @@ class TUIState:
 
         # Panels
         self.active_panel: int = self.PANEL_TABLE
-
-        # Module data
-        self.module_names: list[str] = []
-        self.module_statuses: dict[str, list[LinkStatus]] = {}
-        self.module_link_state: dict[str, str] = {}  # linked/unlinked/broken
-        self.module_destinations: dict[str, str] = {}
-        self.module_last_backup: dict[str, str] = {}
-        self.module_has_variants: dict[str, bool] = {}
-        self.module_variants: dict[str, list[str]] = {}
 
         # Module navigation
         self.selected_module: int = 0
@@ -192,8 +190,6 @@ class TUIState:
         self._tree_vt: int = 0
         self.tree_vis: int = 10
 
-        # Backups (for backup tab)
-        self.backup_entries: list[str] = []
         self.selected_backup: int = 0
         self._bkp_vt: int = 0
         self.bkp_vis: int = 6
@@ -216,11 +212,48 @@ class TUIState:
         self.flavors_cursor: int = 0
         self._flavors_vt: int = 0
         self.flavors_vis: int = 10
-        self.module_active_variant: dict[str, str] = {}
 
         self.refresh_modules()
         self.refresh_backups()
         self.log("info", "Dots TUI started")
+
+    # ── Service Delegates ──
+
+    @property
+    def module_names(self):
+        return self.service.module_names
+
+    @property
+    def module_statuses(self):
+        return self.service.module_statuses
+
+    @property
+    def module_link_state(self):
+        return self.service.module_link_state
+
+    @property
+    def module_destinations(self):
+        return self.service.module_destinations
+
+    @property
+    def module_last_backup(self):
+        return self.service.module_last_backup
+
+    @property
+    def module_has_variants(self):
+        return self.service.module_has_variants
+
+    @property
+    def module_variants(self):
+        return self.service.module_variants
+
+    @property
+    def module_active_variant(self):
+        return self.service.module_active_variant
+
+    @property
+    def backup_entries(self):
+        return self.service.backup_entries
 
     # ── Helpers ──
 
@@ -411,113 +444,11 @@ class TUIState:
                 break
 
     def refresh_modules(self):
-        mods = resolve_modules(self.config)
-        self.module_statuses = mods
-        self.module_names = sorted(mods.keys())
-
-        # Also include module dirs without statuses
-        for d in self.config.get_module_dirs():
-            if d.name not in self.module_names:
-                self.module_names.append(d.name)
-                self.module_statuses[d.name] = []
-        self.module_names.sort()
-
-        home = str(Path.home())
-        sh = lambda p: "~" + str(p)[len(home) :] if str(p).startswith(home) else str(p)
-
-        for name in self.module_names:
-            sts = self.module_statuses.get(name, [])
-
-            # Aggregate link state
-            if not sts:
-                self.module_link_state[name] = "unlinked"
-            elif any(s.state in ("conflict", "unsafe") for s in sts):
-                self.module_link_state[name] = "broken"
-            elif all(s.state == "linked" for s in sts):
-                self.module_link_state[name] = "linked"
-            elif any(s.state == "linked" for s in sts):
-                # Mix of linked and other states (partial)
-                self.module_link_state[name] = "linked"
-            else:
-                self.module_link_state[name] = "unlinked"
-
-            # Primary destination
-            if sts:
-                self.module_destinations[name] = sh(sts[0].destination)
-            else:
-                self.module_destinations[name] = ""
-
-            # Last backup (git commit message)
-            try:
-                r = subprocess.run(
-                    ["git", "log", "-1", "--format=%s", "--", name],
-                    cwd=self.config.repo_root,
-                    capture_output=True,
-                    text=True,
-                    timeout=2,
-                )
-                msg = r.stdout.strip() if r.returncode == 0 else ""
-                self.module_last_backup[name] = msg if msg else ""
-            except Exception:
-                self.module_last_backup[name] = ""
-
-            # Variants
-            try:
-                vinfo = get_module_variant_info(self.config, name)
-                if vinfo and vinfo.has_variants:
-                    self.module_has_variants[name] = True
-                    self.module_variants[name] = vinfo.variants
-
-                    # Deduce active variant
-                    active_vars = set()
-                    mod_dir = self.config.repo_root / name
-                    for s in sts:
-                        try:
-                            rel = s.source.relative_to(mod_dir)
-                            part = rel.parts[0] if rel.parts else ""
-                            if part in vinfo.variants:
-                                active_vars.add(part)
-                        except ValueError:
-                            pass
-                    if active_vars:
-                        self.module_active_variant[name] = list(active_vars)[0]
-                    else:
-                        self.module_active_variant[name] = vinfo.default_variant
-                else:
-                    self.module_has_variants[name] = False
-                    self.module_variants[name] = []
-                    self.module_active_variant[name] = ""
-            except Exception:
-                self.module_has_variants[name] = False
-                self.module_variants[name] = []
-                self.module_active_variant[name] = ""
-
-        if self.module_names:
-            self.selected_module = min(self.selected_module, len(self.module_names) - 1)
-
-        # Re-apply sort
-        if self.sort_key != "name":
-            self.sort_modules(self.sort_key)
-
+        self.service.refresh_modules()
         self._update_tree_data()
 
     def refresh_backups(self):
-        try:
-            r = subprocess.run(
-                ["git", "log", "--oneline", "-30"],
-                cwd=self.config.repo_root,
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if r.returncode == 0:
-                self.backup_entries = [
-                    l.strip() for l in r.stdout.strip().splitlines() if l.strip()
-                ]
-            else:
-                self.backup_entries = ["(no git history)"]
-        except Exception:
-            self.backup_entries = ["(git unavailable)"]
+        self.service.refresh_backups()
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -1623,7 +1554,12 @@ def _action_link(event, state: TUIState, names: list[str]):
     from dots.commands.link import link_cmd
 
     success, lines = _capture_cmd(
-        link_cmd, module=names, dry_run=False, force=False, interactive=False
+        link_cmd,
+        module=names,
+        dry_run=False,
+        force=False,
+        interactive=False,
+        variant=None,
     )
     for line in lines:
         level = (
@@ -1743,9 +1679,10 @@ def _action_switch_variant(event, state: TUIState):
         return
 
     target_variant = vrs[state.flavors_cursor].rstrip("/")
-    active_variant = state.module_active_variant.get(name, "").rstrip("/")
+    active_variant = get_active_variant(state.config, name) or ""
+    active_variant_clean = active_variant.rstrip("/") if active_variant else ""
 
-    if target_variant == active_variant:
+    if target_variant == active_variant_clean:
         state.log("info", f"Variant {target_variant} is already active")
         return
 
@@ -1757,12 +1694,18 @@ def _action_switch_variant(event, state: TUIState):
         dry_run=False,
         force=False,
         interactive=False,
+        type=[],
         variant=target_variant,
     )
     for line in lines:
         state.log("info", line)
-    if success:
-        state.log("success", f"Switched {name} → {target_variant}")
+    failure_indicators = ["conflict", "error", "failed"]
+    conflict_detected = any(
+        any(ind in line.lower() for ind in failure_indicators) for line in lines
+    )
+
+    if success and not conflict_detected:
+        state.log("success", f"↔ {name}: {active_variant} → {target_variant} (swapped)")
     else:
         state.log("error", f"Variant switch failed: {name} → {target_variant}")
 
@@ -1776,5 +1719,6 @@ def _action_switch_variant(event, state: TUIState):
 
 def dashboard():
     config = DotsConfig.load()
-    state = TUIState(config)
+    service = DotsService(config)
+    state = TUIState(service)
     _build_app(state).run()
