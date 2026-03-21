@@ -1580,7 +1580,11 @@ def _action_unlink(event, state: TUIState, names: list[str]):
     from dots.commands.unlink import unlink_cmd
 
     success, lines = _capture_cmd(
-        unlink_cmd, module=names, dry_run=False, interactive=False
+        unlink_cmd,
+        module=names,
+        type=[],
+        dry_run=False,
+        interactive=False,
     )
     for line in lines:
         level = (
@@ -1691,20 +1695,16 @@ def _action_switch_variant(event, state: TUIState):
     success, lines = _capture_cmd(
         link_cmd,
         module=[name],
+        type=[],
         dry_run=False,
         force=False,
         interactive=False,
-        type=[],
         variant=target_variant,
     )
     for line in lines:
         state.log("info", line)
-    failure_indicators = ["conflict", "error", "failed"]
-    conflict_detected = any(
-        any(ind in line.lower() for ind in failure_indicators) for line in lines
-    )
 
-    if success and not conflict_detected:
+    if success:
         state.log("success", f"↔ {name}: {active_variant} → {target_variant} (swapped)")
     else:
         state.log("error", f"Variant switch failed: {name} → {target_variant}")
