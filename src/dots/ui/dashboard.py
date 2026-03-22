@@ -13,6 +13,7 @@ Modes:
 
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 from datetime import datetime
@@ -52,6 +53,12 @@ from dots.ui.theme import TUI_STYLE_DICT, ACCENT, FG
 # ═══════════════════════════════════════════════════════════════════════
 
 TUI_STYLE = Style.from_dict(TUI_STYLE_DICT)
+
+DEBUG_LOG_DIR = Path(__file__).parent.parent.parent / "logs"
+DEBUG_LOG_DIR.mkdir(exist_ok=True)
+DEBUG_LOG_FILE = (
+    DEBUG_LOG_DIR / f"tui_debug_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -279,6 +286,11 @@ class TUIState:
         self.log_entries.append((ts, level, msg))
         if len(self.log_entries) > 200:
             self.log_entries = self.log_entries[-200:]
+        try:
+            with open(DEBUG_LOG_FILE, "a") as f:
+                f.write(f"{ts}  [{level.upper()}]  {msg}\n")
+        except Exception:
+            pass
 
     # ── Scrolling ──
 
@@ -1511,6 +1523,7 @@ def _capture_cmd(fn, *args, **kwargs) -> tuple[bool, list[str]]:
     import io
     import re
     import sys
+    import traceback
     from rich.console import Console
 
     buf = io.StringIO()
@@ -1534,12 +1547,26 @@ def _capture_cmd(fn, *args, **kwargs) -> tuple[bool, list[str]]:
         if code is not None and code != 0:
             success = False
     except Exception:
+        traceback.print_exc(file=buf)
         success = False
     finally:
         sys.stdout, sys.stderr = old_stdout, old_stderr
         rich_console.file = old_file
 
     raw = buf.getvalue()
+    # Debug: write captured output to file
+    try:
+        with open(DEBUG_LOG_FILE, "a") as f:
+            f.write(f"\n--- _capture_cmd: {fn.__name__} ---\n")
+            if lines:
+                f.write("CAPTURED OUTPUT:\n")
+                for line in lines:
+                    f.write(f"  {line}\n")
+            else:
+                f.write("  (no output captured)\n")
+    except Exception:
+        pass
+
     ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
     lines = [
         ansi_escape.sub("", line).strip()
@@ -1553,11 +1580,16 @@ def _action_link(event, state: TUIState, names: list[str]):
     """Link modules."""
     from dots.commands.link import link_cmd
 
+    force = any(
+        state.module_link_state.get(n, "unlinked") in ("conflict", "broken")
+        for n in names
+    )
+
     success, lines = _capture_cmd(
         link_cmd,
         module=names,
         dry_run=False,
-        force=False,
+        force=force,
         interactive=False,
         variant=None,
     )
@@ -1582,7 +1614,6 @@ def _action_unlink(event, state: TUIState, names: list[str]):
     success, lines = _capture_cmd(
         unlink_cmd,
         module=names,
-        type=[],
         dry_run=False,
         interactive=False,
     )
@@ -1695,7 +1726,6 @@ def _action_switch_variant(event, state: TUIState):
     success, lines = _capture_cmd(
         link_cmd,
         module=[name],
-        type=[],
         dry_run=False,
         force=False,
         interactive=False,

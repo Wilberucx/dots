@@ -12,28 +12,40 @@ from typing import List, Dict, Optional
 from rich.prompt import Confirm
 from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn
-from dots.ui.output import console, print_header, print_success, print_error, print_warning, print_info
+from dots.ui.output import (
+    console,
+    print_header,
+    print_success,
+    print_error,
+    print_warning,
+    print_info,
+)
 from dots.plugins.managers import get_package_manager, PackageManager
 from dots.core.config import DotsConfig
 from dots.core.yaml_parser import parse_dependencies, Dependency
 
+
 def get_system_arch() -> str:
     """Detect system architecture (x86_64, aarch64, etc)."""
     machine = platform.machine().lower()
-    if machine in ['x86_64', 'amd64']:
-        return 'x86_64'
-    elif machine in ['aarch64', 'arm64']:
-        return 'aarch64'
+    if machine in ["x86_64", "amd64"]:
+        return "x86_64"
+    elif machine in ["aarch64", "arm64"]:
+        return "aarch64"
     return machine
+
 
 def expand_path(path_str: str) -> Path:
     """Expand ~ and env vars in path."""
     return Path(os.path.expandvars(os.path.expanduser(path_str)))
 
+
 def install_git_dep(dep: Dependency, dry_run: bool):
     """Handle git repository cloning."""
     if not dep.source or not dep.target:
-        print_warning(f"Skipping git dependency '{dep.name}': missing source or target.")
+        print_warning(
+            f"Skipping git dependency '{dep.name}': missing source or target."
+        )
         return
 
     dest = expand_path(dep.target)
@@ -48,7 +60,7 @@ def install_git_dep(dep: Dependency, dry_run: bool):
                 ["git", "clone", dep.source, str(dest)],
                 check=True,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                stderr=subprocess.DEVNULL,
             )
             if dep.ref:
                 print_info(f"  [git] Checking out ref: {dep.ref}")
@@ -56,11 +68,12 @@ def install_git_dep(dep: Dependency, dry_run: bool):
                     ["git", "-C", str(dest), "checkout", dep.ref],
                     check=True,
                     stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL
+                    stderr=subprocess.DEVNULL,
                 )
             print_success(f"  Installed {dep.name}")
         except subprocess.CalledProcessError:
             print_error(f"  Failed to install {dep.name}")
+
 
 def _build_fallback_dep(name: str, fallback: dict) -> Dependency:
     """
@@ -68,21 +81,22 @@ def _build_fallback_dep(name: str, fallback: dict) -> Dependency:
     Inherits the parent dep name if fallback doesn't declare one.
     """
     return Dependency(
-        name=fallback.get('name', name),
-        type=fallback.get('type', 'binary'),
-        source=fallback.get('source'),
-        target=fallback.get('target'),
-        version=fallback.get('version'),
-        ref=fallback.get('ref'),
-        arch_map=fallback.get('arch_map'),
-        post_install=fallback.get('post_install'),
-        extract_path=fallback.get('extract-path'),
+        name=fallback.get("name", name),
+        type=fallback.get("type", "binary"),
+        source=fallback.get("source"),
+        target=fallback.get("target"),
+        version=fallback.get("version"),
+        ref=fallback.get("ref"),
+        arch_map=fallback.get("arch_map"),
+        post_install=fallback.get("post_install"),
+        extract_path=fallback.get("extract-path"),
     )
+
 
 def install_package_dep(dep: Dependency, manager: PackageManager, dry_run: bool):
     """
     Handle type: package dependencies with per-manager name mapping.
-    
+
     Looks up the package name for the current manager in dep.package_managers.
     If the current manager is not listed, skips with a warning.
     If already installed (shutil.which), skips silently.
@@ -132,12 +146,15 @@ def install_package_dep(dep: Dependency, manager: PackageManager, dry_run: bool)
     except subprocess.CalledProcessError:
         print_error(f"  Failed to install {dep.name}")
 
+
 def install_binary_dep(dep: Dependency, dry_run: bool):
     """Handle binary download and extraction."""
     if not dep.source or not dep.target:
-        print_warning(f"Skipping binary dependency '{dep.name}': missing source or target.")
+        print_warning(
+            f"Skipping binary dependency '{dep.name}': missing source or target."
+        )
         return
-    
+
     dest = expand_path(dep.target)
     if dest.exists():
         print_info(f"  [skip] {dep.name} already exists at {dest}")
@@ -155,13 +172,14 @@ def install_binary_dep(dep: Dependency, dry_run: bool):
         url = url.replace("{{version}}", dep.version)
 
     print_info(f"  [bin] Downloading {dep.name} from {url}...")
-    
+
     if dry_run:
         return
 
     try:
         # Download to temp file
         import tempfile
+
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             response = requests.get(url, stream=True)
             response.raise_for_status()
@@ -181,6 +199,7 @@ def install_binary_dep(dep: Dependency, dry_run: bool):
                         member = tar.getmember(dep.extract_path)
                         # Extraer a un directorio temporal y mover al destino
                         import tempfile
+
                         with tempfile.TemporaryDirectory() as extract_dir:
                             tar.extract(member, path=extract_dir, filter="data")
                             extracted = Path(extract_dir) / dep.extract_path
@@ -197,14 +216,15 @@ def install_binary_dep(dep: Dependency, dry_run: bool):
                     # Comportamiento anterior: extraer todo en dest.parent
                     tar.extractall(path=dest.parent, filter="data")
         else:
-             # Assume raw binary
-             shutil.move(tmp_path, dest)
-             dest.chmod(0o755)
+            # Assume raw binary
+            shutil.move(tmp_path, dest)
+            dest.chmod(0o755)
 
         print_success(f"  Installed {dep.name}")
-        
+
     except Exception as e:
         print_error(f"  Failed to install {dep.name}: {e}")
+
 
 def run_post_install(dep: Dependency, dry_run: bool):
     """Run post-install command if exists."""
@@ -213,16 +233,23 @@ def run_post_install(dep: Dependency, dry_run: bool):
         if not dry_run:
             subprocess.run(dep.post_install, shell=True)
 
+
 def install_cmd(
-    dry_run: bool = typer.Option(False, "--dry-run", help="Show commands without executing"),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Show commands without executing"
+    ),
     module: list[str] | None = typer.Option(
-        None, "--module", "-m",
-        help="Install deps only for specific modules (repeatable)"
+        None,
+        "--module",
+        "-m",
+        help="Install deps only for specific modules (repeatable)",
     ),
     type: list[str] | None = typer.Option(
-        None, "--type", "-t",
-        help="Install deps only for modules of this type (repeatable)"
-    )
+        None,
+        "--type",
+        "-t",
+        help="Install deps only for modules of this type (repeatable)",
+    ),
 ):
     """
     Install dependencies declared in path.yaml files across all modules.
@@ -240,8 +267,11 @@ def install_cmd(
     config = DotsConfig.load()
     all_dependencies: List[Dependency] = []
 
+    # Normalize type filter (typer list options need conversion)
+    type_filter = type if isinstance(type, list) else None
+
     # Load dependencies from modules
-    module_dirs = config.get_module_dirs(modules=module, types=type)
+    module_dirs = config.get_module_dirs(modules=module, types=type_filter)
 
     for module_dir in module_dirs:
         yaml_path = module_dir / "path.yaml"
@@ -271,4 +301,3 @@ def install_cmd(
         run_post_install(dep, dry_run)
 
     print_success("\nDependency installation process finished.")
-

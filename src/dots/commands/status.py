@@ -15,28 +15,36 @@ class OutputFormat(str, Enum):
 
 def status_cmd(
     module: list[str] | None = typer.Option(
-        None, "--module", "-m",
-        help="Show status only for specific modules (repeatable)"
+        None,
+        "--module",
+        "-m",
+        help="Show status only for specific modules (repeatable)",
     ),
     type: list[str] | None = typer.Option(
-        None, "--type", "-t",
-        help="Show status only for modules of this type (repeatable)"
+        None,
+        "--type",
+        "-t",
+        help="Show status only for modules of this type (repeatable)",
     ),
     state: list[str] | None = typer.Option(
-        None, "--state", "-s",
-        help="Show only modules in this state: linked, unlinked, broken, missing, unsafe (repeatable)"
+        None,
+        "--state",
+        "-s",
+        help="Show only modules in this state: linked, unlinked, broken, missing, unsafe (repeatable)",
     ),
     format: OutputFormat = typer.Option(
         OutputFormat.default,
-        "--format", "-f",
-        help="Output format: default, table, json"
+        "--format",
+        "-f",
+        help="Output format: default, table, json",
     ),
 ):
     """
     Show status of all dotfiles modules grouped by state.
     """
     config = DotsConfig.load()
-    all_modules = resolve_modules(config, modules=module, types=type)
+    type_filter = type if isinstance(type, list) else None
+    all_modules = resolve_modules(config, modules=module, types=type_filter)
 
     if not all_modules:
         console.print("[yellow]⚠[/yellow] No modules found.")
@@ -84,7 +92,11 @@ def _render_default(
 
         # Categorize module by worst state
         if module_broken > 0:
-            if not state_filter or "conflict" in state_filter or "unsafe" in state_filter:
+            if (
+                not state_filter
+                or "conflict" in state_filter
+                or "unsafe" in state_filter
+            ):
                 reason = []
                 conflicts = sum(1 for s in statuses if s.state == "conflict")
                 unsafe = sum(1 for s in statuses if s.state == "unsafe")
@@ -95,7 +107,12 @@ def _render_default(
                 broken.append((module_name, ", ".join(reason)))
         elif module_missing > 0:
             if not state_filter or "missing" in state_filter:
-                missing_src.append((module_name, f"{module_missing} missing source{'s' if module_missing > 1 else ''}"))
+                missing_src.append(
+                    (
+                        module_name,
+                        f"{module_missing} missing source{'s' if module_missing > 1 else ''}",
+                    )
+                )
         elif module_pending > 0:
             if not state_filter or "pending" in state_filter:
                 unlinked.append((module_name, f"{module_pending} unlinked"))
@@ -120,7 +137,9 @@ def _render_default(
                 active = get_active_variant(config, name)
                 for v in variant_info.variants:
                     if v == active:
-                        module_branch.add(f"[success]●[/success] [bold]{v}[/bold] [dim]← active[/dim]")
+                        module_branch.add(
+                            f"[success]●[/success] [bold]{v}[/bold] [dim]← active[/dim]"
+                        )
                     else:
                         module_branch.add(f"[dim]○ {v}[/dim]")
             else:
@@ -152,7 +171,9 @@ def _render_default(
         console.print()
 
     if missing_src:
-        missing_tree = Tree(f"[warning]⚠ Missing Source ({len(missing_src)} modules)[/warning]")
+        missing_tree = Tree(
+            f"[warning]⚠ Missing Source ({len(missing_src)} modules)[/warning]"
+        )
         for name, reason in missing_src:
             missing_tree.add(f"[dim]{name}[/dim] [warning]({reason})[/warning]")
         console.print(missing_tree)
@@ -193,11 +214,11 @@ def _render_table(
     from dots.core.yaml_parser import parse_module_meta
 
     STATE_STYLE = {
-        "linked":   ("linked",   "green"),
-        "pending":  ("unlinked", "dim"),
-        "conflict": ("broken",   "red"),
-        "missing":  ("missing",  "yellow"),
-        "unsafe":   ("unsafe",   "red"),
+        "linked": ("linked", "green"),
+        "pending": ("unlinked", "dim"),
+        "conflict": ("broken", "red"),
+        "missing": ("missing", "yellow"),
+        "unsafe": ("unsafe", "red"),
     }
 
     table = Table(
@@ -206,11 +227,11 @@ def _render_table(
         box=None,
         padding=(0, 1),
     )
-    table.add_column("Module",      style="bold", no_wrap=True)
-    table.add_column("Source",      no_wrap=True)
+    table.add_column("Module", style="bold", no_wrap=True)
+    table.add_column("Source", no_wrap=True)
     table.add_column("Destination", no_wrap=True)
-    table.add_column("State",       no_wrap=True)
-    table.add_column("Type",        style="dim", no_wrap=True, min_width=10)
+    table.add_column("State", no_wrap=True)
+    table.add_column("Type", style="dim", no_wrap=True, min_width=10)
 
     total = 0
 
@@ -227,8 +248,8 @@ def _render_table(
             label, color = STATE_STYLE.get(st.state, (st.state, "white"))
             state_text = Text(f"● {label}", style=color)
 
-            mod_cell  = module_name  if first_row else ""
-            type_cell = module_type  if first_row else ""
+            mod_cell = module_name if first_row else ""
+            type_cell = module_type if first_row else ""
             first_row = False
 
             table.add_row(
@@ -258,16 +279,19 @@ def _render_json(
     from dots.core.yaml_parser import parse_module_meta
 
     STATE_LABEL = {
-        "linked":   "linked",
-        "pending":  "unlinked",
+        "linked": "linked",
+        "pending": "unlinked",
         "conflict": "broken",
-        "missing":  "missing",
-        "unsafe":   "unsafe",
+        "missing": "missing",
+        "unsafe": "unsafe",
     }
 
     summary = {
-        "linked": 0, "unlinked": 0, "broken": 0,
-        "missing": 0, "unsafe": 0,
+        "linked": 0,
+        "unlinked": 0,
+        "broken": 0,
+        "missing": 0,
+        "unsafe": 0,
     }
 
     modules_data = {}
@@ -284,17 +308,19 @@ def _render_json(
             label = STATE_LABEL.get(st.state, str(st.state))
             summary[label] = summary.get(label, 0) + 1
 
-            files.append({
-                "source":      st.source.name,
-                "destination": str(st.destination).replace(
-                    str(config.home_dir), "~"
-                ),
-                "state": label,
-            })
+            files.append(
+                {
+                    "source": st.source.name,
+                    "destination": str(st.destination).replace(
+                        str(config.home_dir), "~"
+                    ),
+                    "state": label,
+                }
+            )
 
         if files:
             modules_data[module_name] = {
-                "type":  meta.get("type", None),
+                "type": meta.get("type", None),
                 "files": files,
             }
 
