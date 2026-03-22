@@ -913,7 +913,7 @@ def _render_help_tab(state: TUIState) -> FormattedText:
         (
             "General",
             [
-                ("Esc", "Cancel / exit mode"),
+                ("Esc", "Cancel / normal mode"),
                 ("q", "Quit"),
             ],
         ),
@@ -1463,8 +1463,6 @@ def _build_app(state: TUIState) -> Application:
             state.mode = "normal"
             state.selected_set.clear()
             state.log("info", "Normal mode")
-            return
-        get_app().exit()
 
     # ── q (quit / filter char) ──
     @kb.add("q")
