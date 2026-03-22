@@ -187,10 +187,13 @@ def resolve_modules(
                 sources = [source_path] if source_path.exists() else []
 
             # Does the YAML destination express an "expand into" intent?
-            # Convention: trailing slash on the destination (e.g. ~/.gemini/)
-            # means "link the *contents* of the source dir into dest", not the
-            # directory itself.
-            dest_is_container = m.destination.endswith("/")
+            # Convention: destination ending with '/*' (e.g. ~/.gemini/*)
+            # means "link the *contents* of the source dir into dest", not
+            # the directory itself. A plain trailing slash (e.g. ~/.config/nvim/)
+            # keeps the original behavior: symlink the source dir as-is.
+            dest_is_container = m.destination.endswith("/*")
+            # Strip the /* so expand_path works correctly
+            dest_str = m.destination.rstrip("*") if dest_is_container else m.destination
             is_glob_source = "*" in clean_source
 
             for src in sources:
@@ -203,7 +206,7 @@ def resolve_modules(
                     ):
                         continue
 
-                dest = expand_path(m.destination)
+                dest = expand_path(dest_str)
 
                 # Determine final destination.
                 #
