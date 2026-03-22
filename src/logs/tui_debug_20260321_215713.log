@@ -1,0 +1,26 @@
+21:57:14  [INFO]  Dots TUI started
+21:57:24  [INFO]  Filter: 'Nvim'
+21:57:35  [INFO]  Filter: 'Nvim'
+21:57:49  [INFO]  Filter: 'Nv'
+21:58:23  [INFO]  Filter: 'Nvim'
+21:58:28  [INFO]  Filter: 'nvim'
+
+--- _capture_cmd: link_cmd ---
+21:58:40  [INFO]  ==== Linking Dotfiles ====
+21:58:40  [INFO]  ℹ Linking specified modules: Alacritty
+21:58:40  [INFO]  📦 Alacritty
+21:58:40  [INFO]  ├── ✔ alacritty.toml → /home/cantoarch/.config/alacritty/alacritty.toml (created)
+21:58:40  [INFO]  └── Status: 1 linked
+21:58:40  [INFO]  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+21:58:40  [INFO]  Summary: 1 ✔ linked
+21:58:40  [SUCCESS]  Linked: Alacritty
+
+--- _capture_cmd: unlink_cmd ---
+21:58:41  [INFO]  ==== Unlinking Dotfiles ====
+21:58:41  [INFO]  ℹ Unlinking specified modules: Alacritty
+21:58:41  [INFO]  📦 Alacritty
+21:58:41  [INFO]  ├── ✔ alacritty.toml → /home/cantoarch/.config/alacritty/alacritty.toml (removed)
+21:58:41  [INFO]  └── Status: 1 removed
+21:58:41  [INFO]  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+21:58:41  [INFO]  Summary: 1 ✔ removed
+21:58:41  [SUCCESS]  Unlinked: Alacritty

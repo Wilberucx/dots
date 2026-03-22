@@ -190,6 +190,7 @@ class TUIState:
         # Filter
         self.filter_active: bool = False
         self.filter_text: str = ""
+        self.filter_jumped: bool = False
 
         # Tree (for tree tab)
         self.tree_items: list[dict] = []
@@ -468,6 +469,7 @@ class TUIState:
                     len(self.module_names),
                 )
                 self._reset_module_sub_states()
+                self.filter_jumped = True
                 break
 
     def refresh_modules(self):
@@ -1234,9 +1236,12 @@ def _build_app(state: TUIState) -> Application:
     @kb.add("enter")
     def _enter(event):
         if state.filter_active:
+            # Only reset to top if user didn't jump to a match
+            if not state.filter_jumped:
+                state.selected_module = 0
+                state._mod_vt = 0
+            state.filter_jumped = False
             state.filter_active = False
-            state.selected_module = 0
-            state._mod_vt = 0
             state.log(
                 "info",
                 f"Filter: '{state.filter_text}'"
@@ -1449,6 +1454,7 @@ def _build_app(state: TUIState) -> Application:
         if state.filter_active:
             state.filter_active = False
             state.filter_text = ""
+            state.filter_jumped = False
             return
         if state.sub_mode:
             state.sub_mode = None
