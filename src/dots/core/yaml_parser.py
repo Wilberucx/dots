@@ -164,10 +164,20 @@ def detect_variants(mappings: List[DotFileMapping]) -> VariantInfo:
             has_variants=False, variants=[], default_variant="", variant_destinations={}
         )
 
-    # Group by destination
+    def _variant_key(source: str) -> str:
+        """Normalize source name for variant grouping.
+
+        Glob sources like 'wilber/*' are keyed as 'wilber' so the user can
+        use ``--variant wilber`` instead of the unwieldy ``--variant 'wilber/*'``.
+        """
+        return source.rstrip("/*") if "*" in source else source
+
+    # Group by destination — use the normalized key so glob sources participate
+    # in variant detection together with non-glob sources.
     dest_to_sources: Dict[str, List[str]] = {}
     for m in mappings:
-        dest_to_sources.setdefault(m.destination, []).append(m.source)
+        key = _variant_key(m.source)
+        dest_to_sources.setdefault(m.destination, []).append(key)
 
     # Find destinations with multiple sources (variants)
     all_variants: List[str] = []
@@ -179,13 +189,14 @@ def detect_variants(mappings: List[DotFileMapping]) -> VariantInfo:
             for source in sources:
                 variant_destinations[source] = destination
 
-    # Maintain original order
+    # Maintain original order using normalized keys
     all_variants_ordered = []
     seen = set()
     for m in mappings:
-        if m.source not in seen and m.source in all_variants:
-            all_variants_ordered.append(m.source)
-            seen.add(m.source)
+        key = _variant_key(m.source)
+        if key not in seen and key in all_variants:
+            all_variants_ordered.append(key)
+            seen.add(key)
 
     return VariantInfo(
         has_variants=len(all_variants_ordered) > 0,
@@ -202,11 +213,17 @@ def filter_by_variant(
     Filter mappings to only include a specific variant source.
 
     If variant is empty/None, returns all mappings.
+    Supports both exact matches and normalized glob matches:
+    ``--variant wilber`` matches a source of ``wilber/*``.
     """
     if not variant:
         return mappings
 
-    return [m for m in mappings if m.source.rstrip("/") == variant.rstrip("/")]
+    def _normalized(source: str) -> str:
+        return source.rstrip("/*") if "*" in source else source
+
+    variant_norm = variant.rstrip("/")
+    return [m for m in mappings if _normalized(m.source) == variant_norm]
 
 
 def parse_module_meta(yaml_path: Path) -> dict:

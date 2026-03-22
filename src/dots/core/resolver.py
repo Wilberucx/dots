@@ -186,6 +186,13 @@ def resolve_modules(
             else:
                 sources = [source_path] if source_path.exists() else []
 
+            # Does the YAML destination express an "expand into" intent?
+            # Convention: trailing slash on the destination (e.g. ~/.gemini/)
+            # means "link the *contents* of the source dir into dest", not the
+            # directory itself.
+            dest_is_container = m.destination.endswith("/")
+            is_glob_source = "*" in clean_source
+
             for src in sources:
                 # OS suffix check (file-linux, file-mac, file-windows)
                 if "-" in src.name:
@@ -198,8 +205,47 @@ def resolve_modules(
 
                 dest = expand_path(m.destination)
 
-                # Determine final destination
-                if src.is_dir():
+                # Determine final destination.
+                #
+                # Priority:
+                # 1. Glob source (wilber/*) → each expanded file goes inside dest
+                # 2. Dir source + trailing slash dest → expand contents of the dir
+                # 3. Dir source (no trailing slash) → symlink the dir itself
+                # 4. File + existing dest dir → place file inside it
+                # 5. File + non-existing dest → dest IS the symlink target name
+                if is_glob_source:
+                    final_dest = dest / src.name
+                elif src.is_dir() and dest_is_container:
+                    # Expand contents: link each child file into dest individually
+                    for child in sorted(src.iterdir()):
+                        child_dest = dest / child.name
+                        if not is_safe_path(child_dest):
+                            statuses.append(
+                                LinkStatus(
+                                    source=child,
+                                    destination=child_dest,
+                                    state="unsafe",
+                                    detail="path outside home directory",
+                                )
+                            )
+                            continue
+                        # Inline state resolution for the child
+                        if child_dest.is_symlink():
+                            t = child_dest.readlink()
+                            if not t.is_absolute():
+                                t = (child_dest.parent / t).resolve()
+                            else:
+                                t = t.resolve()
+                            if t == child.resolve():
+                                statuses.append(LinkStatus(source=child, destination=child_dest, state="linked"))
+                            else:
+                                statuses.append(LinkStatus(source=child, destination=child_dest, state="conflict", detail=f"points to {t}"))
+                        elif child_dest.exists():
+                            statuses.append(LinkStatus(source=child, destination=child_dest, state="pending", detail="backup needed"))
+                        else:
+                            statuses.append(LinkStatus(source=child, destination=child_dest, state="pending", detail="will create"))
+                    continue  # skip the shared state-check below
+                elif src.is_dir():
                     final_dest = dest
                 else:
                     final_dest = dest / src.name if dest.is_dir() else dest
