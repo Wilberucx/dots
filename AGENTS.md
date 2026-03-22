@@ -35,3 +35,11 @@ We follow a strict `dev` / `main` isolation strategy:
 - Read `src/dots/core/config.py` for context on configuration.
 
 **Do not deviate from these architectural rules.**
+
+## Feature Tracking
+
+Feature tasks and pending implementations are tracked in the Obsidian Vault project note:
+`dotfile manager dots.md` (in the Vault at `~/ObsidianVaults/Vault-2026/`).
+
+Do not use a local `pending.md` file. All feature decisions, roadmap items,
+and pending work lives in that Vault note and should be kept in sync.
