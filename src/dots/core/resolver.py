@@ -4,6 +4,7 @@ Shared module resolver for Dots CLI.
 This module eliminates code duplication between link.py and status.py
 by providing a single function to scan modules and resolve symlink states.
 """
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -11,7 +12,12 @@ import os
 
 from dots.core.config import DotsConfig
 from dots.core.system import is_safe_path
-from dots.core.yaml_parser import parse_path_yaml, detect_variants, filter_by_variant, VariantInfo
+from dots.core.yaml_parser import (
+    parse_path_yaml,
+    detect_variants,
+    filter_by_variant,
+    VariantInfo,
+)
 
 
 LinkState = Literal["linked", "conflict", "pending", "missing", "unsafe"]
@@ -20,6 +26,7 @@ LinkState = Literal["linked", "conflict", "pending", "missing", "unsafe"]
 @dataclass
 class LinkStatus:
     """Status of a single source -> destination mapping."""
+
     source: Path
     destination: Path
     state: LinkState
@@ -34,24 +41,24 @@ def expand_path(path_str: str) -> Path:
 def get_module_variant_info(config: DotsConfig, module_name: str) -> VariantInfo | None:
     """
     Get variant information for a specific module.
-    
+
     Args:
         config: DotsConfig with module directories and OS info
         module_name: Name of the module to check
-    
+
     Returns:
         VariantInfo if module has path.yaml, None otherwise
     """
     module_dir = config.repo_root / module_name
     yaml_path = module_dir / "path.yaml"
-    
+
     if not yaml_path.exists():
         return None
-    
+
     mappings = parse_path_yaml(yaml_path, config.current_os)
     if not mappings:
         return None
-    
+
     return detect_variants(mappings)
 
 
@@ -77,7 +84,7 @@ def get_active_variant(config: DotsConfig, module_name: str) -> str | None:
 
     for variant_source, destination in variant_info.variant_destinations.items():
         dest_path = expand_path(destination)
-        src_path = (module_dir / variant_source.lstrip('/')).resolve()
+        src_path = (module_dir / variant_source.lstrip("/")).resolve()
 
         if dest_path.is_symlink():
             try:
@@ -97,18 +104,18 @@ def get_active_variant(config: DotsConfig, module_name: str) -> str | None:
 def get_module_available_sources(config: DotsConfig, module_name: str) -> list[str]:
     """
     Get all available source names for a specific module.
-    
+
     Args:
         config: DotsConfig with module directories and OS info
         module_name: Name of the module to check
-    
+
     Returns:
         List of source names defined in path.yaml
     """
     variant_info = get_module_variant_info(config, module_name)
     if not variant_info:
         return []
-    
+
     # Return all sources (not just variants)
     module_dir = config.repo_root / module_name
     yaml_path = module_dir / "path.yaml"
@@ -116,34 +123,39 @@ def get_module_available_sources(config: DotsConfig, module_name: str) -> list[s
     return [m.source for m in mappings]
 
 
-def resolve_modules(config: DotsConfig, modules: list[str] | None = None, types: list[str] | None = None, variant: str | None = None) -> dict[str, list[LinkStatus]]:
+def resolve_modules(
+    config: DotsConfig,
+    modules: list[str] | None = None,
+    types: list[str] | None = None,
+    variant: str | None = None,
+) -> dict[str, list[LinkStatus]]:
     """
     Scan all configuration modules and return link status for each.
-    
+
     Args:
         config: DotsConfig with module directories and OS info
         modules: Optional list of module names to filter down to
         types: Optional list of module types to filter by
         variant: Optional variant name to filter by. If None and module has variants,
                  uses the default variant (last one - cascade behavior).
-    
+
     Returns:
         Dict mapping module name -> list of LinkStatus objects
     """
     results = {}
-    
+
     for module_dir in config.get_module_dirs(modules=modules, types=types):
         yaml_path = module_dir / "path.yaml"
         if not yaml_path.exists():
             continue
-        
+
         mappings = parse_path_yaml(yaml_path, config.current_os)
         if not mappings:
             continue
-        
+
         # Detect variants in this module
         variant_info = detect_variants(mappings)
-        
+
         # Apply variant filtering
         if variant:
             # User specified a variant - validate it exists
@@ -153,50 +165,57 @@ def resolve_modules(config: DotsConfig, modules: list[str] | None = None, types:
                 pass
             mappings = filter_by_variant(mappings, variant)
         elif variant_info.has_variants:
-            # Cascade: use last variant by default
-            mappings = filter_by_variant(mappings, variant_info.default_variant)
-        
+            # Use active variant if one is linked, else cascade to default
+            active = get_active_variant(config, module_dir.name)
+            effective = active if active else variant_info.default_variant
+            mappings = filter_by_variant(mappings, effective)
+
         statuses = []
-        
+
         for m in mappings:
             # Clean source path
-            clean_source = m.source.lstrip('/')
+            clean_source = m.source.lstrip("/")
             if not clean_source:
                 clean_source = "."
-            
+
             source_path = module_dir / clean_source
-            
+
             # Handle globs
-            if '*' in clean_source:
+            if "*" in clean_source:
                 sources = list(module_dir.glob(clean_source))
             else:
                 sources = [source_path] if source_path.exists() else []
-            
+
             for src in sources:
                 # OS suffix check (file-linux, file-mac, file-windows)
-                if '-' in src.name:
-                    suffix = src.name.rsplit('-', 1)[-1]
-                    if suffix in ['linux', 'mac', 'windows'] and suffix != config.current_os:
+                if "-" in src.name:
+                    suffix = src.name.rsplit("-", 1)[-1]
+                    if (
+                        suffix in ["linux", "mac", "windows"]
+                        and suffix != config.current_os
+                    ):
                         continue
-                
+
                 dest = expand_path(m.destination)
-                
+
                 # Determine final destination
                 if src.is_dir():
                     final_dest = dest
                 else:
                     final_dest = dest / src.name if dest.is_dir() else dest
-                
+
                 # Safety check
                 if not is_safe_path(final_dest):
-                    statuses.append(LinkStatus(
-                        source=src,
-                        destination=final_dest,
-                        state="unsafe",
-                        detail="path outside home directory"
-                    ))
+                    statuses.append(
+                        LinkStatus(
+                            source=src,
+                            destination=final_dest,
+                            state="unsafe",
+                            detail="path outside home directory",
+                        )
+                    )
                     continue
-                
+
                 # Check current state
                 if final_dest.is_symlink():
                     target = final_dest.readlink()
@@ -204,37 +223,45 @@ def resolve_modules(config: DotsConfig, modules: list[str] | None = None, types:
                         target = (final_dest.parent / target).resolve()
                     else:
                         target = target.resolve()
-                    
+
                     if target == src.resolve():
-                        statuses.append(LinkStatus(
-                            source=src,
-                            destination=final_dest,
-                            state="linked",
-                            detail=""
-                        ))
+                        statuses.append(
+                            LinkStatus(
+                                source=src,
+                                destination=final_dest,
+                                state="linked",
+                                detail="",
+                            )
+                        )
                     else:
-                        statuses.append(LinkStatus(
+                        statuses.append(
+                            LinkStatus(
+                                source=src,
+                                destination=final_dest,
+                                state="conflict",
+                                detail=f"points to {target}",
+                            )
+                        )
+                elif final_dest.exists():
+                    statuses.append(
+                        LinkStatus(
                             source=src,
                             destination=final_dest,
-                            state="conflict",
-                            detail=f"points to {target}"
-                        ))
-                elif final_dest.exists():
-                    statuses.append(LinkStatus(
-                        source=src,
-                        destination=final_dest,
-                        state="pending",
-                        detail="backup needed"
-                    ))
+                            state="pending",
+                            detail="backup needed",
+                        )
+                    )
                 else:
-                    statuses.append(LinkStatus(
-                        source=src,
-                        destination=final_dest,
-                        state="pending",
-                        detail="will create"
-                    ))
-        
+                    statuses.append(
+                        LinkStatus(
+                            source=src,
+                            destination=final_dest,
+                            state="pending",
+                            detail="will create",
+                        )
+                    )
+
         if statuses:
             results[module_dir.name] = statuses
-    
+
     return results

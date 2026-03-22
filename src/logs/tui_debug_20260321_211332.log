@@ -1,0 +1,104 @@
+21:13:32  [INFO]  Dots TUI started
+
+--- _capture_cmd: link_cmd ---
+21:13:35  [INFO]  ==== Linking Dotfiles ====
+21:13:35  [INFO]  ℹ Linking specified modules: Atuin
+21:13:35  [INFO]  Traceback (most recent call last):
+21:13:35  [INFO]  File "/home/cantoarch/Work/dots/src/dots/ui/dashboard.py", line 1543, in _capture_cmd
+21:13:35  [INFO]  fn(*args, **kwargs)
+21:13:35  [INFO]  ~~^^^^^^^^^^^^^^^^^
+21:13:35  [INFO]  File "/home/cantoarch/Work/dots/src/dots/commands/link.py", line 115, in link_cmd
+21:13:35  [INFO]  modules = resolve_modules(config, modules=selected_modules, types=type, variant=variant)
+21:13:35  [INFO]  File "/home/cantoarch/Work/dots/src/dots/core/resolver.py", line 147, in resolve_modules
+21:13:35  [INFO]  for module_dir in config.get_module_dirs(modules=modules, types=types):
+21:13:35  [INFO]  ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+21:13:35  [INFO]  File "/home/cantoarch/Work/dots/src/dots/core/config.py", line 123, in get_module_dirs
+21:13:35  [INFO]  if module_type in types:
+21:13:35  [INFO]  ^^^^^^^^^^^^^^^^^^^^
+21:13:35  [ERROR]  TypeError: argument of type 'OptionInfo' is not a container or iterable
+21:13:35  [ERROR]  Link failed for: Atuin
+
+--- _capture_cmd: link_cmd ---
+21:13:37  [INFO]  ==== Linking Dotfiles ====
+21:13:37  [INFO]  ℹ Linking specified modules: Fish
+21:13:37  [INFO]  Traceback (most recent call last):
+21:13:37  [INFO]  File "/home/cantoarch/Work/dots/src/dots/ui/dashboard.py", line 1543, in _capture_cmd
+21:13:37  [INFO]  fn(*args, **kwargs)
+21:13:37  [INFO]  ~~^^^^^^^^^^^^^^^^^
+21:13:37  [INFO]  File "/home/cantoarch/Work/dots/src/dots/commands/link.py", line 115, in link_cmd
+21:13:37  [INFO]  modules = resolve_modules(config, modules=selected_modules, types=type, variant=variant)
+21:13:37  [INFO]  File "/home/cantoarch/Work/dots/src/dots/core/resolver.py", line 147, in resolve_modules
+21:13:37  [INFO]  for module_dir in config.get_module_dirs(modules=modules, types=types):
+21:13:37  [INFO]  ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+21:13:37  [INFO]  File "/home/cantoarch/Work/dots/src/dots/core/config.py", line 123, in get_module_dirs
+21:13:37  [INFO]  if module_type in types:
+21:13:37  [INFO]  ^^^^^^^^^^^^^^^^^^^^
+21:13:37  [ERROR]  TypeError: argument of type 'OptionInfo' is not a container or iterable
+21:13:37  [ERROR]  Link failed for: Fish
+
+--- _capture_cmd: unlink_cmd ---
+21:13:38  [INFO]  ==== Unlinking Dotfiles ====
+21:13:38  [INFO]  ℹ Unlinking specified modules: Ghostty
+21:13:38  [INFO]  📦 Ghostty
+21:13:38  [INFO]  ├── ✔ ghostty → /home/cantoarch/.config/ghostty (removed)
+21:13:38  [INFO]  └── Status: 1 removed
+21:13:38  [INFO]  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+21:13:38  [INFO]  Summary: 1 ✔ removed
+21:13:38  [SUCCESS]  Unlinked: Ghostty
+
+--- _capture_cmd: unlink_cmd ---
+21:13:40  [INFO]  ==== Unlinking Dotfiles ====
+21:13:40  [INFO]  ℹ Unlinking specified modules: Git
+21:13:40  [INFO]  📦 Git
+21:13:40  [INFO]  ├── ✔ .gitconfig-linux → /home/cantoarch/.gitconfig (removed)
+21:13:40  [INFO]  └── Status: 1 removed
+21:13:40  [INFO]  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+21:13:40  [INFO]  Summary: 1 ✔ removed
+21:13:40  [SUCCESS]  Unlinked: Git
+
+--- _capture_cmd: unlink_cmd ---
+21:13:42  [INFO]  ==== Unlinking Dotfiles ====
+21:13:42  [INFO]  ℹ Unlinking specified modules: Hypr
+21:13:42  [INFO]  📦 Hypr
+21:13:42  [INFO]  ├── ✔ hypr → /home/cantoarch/.config/hypr (removed)
+21:13:42  [INFO]  └── Status: 1 removed
+21:13:42  [INFO]  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+21:13:42  [INFO]  Summary: 1 ✔ removed
+21:13:42  [SUCCESS]  Unlinked: Hypr
+
+--- _capture_cmd: link_cmd ---
+21:13:44  [INFO]  ==== Linking Dotfiles ====
+21:13:44  [INFO]  ℹ Linking specified modules: Hypr
+21:13:44  [INFO]  Traceback (most recent call last):
+21:13:44  [INFO]  File "/home/cantoarch/Work/dots/src/dots/ui/dashboard.py", line 1543, in _capture_cmd
+21:13:44  [INFO]  fn(*args, **kwargs)
+21:13:44  [INFO]  ~~^^^^^^^^^^^^^^^^^
+21:13:44  [INFO]  File "/home/cantoarch/Work/dots/src/dots/commands/link.py", line 115, in link_cmd
+21:13:44  [INFO]  modules = resolve_modules(config, modules=selected_modules, types=type, variant=variant)
+21:13:44  [INFO]  File "/home/cantoarch/Work/dots/src/dots/core/resolver.py", line 147, in resolve_modules
+21:13:44  [INFO]  for module_dir in config.get_module_dirs(modules=modules, types=types):
+21:13:44  [INFO]  ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+21:13:44  [INFO]  File "/home/cantoarch/Work/dots/src/dots/core/config.py", line 123, in get_module_dirs
+21:13:44  [INFO]  if module_type in types:
+21:13:44  [INFO]  ^^^^^^^^^^^^^^^^^^^^
+21:13:44  [ERROR]  TypeError: argument of type 'OptionInfo' is not a container or iterable
+21:13:44  [ERROR]  Link failed for: Hypr
+
+--- _capture_cmd: link_cmd ---
+21:13:46  [INFO]  ==== Linking Dotfiles ====
+21:13:46  [INFO]  ℹ Linking specified modules: Hypr
+21:13:46  [INFO]  Traceback (most recent call last):
+21:13:46  [INFO]  File "/home/cantoarch/Work/dots/src/dots/ui/dashboard.py", line 1543, in _capture_cmd
+21:13:46  [INFO]  fn(*args, **kwargs)
+21:13:46  [INFO]  ~~^^^^^^^^^^^^^^^^^
+21:13:46  [INFO]  File "/home/cantoarch/Work/dots/src/dots/commands/link.py", line 115, in link_cmd
+21:13:46  [INFO]  modules = resolve_modules(config, modules=selected_modules, types=type, variant=variant)
+21:13:46  [INFO]  File "/home/cantoarch/Work/dots/src/dots/core/resolver.py", line 147, in resolve_modules
+21:13:46  [INFO]  for module_dir in config.get_module_dirs(modules=modules, types=types):
+21:13:46  [INFO]  ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+21:13:46  [INFO]  File "/home/cantoarch/Work/dots/src/dots/core/config.py", line 123, in get_module_dirs
+21:13:46  [INFO]  if module_type in types:
+21:13:46  [INFO]  ^^^^^^^^^^^^^^^^^^^^
+21:13:46  [ERROR]  TypeError: argument of type 'OptionInfo' is not a container or iterable
+21:13:46  [ERROR]  Link failed for: Hypr
+21:13:49  [SUCCESS]  Home items: 1 linked

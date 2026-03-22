@@ -178,6 +178,57 @@ Sin fallback el comportamiento es skip con warning (sin cambios).
 
 ## TUI
 
+### [ ] TUI panel 1 — 2 columnas nuevas: variants y dirty
+**Contexto:** El panel 1 de la TUI muestra Modules / Status / Destination / Last backup.
+Falta información sobre (1) si un módulo tiene variants y cuántos, y (2) si hay
+cambios sin guardar en el repo.
+
+**Comportamiento:**
+- Columna "Variants": si el módulo tiene variants → mostrar ícono (ej: ◈) con count
+- Columna "Dirty": si el módulo tiene archivos modificados sin commit → mostrar ícono (ej: ±) en amarillo
+- Ambas columnas opcionales — si no hay nada, celda vacía
+
+**Implementación:**
+- Agregar `has_changes` al `DotsService` — detectar con `git status --porcelain -- <module>`
+- Modificar `render_module_table()` para agregar las 2 columnas
+- Ajustar anchos dinámicamente: menos módulos → más espacio por columna
+
+**Archivos involucrados:** `src/dots/core/services.py`, `src/dots/ui/dashboard.py`
+
+### [ ] TUI — order keybinding con columnas nuevas + toggle dirección
+**Contexto:** El order actual (`o` → submenu → `m/s/d/l`) no incluye las nuevas columnas
+de variants ni dirty. Además, solo ordena ascendente — no hay forma de invertir.
+
+**Comportamiento:**
+- `o m` → ordenar por nombre (asc). Segunda vez `o m` → desc. Tercera vez → reset.
+- `o s` → ordenar por status (asc). Segunda vez `o s` → desc.
+- `o v` → ordenar por variants (nuevo)
+- `o y` → ordenar por dirty (nuevo, "y" de "dirty")
+- Si cambias de columna (`o m` → `o s`) → reset a asc
+- El orden actual se refleja en el footer: `m↑` (asc) / `m↓` (desc)
+
+**Implementación:**
+- Renombrar `sort_reverse` → `sort_direction` con valores `"none" | "asc" | "desc"`
+- En cada `o <key>` handler: si la columna es la misma → toggle direction; si es otra → reset
+- `_render_footer()` muestra la dirección con flecha unicode
+
+**Archivos involucrados:** `src/dots/ui/dashboard.py`
+
+### [ ] TUI — Shift+Enter para force link
+**Contexto:** El force link es útil cuando hay variant conflicts pero el usuario no
+quiere ir al tab Flavors a hacer el swap manualmente.
+
+**Comportamiento:**
+- `Enter` → link/unlink normal
+- `Shift+Enter` → link/unlink con force=True
+- El Tab Flavors sigue funcionando igual — es el camino principal
+
+**Implementación:**
+- Capturar `Keys.Shift+Enter` en el keybindings
+- En el handler: detectar si es Shift y pasar `force=True` a `_action_link`
+
+**Archivos involucrados:** `src/dots/ui/dashboard.py`
+
 ### [ ] Rewrite de dashboard.py con Textual
 **Contexto:** `dashboard.py` implementa una máquina de estados monolítica con
 manejo crudo de keyboard events y scroll manual. Es frágil y viola SRP.

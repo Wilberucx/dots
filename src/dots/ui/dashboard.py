@@ -10,8 +10,10 @@ Modes:
   Normal  — full keybindings, all tabs
   Visual  — selection circles (●/○), reduced tabs/bindings
 """
+
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 from datetime import datetime
@@ -23,13 +25,24 @@ from prompt_toolkit.application.current import get_app
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.layout import (
-    Layout, HSplit, VSplit, Window, FormattedTextControl, D,
+    Layout,
+    HSplit,
+    VSplit,
+    Window,
+    FormattedTextControl,
+    D,
 )
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.styles import Style
 
 from dots.core.config import DotsConfig
-from dots.core.resolver import resolve_modules, LinkStatus, get_module_variant_info
+from dots.core.services import DotsService
+from dots.core.resolver import (
+    resolve_modules,
+    LinkStatus,
+    get_active_variant,
+    get_module_variant_info,
+)
 from dots.core.transaction import TransactionLog
 
 from dots.ui.theme import TUI_STYLE_DICT, ACCENT, FG
@@ -41,14 +54,23 @@ from dots.ui.theme import TUI_STYLE_DICT, ACCENT, FG
 
 TUI_STYLE = Style.from_dict(TUI_STYLE_DICT)
 
+DEBUG_LOG_DIR = Path(__file__).parent.parent.parent / "logs"
+DEBUG_LOG_DIR.mkdir(exist_ok=True)
+DEBUG_LOG_FILE = (
+    DEBUG_LOG_DIR / f"tui_debug_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+)
+
 
 # ═══════════════════════════════════════════════════════════════════════
 #  ROUNDED FRAME
 # ═══════════════════════════════════════════════════════════════════════
 
-def rounded_frame(body, title: str = "",
-                  active_fn: Callable[[], bool] = lambda: False) -> HSplit:
+
+def rounded_frame(
+    body, title: str = "", active_fn: Callable[[], bool] = lambda: False
+) -> HSplit:
     """Wrap body in a box with rounded corners and optional title."""
+
     def border_style() -> str:
         return "class:border.active" if active_fn() else "class:border"
 
@@ -65,25 +87,47 @@ def rounded_frame(body, title: str = "",
     def get_bot_border():
         return [(border_style(), "╰")]
 
-    top_row = VSplit([
-        Window(content=FormattedTextControl(get_top_border), height=1),
-        Window(content=FormattedTextControl(lambda: [(border_style(), "─" * 300)]), height=1),
-        Window(content=FormattedTextControl(lambda: [(border_style(), "╮")]), width=1, height=1),
-    ])
+    top_row = VSplit(
+        [
+            Window(content=FormattedTextControl(get_top_border), height=1),
+            Window(
+                content=FormattedTextControl(lambda: [(border_style(), "─" * 300)]),
+                height=1,
+            ),
+            Window(
+                content=FormattedTextControl(lambda: [(border_style(), "╮")]),
+                width=1,
+                height=1,
+            ),
+        ]
+    )
 
-    bot_row = VSplit([
-        Window(content=FormattedTextControl(get_bot_border), height=1),
-        Window(content=FormattedTextControl(lambda: [(border_style(), "─" * 300)]), height=1),
-        Window(content=FormattedTextControl(lambda: [(border_style(), "╯")]), width=1, height=1),
-    ])
+    bot_row = VSplit(
+        [
+            Window(content=FormattedTextControl(get_bot_border), height=1),
+            Window(
+                content=FormattedTextControl(lambda: [(border_style(), "─" * 300)]),
+                height=1,
+            ),
+            Window(
+                content=FormattedTextControl(lambda: [(border_style(), "╯")]),
+                width=1,
+                height=1,
+            ),
+        ]
+    )
 
     left_bar = Window(
         content=FormattedTextControl(lambda: [(border_style(), "│\n" * 300)]),
-        width=1, always_hide_cursor=True, wrap_lines=False,
+        width=1,
+        always_hide_cursor=True,
+        wrap_lines=False,
     )
     right_bar = Window(
         content=FormattedTextControl(lambda: [(border_style(), "│\n" * 300)]),
-        width=1, always_hide_cursor=True, wrap_lines=False,
+        width=1,
+        always_hide_cursor=True,
+        wrap_lines=False,
     )
     mid_row = VSplit([left_bar, body, right_bar])
     return HSplit([top_row, mid_row, bot_row])
@@ -99,12 +143,12 @@ def gap_h(rows: int = 1) -> Window:
 
 # (id, label_when_active, label_when_inactive, key_hint, available_in_visual)
 TABS = [
-    ("home",    "dots",    "Home",    "H", True),
+    ("home", "dots", "Home", "H", True),
     ("flavors", "flavors", "flavors", "F", False),
-    ("logs",    "logs",    "logs",    "L", True),
-    ("tree",    "tree",    "tree",    "T", False),
-    ("backup",  "backup",  "backup",  "B", False),
-    ("help",    "help",    "help",    "?", True),
+    ("logs", "logs", "logs", "L", True),
+    ("tree", "tree", "tree", "T", False),
+    ("backup", "backup", "backup", "B", False),
+    ("help", "help", "help", "?", True),
 ]
 
 
@@ -112,12 +156,14 @@ TABS = [
 #  STATE
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TUIState:
     PANEL_TABLE = 0
-    PANEL_TABS  = 1
+    PANEL_TABS = 1
 
-    def __init__(self, config: DotsConfig):
-        self.config = config
+    def __init__(self, service: DotsService):
+        self.service = service
+        self.config = service.config
 
         # Mode
         self.mode: Literal["normal", "visual"] = "normal"
@@ -125,15 +171,6 @@ class TUIState:
 
         # Panels
         self.active_panel: int = self.PANEL_TABLE
-
-        # Module data
-        self.module_names:        list[str]               = []
-        self.module_statuses:     dict[str, list[LinkStatus]] = {}
-        self.module_link_state:   dict[str, str]           = {}  # linked/unlinked/broken
-        self.module_destinations: dict[str, str]           = {}
-        self.module_last_backup:  dict[str, str]           = {}
-        self.module_has_variants: dict[str, bool]          = {}
-        self.module_variants:     dict[str, list[str]]     = {}
 
         # Module navigation
         self.selected_module: int = 0
@@ -153,6 +190,7 @@ class TUIState:
         # Filter
         self.filter_active: bool = False
         self.filter_text: str = ""
+        self.filter_jumped: bool = False
 
         # Tree (for tree tab)
         self.tree_items: list[dict] = []
@@ -160,14 +198,14 @@ class TUIState:
         self._tree_vt: int = 0
         self.tree_vis: int = 10
 
-        # Backups (for backup tab)
-        self.backup_entries: list[str] = []
         self.selected_backup: int = 0
         self._bkp_vt: int = 0
         self.bkp_vis: int = 6
 
         # Log (for logs tab)
         self.log_entries: list[tuple[str, str, str]] = []
+        self._log_vt: int = 0
+        self.log_vis: int = 10
 
         # Help (for help tab)
         self._help_vt: int = 0
@@ -184,11 +222,48 @@ class TUIState:
         self.flavors_cursor: int = 0
         self._flavors_vt: int = 0
         self.flavors_vis: int = 10
-        self.module_active_variant: dict[str, str] = {}
 
         self.refresh_modules()
         self.refresh_backups()
         self.log("info", "Dots TUI started")
+
+    # ── Service Delegates ──
+
+    @property
+    def module_names(self):
+        return self.service.module_names
+
+    @property
+    def module_statuses(self):
+        return self.service.module_statuses
+
+    @property
+    def module_link_state(self):
+        return self.service.module_link_state
+
+    @property
+    def module_destinations(self):
+        return self.service.module_destinations
+
+    @property
+    def module_last_backup(self):
+        return self.service.module_last_backup
+
+    @property
+    def module_has_variants(self):
+        return self.service.module_has_variants
+
+    @property
+    def module_variants(self):
+        return self.service.module_variants
+
+    @property
+    def module_active_variant(self):
+        return self.service.module_active_variant
+
+    @property
+    def backup_entries(self):
+        return self.service.backup_entries
 
     # ── Helpers ──
 
@@ -214,11 +289,17 @@ class TUIState:
         self.log_entries.append((ts, level, msg))
         if len(self.log_entries) > 200:
             self.log_entries = self.log_entries[-200:]
+        try:
+            with open(DEBUG_LOG_FILE, "a") as f:
+                f.write(f"{ts}  [{level.upper()}]  {msg}\n")
+        except Exception:
+            pass
 
     # ── Scrolling ──
 
     def _calc_scroll(self, s: int, vt: int, v: int, n: int, margin: int = 2) -> int:
-        if v <= 0 or n <= v: return 0
+        if v <= 0 or n <= v:
+            return 0
         if s < vt + margin:
             return max(0, s - margin)
         elif s >= vt + v - margin:
@@ -242,21 +323,27 @@ class TUIState:
         self.selected_module = max(0, min(n - 1, self.selected_module + d))
         if self.selected_module != old_s:
             self._reset_module_sub_states()
-        self._mod_vt = self._calc_scroll(self.selected_module, self._mod_vt, self.mod_vis, n)
+        self._mod_vt = self._calc_scroll(
+            self.selected_module, self._mod_vt, self.mod_vis, n
+        )
 
     def _scroll_tree(self, d: int):
         if not self.tree_items:
             return
         n = len(self.tree_items)
         self.selected_tree = max(0, min(n - 1, self.selected_tree + d))
-        self._tree_vt = self._calc_scroll(self.selected_tree, self._tree_vt, self.tree_vis, n)
+        self._tree_vt = self._calc_scroll(
+            self.selected_tree, self._tree_vt, self.tree_vis, n
+        )
 
     def _scroll_bkp(self, d: int):
         if not self.backup_entries:
             return
         n = len(self.backup_entries)
         self.selected_backup = max(0, min(n - 1, self.selected_backup + d))
-        self._bkp_vt = self._calc_scroll(self.selected_backup, self._bkp_vt, self.bkp_vis, n)
+        self._bkp_vt = self._calc_scroll(
+            self.selected_backup, self._bkp_vt, self.bkp_vis, n
+        )
 
     def _scroll_help(self, d: int):
         if self.help_items_count <= 0:
@@ -268,7 +355,9 @@ class TUIState:
         n = len(self.current_statuses())
         if n > 0:
             self.home_selected_entry = max(0, min(n - 1, self.home_selected_entry + d))
-            self._home_vt = self._calc_scroll(self.home_selected_entry, self._home_vt, self.home_vis, n)
+            self._home_vt = self._calc_scroll(
+                self.home_selected_entry, self._home_vt, self.home_vis, n
+            )
 
     def _scroll_flavors(self, d: int):
         name = self.current_name()
@@ -278,7 +367,17 @@ class TUIState:
         n = len(vrs)
         if n > 0:
             self.flavors_cursor = max(0, min(n - 1, self.flavors_cursor + d))
-            self._flavors_vt = self._calc_scroll(self.flavors_cursor, self._flavors_vt, self.flavors_vis, n)
+            self._flavors_vt = self._calc_scroll(
+                self.flavors_cursor, self._flavors_vt, self.flavors_vis, n
+            )
+
+    def _scroll_log(self, d: int):
+        n = len(self.log_entries)
+        if n <= 0:
+            return
+        visible_count = min(self.log_vis, n)
+        max_vt = max(0, n - visible_count)
+        self._log_vt = max(0, min(max_vt, self._log_vt + d))
 
     # ── Tree Data ──
 
@@ -298,22 +397,30 @@ class TUIState:
                 return
             try:
                 items = sorted(
-                    [p for p in path.iterdir()
-                     if not p.name.startswith(".") and p.name != "__pycache__"],
-                    key=lambda p: (not p.is_dir(), p.name.lower())
+                    [
+                        p
+                        for p in path.iterdir()
+                        if not p.name.startswith(".") and p.name != "__pycache__"
+                    ],
+                    key=lambda p: (not p.is_dir(), p.name.lower()),
                 )
             except Exception:
                 return
             for i, item in enumerate(items):
                 is_last = i == len(items) - 1
                 char = "└── " if is_last else "├── "
-                self.tree_items.append({
-                    "path": item, "name": item.name, "is_dir": item.is_dir(),
-                    "prefix": prefix + char,
-                    "next_prefix": prefix + ("    " if is_last else "│   ")
-                })
+                self.tree_items.append(
+                    {
+                        "path": item,
+                        "name": item.name,
+                        "is_dir": item.is_dir(),
+                        "prefix": prefix + char,
+                        "next_prefix": prefix + ("    " if is_last else "│   "),
+                    }
+                )
                 if item.is_dir():
                     walk(item, prefix + ("    " if is_last else "│   "), depth + 1)
+
         walk(root)
 
     # ── Sorting ──
@@ -325,17 +432,17 @@ class TUIState:
         elif key == "status":
             self.module_names.sort(
                 key=lambda n: self.module_link_state.get(n, ""),
-                reverse=self.sort_reverse
+                reverse=self.sort_reverse,
             )
         elif key == "destination":
             self.module_names.sort(
                 key=lambda n: self.module_destinations.get(n, ""),
-                reverse=self.sort_reverse
+                reverse=self.sort_reverse,
             )
         elif key == "backup":
             self.module_names.sort(
                 key=lambda n: self.module_last_backup.get(n, ""),
-                reverse=self.sort_reverse
+                reverse=self.sort_reverse,
             )
         self.selected_module = 0
         self._mod_vt = 0
@@ -347,122 +454,36 @@ class TUIState:
         if not self.filter_text:
             return
         ft = self.filter_text.lower()
-        for idx, name in enumerate(self.module_names):
-            if ft in name.lower():
+        names = self.module_names
+        n = len(names)
+        if n == 0:
+            return
+        for i in range(1, n + 1):
+            idx = (self.selected_module + i) % n
+            if ft in names[idx].lower():
                 self.selected_module = idx
-                self._mod_vt = self._calc_scroll(self.selected_module, self._mod_vt, self.mod_vis, len(self.module_names))
+                self._mod_vt = self._calc_scroll(
+                    self.selected_module,
+                    self._mod_vt,
+                    self.mod_vis,
+                    len(self.module_names),
+                )
                 self._reset_module_sub_states()
+                self.filter_jumped = True
                 break
 
     def refresh_modules(self):
-        mods = resolve_modules(self.config)
-        self.module_statuses = mods
-        self.module_names = sorted(mods.keys())
-
-        # Also include module dirs without statuses
-        for d in self.config.get_module_dirs():
-            if d.name not in self.module_names:
-                self.module_names.append(d.name)
-                self.module_statuses[d.name] = []
-        self.module_names.sort()
-
-        home = str(Path.home())
-        sh = lambda p: "~" + str(p)[len(home):] if str(p).startswith(home) else str(p)
-
-        for name in self.module_names:
-            sts = self.module_statuses.get(name, [])
-
-            # Aggregate link state
-            if not sts:
-                self.module_link_state[name] = "unlinked"
-            elif any(s.state in ("conflict", "unsafe") for s in sts):
-                self.module_link_state[name] = "broken"
-            elif all(s.state == "linked" for s in sts):
-                self.module_link_state[name] = "linked"
-            elif any(s.state == "linked" for s in sts):
-                # Mix of linked and other states (partial)
-                self.module_link_state[name] = "linked"
-            else:
-                self.module_link_state[name] = "unlinked"
-
-            # Primary destination
-            if sts:
-                self.module_destinations[name] = sh(sts[0].destination)
-            else:
-                self.module_destinations[name] = ""
-
-            # Last backup (git commit message)
-            try:
-                r = subprocess.run(
-                    ["git", "log", "-1", "--format=%s", "--", name],
-                    cwd=self.config.repo_root,
-                    capture_output=True, text=True, timeout=2
-                )
-                msg = r.stdout.strip() if r.returncode == 0 else ""
-                self.module_last_backup[name] = msg if msg else ""
-            except Exception:
-                self.module_last_backup[name] = ""
-
-            # Variants
-            try:
-                vinfo = get_module_variant_info(self.config, name)
-                if vinfo and vinfo.has_variants:
-                    self.module_has_variants[name] = True
-                    self.module_variants[name] = vinfo.variants
-                    
-                    # Deduce active variant
-                    active_vars = set()
-                    mod_dir = self.config.repo_root / name
-                    for s in sts:
-                        try:
-                            rel = s.source.relative_to(mod_dir)
-                            part = rel.parts[0] if rel.parts else ""
-                            if part in vinfo.variants:
-                                active_vars.add(part)
-                        except ValueError:
-                            pass
-                    if active_vars:
-                        self.module_active_variant[name] = list(active_vars)[0]
-                    else:
-                        self.module_active_variant[name] = vinfo.default_variant
-                else:
-                    self.module_has_variants[name] = False
-                    self.module_variants[name] = []
-                    self.module_active_variant[name] = ""
-            except Exception:
-                self.module_has_variants[name] = False
-                self.module_variants[name] = []
-                self.module_active_variant[name] = ""
-
-        if self.module_names:
-            self.selected_module = min(self.selected_module, len(self.module_names) - 1)
-
-        # Re-apply sort
-        if self.sort_key != "name":
-            self.sort_modules(self.sort_key)
-
+        self.service.refresh_modules()
         self._update_tree_data()
 
     def refresh_backups(self):
-        try:
-            r = subprocess.run(
-                ["git", "log", "--oneline", "-30"],
-                cwd=self.config.repo_root,
-                capture_output=True, text=True, timeout=5
-            )
-            if r.returncode == 0:
-                self.backup_entries = [
-                    l.strip() for l in r.stdout.strip().splitlines() if l.strip()
-                ]
-            else:
-                self.backup_entries = ["(no git history)"]
-        except Exception:
-            self.backup_entries = ["(git unavailable)"]
+        self.service.refresh_backups()
 
 
 # ═══════════════════════════════════════════════════════════════════════
 #  RENDERERS
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def render_module_table(state: TUIState) -> FormattedText:
     """Render the module table with columns: Modules, Status, Destination, Last backup."""
@@ -482,10 +503,10 @@ def render_module_table(state: TUIState) -> FormattedText:
     # Column widths dynamically based on terminal width
     prefix_w = 4 if state.mode == "visual" else 2
     rem_w = w - prefix_w
-    W_MOD  = max(10, int(rem_w * 0.20))
-    W_ST   = max(10, int(rem_w * 0.12))
+    W_MOD = max(10, int(rem_w * 0.20))
+    W_ST = max(10, int(rem_w * 0.12))
     W_DEST = max(15, int(rem_w * 0.45))
-    W_BKP  = max(10, rem_w - W_MOD - W_ST - W_DEST)
+    W_BKP = max(10, rem_w - W_MOD - W_ST - W_DEST)
 
     # Header
     hdr = f"{'Modules':<{W_MOD}}{'Status':<{W_ST}}{'Destination':<{W_DEST}}{'Last backup':<{W_BKP}}"
@@ -496,7 +517,7 @@ def render_module_table(state: TUIState) -> FormattedText:
         result.append(("class:det.dim", "  (no modules)\n"))
         return FormattedText(result)
 
-    visible = names[state._mod_vt: state._mod_vt + state.mod_vis]
+    visible = names[state._mod_vt : state._mod_vt + state.mod_vis]
     for idx, name in enumerate(visible):
         abs_i = state._mod_vt + idx
         is_sel = abs_i == state.selected_module
@@ -523,23 +544,23 @@ def render_module_table(state: TUIState) -> FormattedText:
         dest = state.module_destinations.get(name, "")
         n_sts = len(state.module_statuses.get(name, []))
         if n_sts > 1:
-            dest_display = dest[:W_DEST - 2]
+            dest_display = dest[: W_DEST - 2]
         else:
-            dest_display = dest[:W_DEST - 1]
+            dest_display = dest[: W_DEST - 1]
 
         # Last backup (truncate)
         bkp = state.module_last_backup.get(name, "")
-        bkp_display = bkp[:W_BKP - 1] if bkp else ""
+        bkp_display = bkp[: W_BKP - 1] if bkp else ""
 
         # Assemble the row
         if circle:
             result.append(circle)
         result.append((row_cls, cursor + " "))
-        
+
         f_name = f"{name:<{W_MOD}}"
         f_link = f"{link_st:<{W_ST}}"
         f_dest = f"{dest_display:<{W_DEST}}"
-        
+
         # Calculate padding needed at the end
         used = len(f_name) + len(f_link) + len(f_dest)
         f_bkp = f"{bkp_display:<{rem_w - used}}"
@@ -645,10 +666,12 @@ def _render_home_tab(state: TUIState) -> FormattedText:
         return FormattedText(result)
 
     home = str(Path.home())
-    sh = lambda p: "~" + str(p)[len(home):] if str(p).startswith(home) else str(p)
+    sh = lambda p: "~" + str(p)[len(home) :] if str(p).startswith(home) else str(p)
     W1, W2, W3 = 14, 28, 8
 
-    result.append(("class:det.dim", f"\n   {'Source':<{W1}} {'Destination':<{W2}} State\n"))
+    result.append(
+        ("class:det.dim", f"\n   {'Source':<{W1}} {'Destination':<{W2}} State\n")
+    )
     result.append(("class:border", "   " + "─" * (W1 + W2 + W3 + 2) + "\n"))
 
     st_cls_map = {
@@ -658,24 +681,26 @@ def _render_home_tab(state: TUIState) -> FormattedText:
         "unsafe": "class:status.broken",
         "missing": "class:det.missing",
     }
-    
+
     act = state.active_panel == TUIState.PANEL_TABS and state.active_tab == "home"
-    
-    visible_statuses = statuses[state._home_vt: state._home_vt + state.home_vis]
+
+    visible_statuses = statuses[state._home_vt : state._home_vt + state.home_vis]
     for idx, s in enumerate(visible_statuses):
         abs_i = state._home_vt + idx
         is_sel = abs_i == state.home_selected_entry and act
         is_checked = abs_i in state.home_selected_set
-        
+
         cursor = "▸" if is_sel else " "
         check = "●" if is_checked else "○"
-        
+
         result.append(("class:row.sel" if is_sel else "", f"{cursor} "))
-        result.append(("class:select.on" if is_checked else "class:select.off", f"{check} "))
+        result.append(
+            ("class:select.on" if is_checked else "class:select.off", f"{check} ")
+        )
 
         row_cls = "class:row.sel" if is_sel else "class:det.dim"
-        result.append((row_cls, f"{s.source.name[:W1 - 1]:<{W1}} "))
-        result.append((row_cls, f"{sh(s.destination)[:W2 - 1]:<{W2}} "))
+        result.append((row_cls, f"{s.source.name[: W1 - 1]:<{W1}} "))
+        result.append((row_cls, f"{sh(s.destination)[: W2 - 1]:<{W2}} "))
         result.append((st_cls_map.get(s.state, "class:det.dim"), f"{s.state:<{W3}}\n"))
 
     return FormattedText(result)
@@ -698,34 +723,42 @@ def _render_flavors_tab(state: TUIState) -> FormattedText:
         return FormattedText(result)
 
     if vrs := state.module_variants.get(name):
-        act = state.active_panel == TUIState.PANEL_TABS and state.active_tab == "flavors"
+        act = (
+            state.active_panel == TUIState.PANEL_TABS and state.active_tab == "flavors"
+        )
         active_var = state.module_active_variant.get(name, "")
-        
+
         result.append(("class:det.label", f" Flavors for {name}\n\n"))
-        
-        visible_vrs = vrs[state._flavors_vt: state._flavors_vt + state.flavors_vis]
+
+        visible_vrs = vrs[state._flavors_vt : state._flavors_vt + state.flavors_vis]
         for idx, v in enumerate(visible_vrs):
             abs_i = state._flavors_vt + idx
             is_sel = abs_i == state.flavors_cursor and act
             is_active = v == active_var
-            
+
             cursor = "▸" if is_sel else " "
             check = "●" if is_active else "○"
-            
+
             result.append(("class:row.sel" if is_sel else "", f"{cursor} "))
-            result.append(("class:select.on" if is_active else "class:select.off", f"{check} "))
+            result.append(
+                ("class:select.on" if is_active else "class:select.off", f"{check} ")
+            )
 
             row_cls = "class:row.sel" if is_sel else "class:det.dim"
             result.append((row_cls, f"{v:<15} "))
-            
+
             if is_active:
                 result.append(("class:status.linked", "[active]\n"))
             else:
                 result.append(("class:det.dim", "[available]\n"))
     else:
         result.append(("class:det.dim", f" {name} has no flavors\n"))
-        result.append(("class:det.dim", "\n Flavors let you have multiple configurations\n"))
-        result.append(("class:det.dim", " for the same software pointing to the same\n"))
+        result.append(
+            ("class:det.dim", "\n Flavors let you have multiple configurations\n")
+        )
+        result.append(
+            ("class:det.dim", " for the same software pointing to the same\n")
+        )
         result.append(("class:det.dim", " destination.\n"))
 
     return FormattedText(result)
@@ -733,6 +766,14 @@ def _render_flavors_tab(state: TUIState) -> FormattedText:
 
 def _render_logs_tab(state: TUIState) -> FormattedText:
     """Logs tab — event log."""
+    try:
+        h = get_app().output.get_size().rows
+        p1_h = int((h - 5) * 0.55)
+        p2_h = h - 5 - p1_h
+        state.log_vis = max(3, p2_h - 4)
+    except Exception:
+        pass
+
     if not state.log_entries:
         return FormattedText([("class:log.ts", " —\n")])
     level_cls = {
@@ -742,11 +783,15 @@ def _render_logs_tab(state: TUIState) -> FormattedText:
         "error": "class:log.error",
     }
     result = []
-    for ts, level, msg in state.log_entries[-12:]:
-        result.extend([
-            ("class:log.ts", f" {ts}  "),
-            (level_cls.get(level, "class:log.info"), f"{msg}\n"),
-        ])
+    entries = list(reversed(state.log_entries))
+    visible = entries[state._log_vt : state._log_vt + state.log_vis]
+    for ts, level, msg in visible:
+        result.extend(
+            [
+                ("class:log.ts", f" {ts}  "),
+                (level_cls.get(level, "class:log.info"), f"{msg}\n"),
+            ]
+        )
     return FormattedText(result)
 
 
@@ -765,15 +810,21 @@ def _render_tree_tab(state: TUIState) -> FormattedText:
         result.append(("class:det.dim", " (no tree)\n"))
         return FormattedText(result)
 
-    visible = state.tree_items[state._tree_vt: state._tree_vt + state.tree_vis]
+    visible = state.tree_items[state._tree_vt : state._tree_vt + state.tree_vis]
     act = state.active_panel == TUIState.PANEL_TABS and state.active_tab == "tree"
     for idx, item in enumerate(visible):
         abs_i = state._tree_vt + idx
         is_sel = abs_i == state.selected_tree and act
-        cls = "class:panel.title.active" if is_sel else ("class:det.label" if item["is_dir"] else "")
-        icon = ("󰉋 " if item["is_dir"] else "󰈔 ")
+        cls = (
+            "class:panel.title.active"
+            if is_sel
+            else ("class:det.label" if item["is_dir"] else "")
+        )
+        icon = "󰉋 " if item["is_dir"] else "󰈔 "
         result.append(("class:border", item["prefix"]))
-        result.append((cls, icon + item["name"] + ("/" if item["is_dir"] else "") + "\n"))
+        result.append(
+            (cls, icon + item["name"] + ("/" if item["is_dir"] else "") + "\n")
+        )
     return FormattedText(result)
 
 
@@ -792,16 +843,18 @@ def _render_backup_tab(state: TUIState) -> FormattedText:
         result.append(("class:det.dim", " (no backups)\n"))
         return FormattedText(result)
 
-    visible = state.backup_entries[state._bkp_vt: state._bkp_vt + state.bkp_vis]
+    visible = state.backup_entries[state._bkp_vt : state._bkp_vt + state.bkp_vis]
     act = state.active_panel == TUIState.PANEL_TABS and state.active_tab == "backup"
     for idx, entry in enumerate(visible):
         abs_i = state._bkp_vt + idx
         is_sel = abs_i == state.selected_backup and act
         label = entry.split(" ", 1)[1] if " " in entry else entry
-        result.append((
-            "class:bkp.sel" if is_sel else "class:bkp.item",
-            f"{' ▸ ' if is_sel else '   '}{label}\n"
-        ))
+        result.append(
+            (
+                "class:bkp.sel" if is_sel else "class:bkp.item",
+                f"{' ▸ ' if is_sel else '   '}{label}\n",
+            )
+        )
     return FormattedText(result)
 
 
@@ -820,41 +873,58 @@ def _render_help_tab(state: TUIState) -> FormattedText:
     lines.append([])
 
     sections = [
-        ("Navigation", [
-            ("↑/k", "Move up"),
-            ("↓/j", "Move down"),
-            ("Tab", "Switch panel"),
-        ]),
-        ("Actions", [
-            ("Enter", "Link/unlink module"),
-            ("b", "Backup dotfiles"),
-            ("e", "Edit (sub-menu)"),
-            ("r", "Refresh"),
-        ]),
-        ("Modes", [
-            ("space", "Enter visual/select mode"),
-            ("a", "Toggle all (visual mode)"),
-            ("/", "Filter modules"),
-            ("o", "Order by column"),
-        ]),
-        ("Tabs (uppercase)", [
-            ("H", "Home / dots info"),
-            ("F", "Flavors"),
-            ("L", "Logs"),
-            ("T", "Tree"),
-            ("B", "Backup history"),
-            ("?", "This help"),
-        ]),
-        ("General", [
-            ("Esc", "Cancel / exit mode"),
-            ("q", "Quit"),
-        ]),
+        (
+            "Navigation",
+            [
+                ("↑/k", "Move up"),
+                ("↓/j", "Move down"),
+                ("Tab", "Switch panel"),
+            ],
+        ),
+        (
+            "Actions",
+            [
+                ("Enter", "Link/unlink module"),
+                ("b", "Backup dotfiles"),
+                ("e", "Edit (sub-menu)"),
+                ("r", "Refresh"),
+            ],
+        ),
+        (
+            "Modes",
+            [
+                ("space", "Enter visual/select mode"),
+                ("a", "Toggle all (visual mode)"),
+                ("/", "Filter modules"),
+                ("o", "Order by column"),
+            ],
+        ),
+        (
+            "Tabs (uppercase)",
+            [
+                ("H", "Home / dots info"),
+                ("F", "Flavors"),
+                ("L", "Logs"),
+                ("T", "Tree"),
+                ("B", "Backup history"),
+                ("?", "This help"),
+            ],
+        ),
+        (
+            "General",
+            [
+                ("Esc", "Cancel / normal mode"),
+                ("q", "Quit"),
+            ],
+        ),
     ]
 
     for section_name, bindings in sections:
         lines.append([("class:det.dim", f" {section_name}")])
         for key, desc in bindings:
-            lines.append([("class:footer.key", f"   {key:<8}"), ("class:det.dim", f"{desc}")])
+            lines.append(
+                [("class:footer.key", f"   {key:<8}"), ("class:det.dim", f"{desc}")]
+            )
         lines.append([])
 
     state.help_items_count = len(lines)
@@ -886,7 +956,12 @@ def render_footer(state: TUIState) -> FormattedText:
 
     # Filter mode footer
     if state.filter_active:
-        keys = [("type", "Buscar"), ("Enter", "apply"), ("Esc", "cancel")]
+        keys = [
+            ("type", "Buscar"),
+            ("n", "next"),
+            ("Enter", "apply"),
+            ("Esc", "cancel"),
+        ]
         for i, (k, d) in enumerate(keys):
             if i > 0:
                 result.append(("class:footer.sep", "  "))
@@ -903,8 +978,13 @@ def render_footer(state: TUIState) -> FormattedText:
         return FormattedText(result)
 
     if state.sub_mode == "order":
-        keys = [("m", "by Modules"), ("s", "by Status"), ("d", "by Destination"),
-                ("l", "by Last backup"), ("Esc", "cancel")]
+        keys = [
+            ("m", "by Modules"),
+            ("s", "by Status"),
+            ("d", "by Destination"),
+            ("l", "by Last backup"),
+            ("Esc", "cancel"),
+        ]
         for i, (k, d) in enumerate(keys):
             if i > 0:
                 result.append(("class:footer.sep", "  "))
@@ -914,15 +994,25 @@ def render_footer(state: TUIState) -> FormattedText:
     # Visual mode footer
     if state.mode == "visual":
         keys = [
-            ("↑↓/jk", "nav"), ("b", "backup"), ("space", "select"),
-            ("a", "toggle select"), ("Enter", "link/unlink/toggle"), ("Esc/q", "quit"),
+            ("↑↓/jk", "nav"),
+            ("b", "backup"),
+            ("space", "select"),
+            ("a", "toggle select"),
+            ("Enter", "link/unlink/toggle"),
+            ("Esc/q", "quit"),
         ]
     else:
         # Normal mode footer
         keys = [
-            ("↑↓/jk", "nav"), ("Tab", "panel"), ("b", "backup"),
-            ("e", "edit"), ("Enter", "link/unlink"), ("space", "select"),
-            ("/", "Buscar"), ("o", "order"), ("Esc/q", "quit"),
+            ("↑↓/jk", "nav"),
+            ("Tab", "panel"),
+            ("b", "backup"),
+            ("e", "edit"),
+            ("Enter", "link/unlink"),
+            ("space", "select"),
+            ("/", "Buscar"),
+            ("o", "order"),
+            ("Esc/q", "quit"),
         ]
 
     for i, (k, d) in enumerate(keys):
@@ -936,6 +1026,7 @@ def render_footer(state: TUIState) -> FormattedText:
 # ═══════════════════════════════════════════════════════════════════════
 #  APPLICATION BUILDER
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def _build_app(state: TUIState) -> Application:
     kb = KeyBindings()
@@ -962,6 +1053,8 @@ def _build_app(state: TUIState) -> Application:
                 state._scroll_home(+1)
             elif state.active_tab == "flavors":
                 state._scroll_flavors(+1)
+            elif state.active_tab == "logs":
+                state._scroll_log(+1)
 
     @kb.add("down")
     def _dn_arrow(_):
@@ -980,6 +1073,8 @@ def _build_app(state: TUIState) -> Application:
                 state._scroll_home(+1)
             elif state.active_tab == "flavors":
                 state._scroll_flavors(+1)
+            elif state.active_tab == "logs":
+                state._scroll_log(+1)
 
     @kb.add("k")
     def _up_k(_):
@@ -1002,6 +1097,8 @@ def _build_app(state: TUIState) -> Application:
                 state._scroll_home(-1)
             elif state.active_tab == "flavors":
                 state._scroll_flavors(-1)
+            elif state.active_tab == "logs":
+                state._scroll_log(-1)
 
     @kb.add("up")
     def _up_arrow(_):
@@ -1020,6 +1117,8 @@ def _build_app(state: TUIState) -> Application:
                 state._scroll_home(-1)
             elif state.active_tab == "flavors":
                 state._scroll_flavors(-1)
+            elif state.active_tab == "logs":
+                state._scroll_log(-1)
 
     # ── Tab (panel switch) ──
     @kb.add("tab")
@@ -1038,6 +1137,7 @@ def _build_app(state: TUIState) -> Application:
         if state.sub_mode:
             return
         state.active_tab = "home"
+        state.active_panel = TUIState.PANEL_TABS
 
     @kb.add("F")
     def _tab_flavors(_):
@@ -1046,12 +1146,14 @@ def _build_app(state: TUIState) -> Application:
         if state.mode == "visual":
             return
         state.active_tab = "flavors"
+        state.active_panel = TUIState.PANEL_TABS
 
     @kb.add("L")
     def _tab_logs(_):
         if state.filter_active or state.sub_mode:
             return
         state.active_tab = "logs"
+        state.active_panel = TUIState.PANEL_TABS
 
     @kb.add("T")
     def _tab_tree(_):
@@ -1060,6 +1162,7 @@ def _build_app(state: TUIState) -> Application:
         if state.mode == "visual":
             return
         state.active_tab = "tree"
+        state.active_panel = TUIState.PANEL_TABS
 
     @kb.add("B")
     def _tab_backup(_):
@@ -1068,6 +1171,7 @@ def _build_app(state: TUIState) -> Application:
         if state.mode == "visual":
             return
         state.active_tab = "backup"
+        state.active_panel = TUIState.PANEL_TABS
 
     @kb.add("?")
     def _tab_help(_):
@@ -1088,7 +1192,7 @@ def _build_app(state: TUIState) -> Application:
             return
         if state.sub_mode:
             return
-            
+
         if state.active_panel == TUIState.PANEL_TABS and state.active_tab == "home":
             sts = state.current_statuses()
             if sts and 0 <= state.home_selected_entry < len(sts):
@@ -1132,10 +1236,18 @@ def _build_app(state: TUIState) -> Application:
     @kb.add("enter")
     def _enter(event):
         if state.filter_active:
+            # Only reset to top if user didn't jump to a match
+            if not state.filter_jumped:
+                state.selected_module = 0
+                state._mod_vt = 0
+            state.filter_jumped = False
             state.filter_active = False
-            state.selected_module = 0
-            state._mod_vt = 0
-            state.log("info", f"Filter: '{state.filter_text}'" if state.filter_text else "Filter cleared")
+            state.log(
+                "info",
+                f"Filter: '{state.filter_text}'"
+                if state.filter_text
+                else "Filter cleared",
+            )
             return
         if state.sub_mode:
             return
@@ -1158,10 +1270,14 @@ def _build_app(state: TUIState) -> Application:
                 _action_link(event, state, [name])
         else:
             names = state._filtered_names()
-            selected_names = [names[i] for i in sorted(state.selected_set) if i < len(names)]
+            selected_names = [
+                names[i] for i in sorted(state.selected_set) if i < len(names)
+            ]
             if not selected_names:
                 return
-            states = [state.module_link_state.get(n, "unlinked") for n in selected_names]
+            states = [
+                state.module_link_state.get(n, "unlinked") for n in selected_names
+            ]
             to_link = [n for n, s in zip(selected_names, states) if s != "linked"]
             to_unlink = [n for n, s in zip(selected_names, states) if s == "linked"]
             if to_link:
@@ -1302,6 +1418,12 @@ def _build_app(state: TUIState) -> Application:
             state.filter_text = state.filter_text[:-1]
             state._jump_to_match()
 
+    # ── n (next match) ──
+    @kb.add("n")
+    def _next_match(_):
+        if state.filter_active:
+            state._jump_to_match()
+
     # ── b (backup / filter char) ──
     @kb.add("b")
     def _backup(event):
@@ -1332,6 +1454,7 @@ def _build_app(state: TUIState) -> Application:
         if state.filter_active:
             state.filter_active = False
             state.filter_text = ""
+            state.filter_jumped = False
             return
         if state.sub_mode:
             state.sub_mode = None
@@ -1340,8 +1463,6 @@ def _build_app(state: TUIState) -> Application:
             state.mode = "normal"
             state.selected_set.clear()
             state.log("info", "Normal mode")
-            return
-        get_app().exit()
 
     # ── q (quit / filter char) ──
     @kb.add("q")
@@ -1362,14 +1483,15 @@ def _build_app(state: TUIState) -> Application:
     # Letters not already handled above: c, f, g, h, i, n, t, u, v, w, x, y, z
     _filter_only_chars = "cfghintuvwxyz0123456789-_."
     for ch in _filter_only_chars:
+
         @kb.add(ch)
         def _filter_char(_, c=ch):
             if state.filter_active:
                 state.filter_text += c
             state._jump_to_match()
 
-
     from prompt_toolkit.filters import Condition
+
     @Condition
     def is_searching():
         return state.filter_active
@@ -1416,15 +1538,17 @@ def _build_app(state: TUIState) -> Application:
         always_hide_cursor=True,
     )
 
-    root = HSplit([
-        gap_h(1),
-        HSplit([frame_table], height=D(weight=55)),
-        gap_h(1),
-        HSplit([frame_tabs], height=D(weight=45)),
-        gap_h(1),
-        win_footer,
-        gap_h(1),
-    ])
+    root = HSplit(
+        [
+            gap_h(1),
+            HSplit([frame_table], height=D(weight=55)),
+            gap_h(1),
+            HSplit([frame_tabs], height=D(weight=45)),
+            gap_h(1),
+            win_footer,
+            gap_h(1),
+        ]
+    )
 
     return Application(
         layout=Layout(root),
@@ -1438,41 +1562,138 @@ def _build_app(state: TUIState) -> Application:
 #  ACTIONS (link, unlink, backup)
 # ═══════════════════════════════════════════════════════════════════════
 
+
+def _capture_cmd(fn, *args, **kwargs) -> tuple[bool, list[str]]:
+    """
+    Execute a CLI command capturing both sys.stdout and Rich console output.
+    Prevents CLI output from corrupting the TUI layout.
+    """
+    import io
+    import re
+    import sys
+    import traceback
+    from rich.console import Console
+
+    buf = io.StringIO()
+
+    # Capture sys.stdout/stderr
+    old_stdout, old_stderr = sys.stdout, sys.stderr
+    sys.stdout = sys.stderr = buf
+
+    # Capture Rich console — redirect the shared console's file handle
+    from dots.ui.output import console as rich_console
+
+    old_file = rich_console.file
+    rich_console.file = buf
+
+    success = True
+    try:
+        fn(*args, **kwargs)
+    except SystemExit as e:
+        # Typer uses SystemExit with exit code 0 (success) or 1 (error)
+        code = getattr(e, "exit_code", None)
+        if code is not None and code != 0:
+            success = False
+    except Exception:
+        traceback.print_exc(file=buf)
+        success = False
+    finally:
+        sys.stdout, sys.stderr = old_stdout, old_stderr
+        rich_console.file = old_file
+
+    raw = buf.getvalue()
+    # Debug: write captured output to file
+    try:
+        with open(DEBUG_LOG_FILE, "a") as f:
+            f.write(f"\n--- _capture_cmd: {fn.__name__} ---\n")
+            if lines:
+                f.write("CAPTURED OUTPUT:\n")
+                for line in lines:
+                    f.write(f"  {line}\n")
+            else:
+                f.write("  (no output captured)\n")
+    except Exception:
+        pass
+
+    ansi_escape = re.compile(r"\x1b\[[0-9;]*m")
+    lines = [
+        ansi_escape.sub("", line).strip()
+        for line in raw.splitlines()
+        if ansi_escape.sub("", line).strip()
+    ]
+    return success, lines
+
+
 def _action_link(event, state: TUIState, names: list[str]):
     """Link modules."""
     from dots.commands.link import link_cmd
-    try:
-        link_cmd(module=names, dry_run=False, force=False, interactive=False)
+
+    force = any(
+        state.module_link_state.get(n, "unlinked") in ("conflict", "broken")
+        for n in names
+    )
+
+    success, lines = _capture_cmd(
+        link_cmd,
+        module=names,
+        dry_run=False,
+        force=force,
+        interactive=False,
+        variant=None,
+    )
+    for line in lines:
+        level = (
+            "error"
+            if any(w in line.lower() for w in ("error", "fail", "✖"))
+            else "info"
+        )
+        state.log(level, line)
+    if success:
         state.log("success", f"Linked: {', '.join(names)}")
-    except (SystemExit, Exception) as exc:
-        state.log("error", f"Link failed: {exc}")
+    else:
+        state.log("error", f"Link failed for: {', '.join(names)}")
     state.refresh_modules()
 
 
 def _action_unlink(event, state: TUIState, names: list[str]):
     """Unlink modules."""
     from dots.commands.unlink import unlink_cmd
-    try:
-        unlink_cmd(module=names, dry_run=False, interactive=False)
+
+    success, lines = _capture_cmd(
+        unlink_cmd,
+        module=names,
+        dry_run=False,
+        interactive=False,
+    )
+    for line in lines:
+        level = (
+            "error"
+            if any(w in line.lower() for w in ("error", "fail", "✖"))
+            else "info"
+        )
+        state.log(level, line)
+    if success:
         state.log("success", f"Unlinked: {', '.join(names)}")
-    except (SystemExit, Exception) as exc:
-        state.log("error", f"Unlink failed: {exc}")
+    else:
+        state.log("error", f"Unlink failed for: {', '.join(names)}")
     state.refresh_modules()
 
 
 def _action_backup(event, state: TUIState):
     """Backup dotfiles."""
     from dots.commands.backup import run_backup, default_commit_message
+
     msg = default_commit_message()
-    try:
-        success = run_backup(msg, state.config.repo_root)
-        if success:
-            state.log("success", f"Backup: {msg}")
-        else:
-            state.log("warning", "Backup: nothing to commit")
-    except Exception as exc:
-        state.log("error", f"Backup failed: {exc}")
+    success, lines = _capture_cmd(run_backup, msg, state.config.repo_root)
+    for line in lines:
+        state.log("info", line)
+    if success:
+        state.log("success", f"Backup: {msg}")
+    else:
+        state.log("warning", "Backup: nothing to commit or failed")
     state.refresh_backups()
+    state.active_tab = "logs"
+    state.active_panel = TUIState.PANEL_TABS
 
 
 def _action_link_home_items(event, state: TUIState):
@@ -1481,16 +1702,20 @@ def _action_link_home_items(event, state: TUIState):
     sts = state.current_statuses()
     if not name or not sts:
         return
-        
-    indices = state.home_selected_set if state.home_selected_set else {state.home_selected_entry}
+
+    indices = (
+        state.home_selected_set
+        if state.home_selected_set
+        else {state.home_selected_entry}
+    )
     selected_sts = [sts[i] for i in indices if 0 <= i < len(sts)]
-    
+
     if not selected_sts:
         return
 
     transaction = TransactionLog()
     linked = unlinked = 0
-    
+
     try:
         for status in selected_sts:
             src = status.source
@@ -1509,17 +1734,19 @@ def _action_link_home_items(event, state: TUIState):
                     transaction.mkdir(dest.parent)
                 transaction.symlink(dest, src.resolve())
                 linked += 1
-                
+
         transaction.commit()
         if linked > 0 or unlinked > 0:
             msg = []
-            if linked: msg.append(f"{linked} linked")
-            if unlinked: msg.append(f"{unlinked} unlinked")
+            if linked:
+                msg.append(f"{linked} linked")
+            if unlinked:
+                msg.append(f"{unlinked} unlinked")
             state.log("success", f"Home items: {', '.join(msg)}")
     except Exception as exc:
         transaction.rollback()
         state.log("error", f"Item action failed: {exc}")
-        
+
     state.home_selected_set.clear()
     state.refresh_modules()
 
@@ -1529,35 +1756,37 @@ def _action_switch_variant(event, state: TUIState):
     name = state.current_name()
     if not name:
         return
-        
+
     vrs = state.module_variants.get(name, [])
     if not vrs or not (0 <= state.flavors_cursor < len(vrs)):
         return
-        
-    target_variant = vrs[state.flavors_cursor]
-    active_variant = state.module_active_variant.get(name, "")
-    
-    if target_variant == active_variant:
+
+    target_variant = vrs[state.flavors_cursor].rstrip("/")
+    active_variant = get_active_variant(state.config, name) or ""
+    active_variant_clean = active_variant.rstrip("/") if active_variant else ""
+
+    if target_variant == active_variant_clean:
         state.log("info", f"Variant {target_variant} is already active")
         return
-        
+
     from dots.commands.link import link_cmd
-    try:
-        # We must mock standard Typer prints inside the TUI for silent execution or let it print to a buffer
-        devnull = open(os.devnull, 'w')
-        import sys
-        old_stdout, old_stderr = sys.stdout, sys.stderr
-        sys.stdout = sys.stderr = devnull
-        try:
-            link_cmd(module=[name], dry_run=False, force=True, interactive=False, variant=target_variant)
-        finally:
-            sys.stdout, sys.stderr = old_stdout, old_stderr
-            devnull.close()
-            
-        state.log("success", f"Switched {name} to {target_variant}")
-    except (SystemExit, Exception) as exc:
-        state.log("error", f"Variant switch failed: {exc}")
-        
+
+    success, lines = _capture_cmd(
+        link_cmd,
+        module=[name],
+        dry_run=False,
+        force=False,
+        interactive=False,
+        variant=target_variant,
+    )
+    for line in lines:
+        state.log("info", line)
+
+    if success:
+        state.log("success", f"↔ {name}: {active_variant} → {target_variant} (swapped)")
+    else:
+        state.log("error", f"Variant switch failed: {name} → {target_variant}")
+
     state.refresh_modules()
 
 
@@ -1565,7 +1794,9 @@ def _action_switch_variant(event, state: TUIState):
 #  ENTRY POINT
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def dashboard():
     config = DotsConfig.load()
-    state = TUIState(config)
+    service = DotsService(config)
+    state = TUIState(service)
     _build_app(state).run()

@@ -1,0 +1,104 @@
+21:30:59  [INFO]  Dots TUI started
+
+--- _capture_cmd: link_cmd ---
+21:31:02  [INFO]  ==== Linking Dotfiles ====
+21:31:02  [INFO]  ℹ Linking specified modules: Alacritty
+21:31:02  [INFO]  📦 Alacritty
+21:31:02  [INFO]  ├── ✔ alacritty.toml → /home/cantoarch/.config/alacritty/alacritty.toml (created)
+21:31:02  [INFO]  └── Status: 1 linked
+21:31:02  [INFO]  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+21:31:02  [INFO]  Summary: 1 ✔ linked
+21:31:02  [SUCCESS]  Linked: Alacritty
+
+--- _capture_cmd: unlink_cmd ---
+21:31:14  [INFO]  ==== Unlinking Dotfiles ====
+21:31:14  [INFO]  ℹ Unlinking specified modules: Alacritty
+21:31:14  [INFO]  📦 Alacritty
+21:31:14  [INFO]  ├── ✔ alacritty.toml → /home/cantoarch/.config/alacritty/alacritty.toml (removed)
+21:31:14  [INFO]  └── Status: 1 removed
+21:31:14  [INFO]  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+21:31:14  [INFO]  Summary: 1 ✔ removed
+21:31:14  [SUCCESS]  Unlinked: Alacritty
+
+--- _capture_cmd: link_cmd ---
+21:31:16  [INFO]  ==== Linking Dotfiles ====
+21:31:16  [INFO]  ℹ Linking specified modules: Atuin
+21:31:16  [INFO]  📦 Atuin
+21:31:16  [INFO]  └── ⚠ atuin → /home/cantoarch/.config/atuin (backup exists at /home/cantoarch/.config/atuin-backup, review before creating new backups)
+21:31:16  [INFO]  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+21:31:16  [INFO]  Summary:
+21:31:16  [SUCCESS]  Linked: Atuin
+
+--- _capture_cmd: link_cmd ---
+21:31:42  [INFO]  ==== Linking Dotfiles ====
+21:31:42  [INFO]  ℹ Linking specified modules: Atuin
+21:31:42  [INFO]  📦 Atuin
+21:31:42  [INFO]  └── ⚠ atuin → /home/cantoarch/.config/atuin (backup exists at /home/cantoarch/.config/atuin-backup, review before creating new backups)
+21:31:42  [INFO]  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+21:31:42  [INFO]  Summary:
+21:31:42  [SUCCESS]  Linked: Atuin
+
+--- _capture_cmd: link_cmd ---
+21:31:53  [INFO]  ==== Linking Dotfiles ====
+21:31:53  [INFO]  ℹ Linking specified modules: Git
+21:31:53  [INFO]  📦 Git
+21:31:53  [INFO]  ├── ✔ .gitconfig-linux → /home/cantoarch/.gitconfig (created)
+21:31:53  [INFO]  └── Status: 1 linked
+21:31:53  [INFO]  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+21:31:53  [INFO]  Summary: 1 ✔ linked
+21:31:53  [SUCCESS]  Linked: Git
+
+--- _capture_cmd: unlink_cmd ---
+21:32:03  [INFO]  ==== Unlinking Dotfiles ====
+21:32:03  [INFO]  ℹ Unlinking specified modules: Kitty
+21:32:03  [INFO]  📦 Kitty
+21:32:03  [INFO]  ├── ✔ kitty.conf → /home/cantoarch/.config/kitty/kitty.conf (removed)
+21:32:03  [INFO]  └── Status: 1 removed
+21:32:03  [INFO]  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+21:32:03  [INFO]  Summary: 1 ✔ removed
+21:32:03  [SUCCESS]  Unlinked: Kitty
+
+--- _capture_cmd: unlink_cmd ---
+21:32:06  [INFO]  ==== Unlinking Dotfiles ====
+21:32:06  [INFO]  ℹ Unlinking specified modules: Nushell
+21:32:06  [INFO]  📦 Nushell
+21:32:06  [INFO]  ├── ✔ config.nu → /home/cantoarch/.config/nushell/config.nu (removed)
+21:32:06  [INFO]  ├── ✔ env.nu → /home/cantoarch/.config/nushell/env.nu (removed)
+21:32:06  [INFO]  ├── ✔ bash-env-json → /home/cantoarch/.config/bash-env-json (removed)
+21:32:06  [INFO]  ├── ✔ bash-env.nu → /home/cantoarch/.config/bash-env.nu (removed)
+21:32:06  [INFO]  └── Status: 4 removed
+21:32:06  [INFO]  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+21:32:06  [INFO]  Summary: 4 ✔ removed
+21:32:06  [SUCCESS]  Unlinked: Nushell
+
+--- _capture_cmd: link_cmd ---
+21:32:12  [INFO]  ==== Linking Dotfiles ====
+21:32:12  [INFO]  ℹ Linking specified modules: Nvim
+21:32:12  [INFO]  ℹ Auto-swap: Nvim variant 'nvim' → 'notevim'
+21:32:12  [INFO]  📦 Nvim
+21:32:12  [INFO]  ├── ↔ notevim → /home/cantoarch/.config/nvim (swapped: nvim → notevim)
+21:32:12  [INFO]  └── Status: 1 linked
+21:32:12  [INFO]  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+21:32:12  [INFO]  Summary: 1 ✔ linked
+21:32:12  [SUCCESS]  ↔ Nvim: nvim → notevim (swapped)
+
+--- _capture_cmd: link_cmd ---
+21:32:14  [INFO]  ==== Linking Dotfiles ====
+21:32:14  [INFO]  ℹ Linking specified modules: Nvim
+21:32:14  [INFO]  ℹ Auto-swap: Nvim variant 'notevim' → 'nvim'
+21:32:14  [INFO]  📦 Nvim
+21:32:14  [INFO]  ├── ↔ nvim → /home/cantoarch/.config/nvim (swapped: notevim → nvim)
+21:32:14  [INFO]  └── Status: 1 linked
+21:32:14  [INFO]  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+21:32:14  [INFO]  Summary: 1 ✔ linked
+21:32:14  [SUCCESS]  ↔ Nvim: notevim → nvim (swapped)
+
+--- _capture_cmd: unlink_cmd ---
+21:32:36  [INFO]  ==== Unlinking Dotfiles ====
+21:32:36  [INFO]  ℹ Unlinking specified modules: Tmux
+21:32:36  [INFO]  📦 Tmux
+21:32:36  [INFO]  ├── ✔ tmux.conf → /home/cantoarch/.tmux.conf (removed)
+21:32:36  [INFO]  └── Status: 1 removed
+21:32:36  [INFO]  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+21:32:36  [INFO]  Summary: 1 ✔ removed
+21:32:36  [SUCCESS]  Unlinked: Tmux
