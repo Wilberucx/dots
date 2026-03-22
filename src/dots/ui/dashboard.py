@@ -203,6 +203,8 @@ class TUIState:
 
         # Log (for logs tab)
         self.log_entries: list[tuple[str, str, str]] = []
+        self._log_vt: int = 0
+        self.log_vis: int = 10
 
         # Help (for help tab)
         self._help_vt: int = 0
@@ -368,6 +370,14 @@ class TUIState:
                 self.flavors_cursor, self._flavors_vt, self.flavors_vis, n
             )
 
+    def _scroll_log(self, d: int):
+        n = len(self.log_entries)
+        if n <= 0:
+            return
+        visible_count = min(self.log_vis, n)
+        max_vt = max(0, n - visible_count)
+        self._log_vt = max(0, min(max_vt, self._log_vt + d))
+
     # ── Tree Data ──
 
     def _update_tree_data(self):
@@ -443,8 +453,13 @@ class TUIState:
         if not self.filter_text:
             return
         ft = self.filter_text.lower()
-        for idx, name in enumerate(self.module_names):
-            if ft in name.lower():
+        names = self.module_names
+        n = len(names)
+        if n == 0:
+            return
+        for i in range(1, n + 1):
+            idx = (self.selected_module + i) % n
+            if ft in names[idx].lower():
                 self.selected_module = idx
                 self._mod_vt = self._calc_scroll(
                     self.selected_module,
@@ -749,6 +764,14 @@ def _render_flavors_tab(state: TUIState) -> FormattedText:
 
 def _render_logs_tab(state: TUIState) -> FormattedText:
     """Logs tab — event log."""
+    try:
+        h = get_app().output.get_size().rows
+        p1_h = int((h - 5) * 0.55)
+        p2_h = h - 5 - p1_h
+        state.log_vis = max(3, p2_h - 4)
+    except Exception:
+        pass
+
     if not state.log_entries:
         return FormattedText([("class:log.ts", " —\n")])
     level_cls = {
@@ -758,7 +781,9 @@ def _render_logs_tab(state: TUIState) -> FormattedText:
         "error": "class:log.error",
     }
     result = []
-    for ts, level, msg in state.log_entries[-12:]:
+    entries = list(reversed(state.log_entries))
+    visible = entries[state._log_vt : state._log_vt + state.log_vis]
+    for ts, level, msg in visible:
         result.extend(
             [
                 ("class:log.ts", f" {ts}  "),
@@ -929,7 +954,12 @@ def render_footer(state: TUIState) -> FormattedText:
 
     # Filter mode footer
     if state.filter_active:
-        keys = [("type", "Buscar"), ("Enter", "apply"), ("Esc", "cancel")]
+        keys = [
+            ("type", "Buscar"),
+            ("n", "next"),
+            ("Enter", "apply"),
+            ("Esc", "cancel"),
+        ]
         for i, (k, d) in enumerate(keys):
             if i > 0:
                 result.append(("class:footer.sep", "  "))
@@ -1021,6 +1051,8 @@ def _build_app(state: TUIState) -> Application:
                 state._scroll_home(+1)
             elif state.active_tab == "flavors":
                 state._scroll_flavors(+1)
+            elif state.active_tab == "logs":
+                state._scroll_log(+1)
 
     @kb.add("down")
     def _dn_arrow(_):
@@ -1039,6 +1071,8 @@ def _build_app(state: TUIState) -> Application:
                 state._scroll_home(+1)
             elif state.active_tab == "flavors":
                 state._scroll_flavors(+1)
+            elif state.active_tab == "logs":
+                state._scroll_log(+1)
 
     @kb.add("k")
     def _up_k(_):
@@ -1061,6 +1095,8 @@ def _build_app(state: TUIState) -> Application:
                 state._scroll_home(-1)
             elif state.active_tab == "flavors":
                 state._scroll_flavors(-1)
+            elif state.active_tab == "logs":
+                state._scroll_log(-1)
 
     @kb.add("up")
     def _up_arrow(_):
@@ -1079,6 +1115,8 @@ def _build_app(state: TUIState) -> Application:
                 state._scroll_home(-1)
             elif state.active_tab == "flavors":
                 state._scroll_flavors(-1)
+            elif state.active_tab == "logs":
+                state._scroll_log(-1)
 
     # ── Tab (panel switch) ──
     @kb.add("tab")
@@ -1373,6 +1411,12 @@ def _build_app(state: TUIState) -> Application:
     def _filter_bs(_):
         if state.filter_active:
             state.filter_text = state.filter_text[:-1]
+            state._jump_to_match()
+
+    # ── n (next match) ──
+    @kb.add("n")
+    def _next_match(_):
+        if state.filter_active:
             state._jump_to_match()
 
     # ── b (backup / filter char) ──

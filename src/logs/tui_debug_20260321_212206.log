@@ -1,0 +1,11 @@
+21:22:06  [INFO]  Dots TUI started
+
+--- _capture_cmd: unlink_cmd ---
+21:22:11  [INFO]  ==== Unlinking Dotfiles ====
+21:22:11  [INFO]  ℹ Unlinking specified modules: I3
+21:22:11  [INFO]  📦 I3
+21:22:11  [INFO]  ├── ✔ config → /home/cantoarch/.config/i3/config (removed)
+21:22:11  [INFO]  └── Status: 1 removed
+21:22:11  [INFO]  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+21:22:11  [INFO]  Summary: 1 ✔ removed
+21:22:11  [SUCCESS]  Unlinked: I3

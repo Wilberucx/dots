@@ -1,0 +1,154 @@
+21:20:54  [INFO]  Dots TUI started
+
+--- _capture_cmd: link_cmd ---
+21:21:01  [INFO]  ==== Linking Dotfiles ====
+21:21:01  [INFO]  ℹ Linking specified modules: Git
+21:21:01  [INFO]  Traceback (most recent call last):
+21:21:01  [INFO]  File "/home/cantoarch/Work/dots/src/dots/ui/dashboard.py", line 1543, in _capture_cmd
+21:21:01  [INFO]  fn(*args, **kwargs)
+21:21:01  [INFO]  ~~^^^^^^^^^^^^^^^^^
+21:21:01  [INFO]  File "/home/cantoarch/Work/dots/src/dots/commands/link.py", line 131, in link_cmd
+21:21:01  [INFO]  type_filter = list(type) if type else None
+21:21:01  [INFO]  ~~~~^^^^^^
+21:21:01  [ERROR]  TypeError: 'OptionInfo' object is not iterable
+21:21:01  [ERROR]  Link failed for: Git
+
+--- _capture_cmd: link_cmd ---
+21:21:02  [INFO]  ==== Linking Dotfiles ====
+21:21:02  [INFO]  ℹ Linking specified modules: Git
+21:21:02  [INFO]  Traceback (most recent call last):
+21:21:02  [INFO]  File "/home/cantoarch/Work/dots/src/dots/ui/dashboard.py", line 1543, in _capture_cmd
+21:21:02  [INFO]  fn(*args, **kwargs)
+21:21:02  [INFO]  ~~^^^^^^^^^^^^^^^^^
+21:21:02  [INFO]  File "/home/cantoarch/Work/dots/src/dots/commands/link.py", line 131, in link_cmd
+21:21:02  [INFO]  type_filter = list(type) if type else None
+21:21:02  [INFO]  ~~~~^^^^^^
+21:21:02  [ERROR]  TypeError: 'OptionInfo' object is not iterable
+21:21:02  [ERROR]  Link failed for: Git
+
+--- _capture_cmd: link_cmd ---
+21:21:04  [INFO]  ==== Linking Dotfiles ====
+21:21:04  [INFO]  ℹ Linking specified modules: Ghostty
+21:21:04  [INFO]  Traceback (most recent call last):
+21:21:04  [INFO]  File "/home/cantoarch/Work/dots/src/dots/ui/dashboard.py", line 1543, in _capture_cmd
+21:21:04  [INFO]  fn(*args, **kwargs)
+21:21:04  [INFO]  ~~^^^^^^^^^^^^^^^^^
+21:21:04  [INFO]  File "/home/cantoarch/Work/dots/src/dots/commands/link.py", line 131, in link_cmd
+21:21:04  [INFO]  type_filter = list(type) if type else None
+21:21:04  [INFO]  ~~~~^^^^^^
+21:21:04  [ERROR]  TypeError: 'OptionInfo' object is not iterable
+21:21:04  [ERROR]  Link failed for: Ghostty
+
+--- _capture_cmd: link_cmd ---
+21:21:06  [INFO]  ==== Linking Dotfiles ====
+21:21:06  [INFO]  ℹ Linking specified modules: Fish
+21:21:06  [INFO]  Traceback (most recent call last):
+21:21:06  [INFO]  File "/home/cantoarch/Work/dots/src/dots/ui/dashboard.py", line 1543, in _capture_cmd
+21:21:06  [INFO]  fn(*args, **kwargs)
+21:21:06  [INFO]  ~~^^^^^^^^^^^^^^^^^
+21:21:06  [INFO]  File "/home/cantoarch/Work/dots/src/dots/commands/link.py", line 131, in link_cmd
+21:21:06  [INFO]  type_filter = list(type) if type else None
+21:21:06  [INFO]  ~~~~^^^^^^
+21:21:06  [ERROR]  TypeError: 'OptionInfo' object is not iterable
+21:21:06  [ERROR]  Link failed for: Fish
+
+--- _capture_cmd: unlink_cmd ---
+21:21:08  [INFO]  ==== Unlinking Dotfiles ====
+21:21:08  [INFO]  ℹ Unlinking specified modules: Alacritty
+21:21:08  [INFO]  📦 Alacritty
+21:21:08  [INFO]  ├── ✔ alacritty.toml → /home/cantoarch/.config/alacritty/alacritty.toml (removed)
+21:21:08  [INFO]  └── Status: 1 removed
+21:21:08  [INFO]  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+21:21:08  [INFO]  Summary: 1 ✔ removed
+21:21:08  [SUCCESS]  Unlinked: Alacritty
+
+--- _capture_cmd: link_cmd ---
+21:21:14  [INFO]  ==== Linking Dotfiles ====
+21:21:14  [INFO]  ℹ Linking specified modules: Fish
+21:21:14  [INFO]  Traceback (most recent call last):
+21:21:14  [INFO]  File "/home/cantoarch/Work/dots/src/dots/ui/dashboard.py", line 1543, in _capture_cmd
+21:21:14  [INFO]  fn(*args, **kwargs)
+21:21:14  [INFO]  ~~^^^^^^^^^^^^^^^^^
+21:21:14  [INFO]  File "/home/cantoarch/Work/dots/src/dots/commands/link.py", line 131, in link_cmd
+21:21:14  [INFO]  type_filter = list(type) if type else None
+21:21:14  [INFO]  ~~~~^^^^^^
+21:21:14  [ERROR]  TypeError: 'OptionInfo' object is not iterable
+21:21:14  [ERROR]  Link failed for: Fish
+
+--- _capture_cmd: link_cmd ---
+21:21:15  [INFO]  ==== Linking Dotfiles ====
+21:21:15  [INFO]  ℹ Linking specified modules: Fish
+21:21:15  [INFO]  Traceback (most recent call last):
+21:21:15  [INFO]  File "/home/cantoarch/Work/dots/src/dots/ui/dashboard.py", line 1543, in _capture_cmd
+21:21:15  [INFO]  fn(*args, **kwargs)
+21:21:15  [INFO]  ~~^^^^^^^^^^^^^^^^^
+21:21:15  [INFO]  File "/home/cantoarch/Work/dots/src/dots/commands/link.py", line 131, in link_cmd
+21:21:15  [INFO]  type_filter = list(type) if type else None
+21:21:15  [INFO]  ~~~~^^^^^^
+21:21:15  [ERROR]  TypeError: 'OptionInfo' object is not iterable
+21:21:15  [ERROR]  Link failed for: Fish
+
+--- _capture_cmd: link_cmd ---
+21:21:15  [INFO]  ==== Linking Dotfiles ====
+21:21:15  [INFO]  ℹ Linking specified modules: Fish
+21:21:15  [INFO]  Traceback (most recent call last):
+21:21:15  [INFO]  File "/home/cantoarch/Work/dots/src/dots/ui/dashboard.py", line 1543, in _capture_cmd
+21:21:15  [INFO]  fn(*args, **kwargs)
+21:21:15  [INFO]  ~~^^^^^^^^^^^^^^^^^
+21:21:15  [INFO]  File "/home/cantoarch/Work/dots/src/dots/commands/link.py", line 131, in link_cmd
+21:21:15  [INFO]  type_filter = list(type) if type else None
+21:21:15  [INFO]  ~~~~^^^^^^
+21:21:15  [ERROR]  TypeError: 'OptionInfo' object is not iterable
+21:21:15  [ERROR]  Link failed for: Fish
+
+--- _capture_cmd: link_cmd ---
+21:21:16  [INFO]  ==== Linking Dotfiles ====
+21:21:16  [INFO]  ℹ Linking specified modules: Fish
+21:21:16  [INFO]  Traceback (most recent call last):
+21:21:16  [INFO]  File "/home/cantoarch/Work/dots/src/dots/ui/dashboard.py", line 1543, in _capture_cmd
+21:21:16  [INFO]  fn(*args, **kwargs)
+21:21:16  [INFO]  ~~^^^^^^^^^^^^^^^^^
+21:21:16  [INFO]  File "/home/cantoarch/Work/dots/src/dots/commands/link.py", line 131, in link_cmd
+21:21:16  [INFO]  type_filter = list(type) if type else None
+21:21:16  [INFO]  ~~~~^^^^^^
+21:21:16  [ERROR]  TypeError: 'OptionInfo' object is not iterable
+21:21:16  [ERROR]  Link failed for: Fish
+
+--- _capture_cmd: link_cmd ---
+21:21:16  [INFO]  ==== Linking Dotfiles ====
+21:21:16  [INFO]  ℹ Linking specified modules: Fish
+21:21:16  [INFO]  Traceback (most recent call last):
+21:21:16  [INFO]  File "/home/cantoarch/Work/dots/src/dots/ui/dashboard.py", line 1543, in _capture_cmd
+21:21:16  [INFO]  fn(*args, **kwargs)
+21:21:16  [INFO]  ~~^^^^^^^^^^^^^^^^^
+21:21:16  [INFO]  File "/home/cantoarch/Work/dots/src/dots/commands/link.py", line 131, in link_cmd
+21:21:16  [INFO]  type_filter = list(type) if type else None
+21:21:16  [INFO]  ~~~~^^^^^^
+21:21:16  [ERROR]  TypeError: 'OptionInfo' object is not iterable
+21:21:16  [ERROR]  Link failed for: Fish
+
+--- _capture_cmd: link_cmd ---
+21:21:51  [INFO]  ==== Linking Dotfiles ====
+21:21:51  [INFO]  ℹ Linking specified modules: Atuin
+21:21:51  [INFO]  Traceback (most recent call last):
+21:21:51  [INFO]  File "/home/cantoarch/Work/dots/src/dots/ui/dashboard.py", line 1543, in _capture_cmd
+21:21:51  [INFO]  fn(*args, **kwargs)
+21:21:51  [INFO]  ~~^^^^^^^^^^^^^^^^^
+21:21:51  [INFO]  File "/home/cantoarch/Work/dots/src/dots/commands/link.py", line 131, in link_cmd
+21:21:51  [INFO]  type_filter = list(type) if type else None
+21:21:51  [INFO]  ~~~~^^^^^^
+21:21:51  [ERROR]  TypeError: 'OptionInfo' object is not iterable
+21:21:51  [ERROR]  Link failed for: Atuin
+
+--- _capture_cmd: link_cmd ---
+21:21:52  [INFO]  ==== Linking Dotfiles ====
+21:21:52  [INFO]  ℹ Linking specified modules: Atuin
+21:21:52  [INFO]  Traceback (most recent call last):
+21:21:52  [INFO]  File "/home/cantoarch/Work/dots/src/dots/ui/dashboard.py", line 1543, in _capture_cmd
+21:21:52  [INFO]  fn(*args, **kwargs)
+21:21:52  [INFO]  ~~^^^^^^^^^^^^^^^^^
+21:21:52  [INFO]  File "/home/cantoarch/Work/dots/src/dots/commands/link.py", line 131, in link_cmd
+21:21:52  [INFO]  type_filter = list(type) if type else None
+21:21:52  [INFO]  ~~~~^^^^^^
+21:21:52  [ERROR]  TypeError: 'OptionInfo' object is not iterable
+21:21:52  [ERROR]  Link failed for: Atuin
