@@ -1,24 +1,11 @@
 """
-Centralized theme for the dots CLI TUI and terminal output.
+Centralized theme for the dots CLI terminal output.
 Inspired by Kanagawa/Ghostty palette.
 """
 
-from prompt_toolkit.styles import Style
 from InquirerPy.utils import get_style
 
 # ── Color Palette (HEX) ──
-# Main tones (Kanagawa inspired)
-# ACCENT     = "#7fb4ca"  # Muted blue/cyan (Kanagawa: Blue)
-# SUCCESS    = "#b7cc85"  # Muted green (Kanagawa: Green)
-# WARNING    = "#ffe066"  # Soft yellow (Kanagawa: Yellow)
-# ERROR      = "#cb7c94"  # Muted red/pink (Kanagawa: Red/Pink)
-# DIM        = "#8a8fa3"  # Blueish gray (Kanagawa: Gray)
-# FG         = "#f3f6f9"  # Off-white / foreground
-# BG         = "#06080f"  # Deep background
-# SEL_BG     = "#263356"  # Selection / active background
-# BORDER_ACT = ACCENT
-# BORDER_DIM = "#2A2A37"  # Dark border (Kanagawa: Sumi Ink)
-
 ACCENT = "#b4befe"  # Lavender
 SUCCESS = "#a6e3a1"  # Green
 WARNING = "#f9e2af"  # Yellow
@@ -44,73 +31,6 @@ RICH_THEME_DICT = {
     "menu.normal": FG,
     "menu.hint": f"dim {ACCENT}",
     "table.border": f"{BORDER_DIM}",
-}
-
-# ── Prompt Toolkit Styles (for the dashboard) ──
-TUI_STYLE_DICT = {
-    "": FG,
-    # Frame borders
-    "border": BORDER_DIM,
-    "border.active": f"bold {BORDER_ACT}",
-    "panel.title": f"bold {FG}",
-    "panel.title.active": f"bold {ACCENT}",
-
-    # Module table rows
-    "row": FG,
-    "row.sel": f"fg:{ACCENT} bold",
-
-    # Column header
-    "col.header": f"bold {ACCENT}",
-
-    # Status colors
-    "status.linked": f"bold {SUCCESS}",
-    "status.unlinked": DIM,
-    "status.broken": f"bold {ERROR}",
-
-    # Selection circles (Visual mode)
-    "select.on": f"bold {ACCENT}",
-    "select.off": DIM,
-
-    # Tab bar
-    "tab.active": f"bold {ACCENT}",
-    "tab.inactive": DIM,
-
-    # Details (kept for tab content)
-    "det.label": f"bold {FG}",
-    "det.dim": DIM,
-    "det.linked": SUCCESS,
-    "det.pending": WARNING,
-    "det.conflict": ERROR,
-    "det.unsafe": ERROR,
-    "det.missing": DIM,
-
-    # Backups
-    "bkp.item": FG,
-    "bkp.sel": f"bold {ACCENT}",
-
-    # Log
-    "log.ts": DIM,
-    "log.info": ACCENT,
-    "log.success": SUCCESS,
-    "log.warning": WARNING,
-    "log.error": ERROR,
-
-    # Footer
-    "footer": f"{DIM}",
-    "footer.key": f"bold {ACCENT}",
-    "footer.sep": BORDER_DIM,
-
-    # Sub-binding overlay (edit/order sub-modes)
-    "sub.key": f"bold {ACCENT}",
-    "sub.label": DIM,
-
-    # Mode indicator
-    "mode.normal": f"bold {SUCCESS}",
-    "mode.visual": f"bold {WARNING}",
-
-    # Inline filter
-    "filter.prompt": f"bold {ACCENT}",
-    "filter.text": FG,
 }
 
 # ── InquirerPy Styles (shared for all prompts) ──
