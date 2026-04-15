@@ -1,9 +1,10 @@
 import os
+import shlex
 import subprocess
 import typer
 from pathlib import Path
 from dots.core.config import DotsConfig
-from dots.ui.output import console, print_error, print_info
+from dots.ui.output import print_error, print_info
 
 def edit_cmd(
     module: str = typer.Argument(..., help="Name of the module to edit"),
@@ -29,11 +30,12 @@ def edit_cmd(
             raise typer.Exit(1)
         target = yaml_path
 
-    editor = os.environ.get("EDITOR", "vim")
-    print_info(f"Opening {target} with {editor}...")
+    editor_env = os.environ.get("EDITOR", "vim")
+    print_info(f"Opening {target} with {editor_env}...")
 
+    cmd = shlex.split(editor_env) + [str(target)]
     try:
-        subprocess.run([editor, str(target)], check=True)
+        subprocess.run(cmd, check=True)
     except Exception as e:
         print_error(f"Could not open editor: {e}")
         raise typer.Exit(1)
