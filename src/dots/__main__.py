@@ -43,7 +43,7 @@ def main_callback(
         dashboard()
 
 
-from dots.commands import link, install, adopt, status, unlink, backup, init
+from dots.commands import link, install, adopt, status, unlink, backup, init, list as list_mod
 
 app.command(name="init")(init.init_cmd)
 app.command(name="link")(link.link_cmd)
@@ -52,6 +52,8 @@ app.command(name="install")(install.install_cmd)
 app.command(name="status")(status.status_cmd)
 app.command(name="adopt")(adopt.adopt_cmd)
 app.command(name="backup")(backup.backup_cmd)
+app.command(name="list")(list_mod.list_cmd)
+app.command(name="ls", hidden=True)(list_mod.list_cmd)
 
 
 if __name__ == "__main__":
