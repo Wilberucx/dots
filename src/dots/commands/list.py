@@ -24,30 +24,24 @@ def list_cmd(
         for module_name in all_modules:
             results.add(module_name)
 
-    if linked:
-        for module_name, statuses in all_modules.items():
-            if any(s.state == "linked" for s in statuses):
-                results.add(module_name)
+    # Single pass over modules to evaluate all flags
+    for module_name, statuses in all_modules.items():
+        if linked and any(s.state == "linked" for s in statuses):
+            results.add(module_name)
 
-    if unlinked:
-        for module_name, statuses in all_modules.items():
-            if any(s.state == "pending" for s in statuses):
-                results.add(module_name)
+        if unlinked and any(s.state == "pending" for s in statuses):
+            results.add(module_name)
 
-    if broken:
-        for module_name, statuses in all_modules.items():
-            if any(s.state in ("conflict", "unsafe") for s in statuses):
-                results.add(module_name)
+        if broken and any(s.state in ("conflict", "unsafe") for s in statuses):
+            results.add(module_name)
 
-    if variant:
-        for module_name in all_modules:
+        if variant:
             vinfo = get_module_variant_info(config, module_name)
             if vinfo and vinfo.has_variants:
                 for v in vinfo.variants:
                     results.add(f"{module_name}:{v}")
 
-    if bak:
-        for module_name, statuses in all_modules.items():
+        if bak:
             for s in statuses:
                 bak_path = Path(str(s.destination) + "-backup")
                 if bak_path.exists():
