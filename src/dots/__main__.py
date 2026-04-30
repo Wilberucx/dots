@@ -38,11 +38,12 @@ def main_callback(
     Unified CLI for managing dotfiles on Linux, macOS, and Windows.
     """
     if ctx.invoked_subcommand is None:
-        # Show help message by default
-        typer.echo(ctx.get_help())
+        # Launch interactive dashboard
+        from dots.ui.dashboard import dashboard
+        dashboard()
 
 
-from dots.commands import link, install, adopt, status, unlink, backup, init, edit
+from dots.commands import link, install, adopt, status, unlink, backup, init, edit, list as list_mod
 
 app.command(name="init")(init.init_cmd)
 app.command(name="link")(link.link_cmd)
@@ -52,6 +53,8 @@ app.command(name="status")(status.status_cmd)
 app.command(name="adopt")(adopt.adopt_cmd)
 app.command(name="backup")(backup.backup_cmd)
 app.command(name="edit")(edit.edit_cmd)
+app.command(name="list")(list_mod.list_cmd)
+app.command(name="ls", hidden=True)(list_mod.list_cmd)
 
 
 if __name__ == "__main__":
