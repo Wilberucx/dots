@@ -24,18 +24,18 @@ That's it. Two commands and your dotfiles are linked.
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `dots init` | Initialize repo — creates `dots.toml` marker |
-| `dots link` | Create symlinks for all modules |
-| `dots unlink` | Remove symlinks |
-| `dots status` | Show link state grouped by status |
-| `dots list` | List modules or backups with filters |
-| `dots edit` | Open module folder or path.yaml in $EDITOR |
-| `dots adopt <path>` | Import an existing config into the repo |
-| `dots install` | Install dependencies from `path.yaml` files |
-| `dots migrate` | Upgrade path.yaml from v2 to v3 schema |
-| `dots backup` | Git commit and optional push |
+| Command             | Description                                  |
+| ------------------- | -------------------------------------------- |
+| `dots init`         | Initialize repo — creates `dots.toml` marker |
+| `dots link`         | Create symlinks for all modules              |
+| `dots unlink`       | Remove symlinks                              |
+| `dots status`       | Show link state grouped by status            |
+| `dots list`         | List modules or backups with filters         |
+| `dots edit`         | Open module folder or path.yaml in $EDITOR   |
+| `dots adopt <path>` | Import an existing config into the repo      |
+| `dots install`      | Install dependencies from `path.yaml` files  |
+| `dots migrate`      | Upgrade path.yaml from v2 to v3 schema       |
+| `dots backup`       | Git commit and optional push                 |
 
 ## Quick examples
 
@@ -82,27 +82,27 @@ dots migrate --dry-run
 
 ## Flags
 
-| Flag | Description |
-|------|-------------|
-| `-m / --module` | Filter by module name (repeatable) |
-| `-t / --type` | Filter by module type (repeatable) |
-| `-s / --state` | Filter by state: `linked`, `unlinked`, `broken`, `missing`, `unsafe` (repeatable) |
-| `-f / --format` | Output format: `default`, `table`, `json` (solo para `status`) |
-| `--force` | Overwrite existing symlinks in conflict (solo para `link`) |
-| `--variant` | Select variant for modules with multiple variants (solo para `link`) |
-| `-i / --interactive` | Interactively select modules to link/unlink (`link`, `unlink`) |
-| `--dry-run` | Preview without executing |
+| Flag                 | Description                                                                       |
+| -------------------- | --------------------------------------------------------------------------------- |
+| `-m / --module`      | Filter by module name (repeatable)                                                |
+| `-t / --type`        | Filter by module type (repeatable)                                                |
+| `-s / --state`       | Filter by state: `linked`, `unlinked`, `broken`, `missing`, `unsafe` (repeatable) |
+| `-f / --format`      | Output format: `default`, `table`, `json` (solo para `status`)                    |
+| `--force`            | Overwrite existing symlinks in conflict (solo para `link`)                        |
+| `--variant`          | Select variant for modules with multiple variants (solo para `link`)              |
+| `-i / --interactive` | Interactively select modules to link/unlink (`link`, `unlink`)                    |
+| `--dry-run`          | Preview without executing                                                         |
 
 ---
 
 ## Conflict resolution
 
-| Situation | Behavior |
-|-----------|----------|
-| File exists, not a symlink | Creates `-backup` file, then links |
-| Symlink exists, points elsewhere | Replaces with correct symlink |
-| Symlink already correct | Skips — already linked |
-| `-backup` file already exists | Blocks — manual intervention required |
+| Situation                        | Behavior                              |
+| -------------------------------- | ------------------------------------- |
+| File exists, not a symlink       | Creates `-backup` file, then links    |
+| Symlink exists, points elsewhere | Replaces with correct symlink         |
+| Symlink already correct          | Skips — already linked                |
+| `-backup` file already exists    | Blocks — manual intervention required |
 
 ---
 
