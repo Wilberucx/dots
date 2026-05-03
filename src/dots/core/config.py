@@ -83,9 +83,10 @@ class DotsConfig:
         raise RuntimeError(
             f"Could not find a dotfiles repository.\n"
             f"No '{MARKER_DIR}/{MARKER_CONFIG}' or '{LEGACY_MARKER}' found in current directory tree or common locations.\n"
-            f"To fix this, initialize the dotfiles repository:\n"
-            f"  cd ~/your-dotfiles && dots init\n"
-            f"Or specify the location explicitly: export DOTS_REPO=~/your-dotfiles"
+            f"\nTo fix this, you have 3 options:\n"
+            f"  1. [green]dots --path ~/your-dotfiles <command>[/green] — specify path directly\n"
+            f"  2. [green]export DOTS_REPO=~/your-dotfiles[/green] — set environment variable\n"
+            f"  3. [green]cd ~/your-dotfiles && dots init[/green] — initialize if not done yet"
         )
     
     def get_module_dirs(
