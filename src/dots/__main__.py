@@ -1,3 +1,4 @@
+import os
 import typer
 from pathlib import Path
 from importlib.metadata import version as get_version
@@ -24,6 +25,12 @@ def version_callback(value: bool):
         typer.echo(f"dots v{ver}")
         raise typer.Exit()
 
+def path_callback(path: str | None):
+    """Set DOTS_REPO env var if --path is provided."""
+    if path:
+        os.environ["DOTS_REPO"] = str(Path(path).resolve())
+
+
 @app.callback(invoke_without_command=True)
 def main_callback(
     ctx: typer.Context,
@@ -32,6 +39,12 @@ def main_callback(
         callback=version_callback,
         is_eager=True,
         help="Show version and exit."
+    ),
+    path: str = typer.Option(
+        None, "--path", "-p",
+        callback=path_callback,
+        is_eager=True,
+        help="Path to dotfiles repository (overrides auto-detection)"
     )
 ):
     """

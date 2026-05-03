@@ -1,3 +1,4 @@
+import os
 import typer
 from pathlib import Path
 from rich.console import Console
@@ -5,6 +6,38 @@ from rich.console import Console
 from dots.core.config import MARKER_DIR, MARKER_CONFIG, LEGACY_MARKER, is_dotfiles_repo
 
 console = Console()
+
+
+def _detect_shell() -> tuple[str, Path]:
+    """Detect user's shell and its config file."""
+    # Check $SHELL first
+    shell = os.environ.get("SHELL", "")
+    if "zsh" in shell:
+        return ("zsh", Path.home() / ".zshrc")
+    if "bash" in shell:
+        return ("bash", Path.home() / ".bashrc")
+    if "fish" in shell:
+        return ("fish", Path.home() / ".config" / "fish" / "config.fish")
+
+    # Fallback: check which config files exist
+    home = Path.home()
+    if (home / ".zshrc").exists():
+        return ("zsh", home / ".zshrc")
+    if (home / ".bashrc").exists():
+        return ("bash", home / ".bashrc")
+    if (home / ".config" / "fish" / "config.fish").exists():
+        return ("fish", home / ".config" / "fish" / "config.fish")
+
+    return ("unknown", Path.home() / ".zshrc")  # Default guess
+
+
+def _add_to_shell_config(config_path: Path, export_line: str):
+    """Add export line to shell config file."""
+    try:
+        with open(config_path, "a") as f:
+            f.write(f"\n# dots: dotfiles repository\n{export_line}\n")
+    except Exception as e:
+        console.print(f"[red]Failed to write to {config_path}: {e}[/red]")
 
 
 def init_cmd():
@@ -38,18 +71,33 @@ def init_cmd():
             f.write("# This file identifies this directory as a dotfiles repository managed by dots.\n")
             f.write("# See: https://github.com/cantoarch/dots\n\n")
             f.write("[dots]\nversion = \"1\"\n")
-
-        console.print(f"[green]Successfully initialized dotfiles repository in {cwd}[/green]")
-        console.print(f"Created '{MARKER_DIR}/{MARKER_CONFIG}'.")
-
-        # Suggest adding DOTS_REPO to shell profile
-        console.print(f"\n[bold]Optional:[/bold] To auto-detect this repo,")
-        console.print(f"add to your shell profile (e.g. ~/.zshrc):")
-        console.print(f"\n  [green]export DOTS_REPO=\"{cwd.resolve()}\"[/green]\n")
-
     except Exception as e:
         console.print(f"[red]Error creating marker file: {e}[/red]")
         raise typer.Exit(code=1)
+
+    console.print(f"[green]Successfully initialized dotfiles repository in {cwd}[/green]")
+    console.print(f"Created '{MARKER_DIR}/{MARKER_CONFIG}'.")
+
+    # Ask about DOTS_REPO (outside main try to avoid masking marker creation errors)
+    shell_name, shell_config = _detect_shell()
+    export_line = f'export DOTS_REPO="{cwd.resolve()}"'
+
+    console.print(f"\n[bold]DOTS_REPO[/bold] tells dots where to find your dotfiles.")
+    console.print(f"Without it, you must be inside your dotfiles directory or use [green]--path[/green].")
+
+    try:
+        add_repo = typer.confirm(f"Add DOTS_REPO to your {shell_config.name}?")
+    except Exception:
+        add_repo = False  # No TTY available
+
+    if add_repo:
+        _add_to_shell_config(shell_config, export_line)
+        console.print(f"[green]Added to {shell_config}[/green]")
+        console.print(f"[dim]Run [italic]source {shell_config}[/italic] or restart your terminal.[/dim]")
+    else:
+        console.print(f"\n[dim]You can add it manually:[/dim]")
+        console.print(f"  [green]{export_line}[/green]")
+        console.print(f"\n[dim]Or use [green]dots --path /path/to/dotfiles <command>[/green] instead.[/dim]")
 
 
 def _migrate_from_legacy(cwd: Path, marker_dir: Path, marker_path: Path):
