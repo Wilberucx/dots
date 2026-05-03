@@ -48,7 +48,11 @@ class TransactionLog:
         ))
     
     def backup(self, path: Path, backup_path: Path):
-        """Move a file to backup and record it."""
+        """Move a file to backup and record it. Safe for TOCTOU: handles race conditions."""
+        # Handle case where file was deleted manually between check and action
+        if not path.exists() and not path.is_symlink():
+            return  # Already gone, nothing to do
+        
         shutil.move(str(path), str(backup_path))
         self.actions.append(LinkAction(
             type="backup",

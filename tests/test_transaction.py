@@ -59,6 +59,21 @@ def test_backup_rollback(tmp_path):
     assert not backup.exists()
 
 
+def test_backup_already_deleted(tmp_path):
+    """TOCTOU: file deleted manually before calling backup()."""
+    source = tmp_path / "config"
+    source.write_text("original content")
+    backup = tmp_path / "config.bak"
+    
+    # Simulate manual deletion - file no longer exists
+    source.unlink()
+    assert not source.exists()
+    
+    log = TransactionLog()
+    # Should not raise FileNotFoundError
+    log.backup(source, backup)
+
+
 def test_unlink_already_deleted(tmp_path):
     """TOCTOU: symlink deleted manually before calling unlink()."""
     target = tmp_path / "target"
