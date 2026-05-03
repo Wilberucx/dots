@@ -99,10 +99,10 @@ dots migrate --dry-run
 
 | Situation                        | Behavior                              |
 | -------------------------------- | ------------------------------------- |
-| File exists, not a symlink       | Creates `-backup` file, then links    |
+| File exists, not a symlink       | Creates `.orig` file, then links     |
 | Symlink exists, points elsewhere | Replaces with correct symlink         |
 | Symlink already correct          | Skips — already linked                |
-| `-backup` file already exists    | Blocks — manual intervention required |
+| `.orig` file already exists      | Blocks — manual intervention required |
 
 ---
 

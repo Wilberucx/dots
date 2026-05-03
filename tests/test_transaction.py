@@ -46,7 +46,7 @@ def test_commit_prevents_rollback():
 def test_backup_rollback(tmp_path):
     original = Path(tmp_path) / "config.txt"
     original.write_text("original content")
-    backup = Path(tmp_path) / "config.txt-backup"
+    backup = Path(tmp_path) / "config.txt.orig"
     
     log = TransactionLog()
     log.backup(original, backup)

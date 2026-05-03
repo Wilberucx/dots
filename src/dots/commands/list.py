@@ -43,7 +43,7 @@ def list_cmd(
 
         if bak:
             for s in statuses:
-                bak_path = Path(str(s.destination) + "-backup")
+                bak_path = Path(str(s.destination) + ".orig")
                 if bak_path.exists():
                     results.add(str(bak_path))
 
