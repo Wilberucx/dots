@@ -54,12 +54,13 @@ class DotsConfig:
         Load configuration by finding the Dotfiles repository.
 
         Search order:
-        1. Custom path in DOTS_REPO environment variable
-        2. Global configuration file (~/.dotsrc) created by `dots init`
-        3. Walk up from current working directory
-        4. Common locations in user's home (~/Dot.files, ~/.dotfiles, ~/dotfiles)
+        1. DOTS_REPO environment variable (override)
+        2. Walk up from current working directory
+        3. Common locations in user's home (~/Dot.files, ~/.dotfiles, ~/dotfiles)
         """
         import os
+
+        home = Path.home()
 
         # 1. Environment variable override
         if "DOTS_REPO" in os.environ:
@@ -67,27 +68,13 @@ class DotsConfig:
             if is_dotfiles_repo(potential_root):
                 return cls._create(potential_root)
 
-        # 2. Global configuration file (~/.dotsrc)
-        home = Path.home()
-        dotsrc = home / ".dotsrc"
-        if dotsrc.exists():
-            try:
-                for line in dotsrc.read_text().splitlines():
-                    if line.startswith("DOTS_REPO="):
-                        path_str = line.split("=", 1)[1].strip('"\'')
-                        potential_root = Path(path_str).resolve()
-                        if is_dotfiles_repo(potential_root):
-                            return cls._create(potential_root)
-            except Exception:
-                pass  # Ignore malformed file
-
-        # 3. Walk up from CWD
+        # 2. Walk up from CWD
         search_from = Path.cwd()
         for parent in [search_from] + list(search_from.parents):
             if is_dotfiles_repo(parent):
                 return cls._create(parent)
 
-        # 4. Common fallback locations
+        # 3. Common fallback locations
         for common_dir in ["Dot.files", ".dotfiles", "dotfiles"]:
             potential_root = home / common_dir
             if is_dotfiles_repo(potential_root):

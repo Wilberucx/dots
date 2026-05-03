@@ -20,7 +20,6 @@ def init_cmd():
     marker_dir = cwd / MARKER_DIR
     marker_path = marker_dir / MARKER_CONFIG
     legacy_path = cwd / LEGACY_MARKER
-    dotsrc_path = Path.home() / ".dotsrc"
 
     # Check if already initialized (new or legacy format)
     if is_dotfiles_repo(cwd):
@@ -29,8 +28,6 @@ def init_cmd():
         else:
             console.print(f"[yellow]Legacy marker '{LEGACY_MARKER}' found — migrating to new format...[/yellow]")
             _migrate_from_legacy(cwd, marker_dir, marker_path)
-        # Ensure .dotsrc points here
-        _update_dotsrc(dotsrc_path, cwd)
         return
 
     try:
@@ -44,7 +41,12 @@ def init_cmd():
 
         console.print(f"[green]Successfully initialized dotfiles repository in {cwd}[/green]")
         console.print(f"Created '{MARKER_DIR}/{MARKER_CONFIG}'.")
-        _update_dotsrc(dotsrc_path, cwd)
+
+        # Suggest adding DOTS_REPO to shell profile
+        console.print(f"\n[bold]Optional:[/bold] To auto-detect this repo,")
+        console.print(f"add to your shell profile (e.g. ~/.zshrc):")
+        console.print(f"\n  [green]export DOTS_REPO=\"{cwd.resolve()}\"[/green]\n")
+
     except Exception as e:
         console.print(f"[red]Error creating marker file: {e}[/red]")
         raise typer.Exit(code=1)
@@ -68,22 +70,3 @@ def _migrate_from_legacy(cwd: Path, marker_dir: Path, marker_path: Path):
         console.print(f"[dim]You can safely delete {LEGACY_MARKER} if desired.[/dim]")
     except Exception as e:
         console.print(f"[yellow]Migration failed: {e}[/yellow]")
-
-def _update_dotsrc(dotsrc_path: Path, repo_path: Path):
-    """Update or create the ~/.dotsrc file with the repository path."""
-    try:
-        with open(dotsrc_path, "w") as f:
-            f.write(f"DOTS_REPO=\"{repo_path.resolve()}\"\n")
-        
-        console.print(f"\n[bold]➤ Global path registered[/bold]")
-        console.print(f"[dim]The file {dotsrc_path} was created so this repo can be found automatically.[/dim]")
-        
-        console.print(f"\n[bold cyan]Optional (for advanced users):[/bold cyan]")
-        console.print(f"If you prefer not to have a `.dotsrc` file in your home directory,")
-        console.print(f"you can export the path directly in your shell profile (e.g. `~/.zshrc` or `~/.bashrc`):")
-        console.print(f"\n[green]  export DOTS_REPO=\"{repo_path.resolve()}\"[/green]")
-        console.print(f"\nOr run this to append it automatically to your zsh profile:")
-        console.print(f"[bold]  echo 'export DOTS_REPO=\"{repo_path.resolve()}\"' >> ~/.zshrc && source ~/.zshrc[/bold]\n")
-        
-    except Exception as e:
-        console.print(f"[red]Failed to update global {dotsrc_path}: {e}[/red]")
