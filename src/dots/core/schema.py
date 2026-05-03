@@ -20,7 +20,7 @@ def detect_v2_schema(data: dict, yaml_path: str) -> list[str]:
     for i, dep in enumerate(deps):
         if isinstance(dep, dict) and V2_DEP_FIELDS.intersection(dep.keys()):
             errors.append(
-                f"[{yaml_path}] Schema v2 detected in dependencies[{i}]. "
+                f"Schema v2 detected in dependencies[{i}] ({yaml_path}). "
                 f"Run 'dots migrate' to upgrade to v3 automatically."
             )
 
@@ -29,7 +29,7 @@ def detect_v2_schema(data: dict, yaml_path: str) -> list[str]:
     for i, f in enumerate(files):
         if isinstance(f, dict) and V2_FILE_FIELDS.intersection(f.keys()):
             errors.append(
-                f"[{yaml_path}] Schema v2 detected in files[{i}]. "
+                f"Schema v2 detected in files[{i}] ({yaml_path}). "
                 f"Run 'dots migrate' to upgrade to v3 automatically."
             )
 
