@@ -55,7 +55,7 @@ def main_callback(
         typer.echo(ctx.get_help())
 
 
-from dots.commands import link, install, adopt, status, unlink, backup, init, edit, list as list_mod
+from dots.commands import link, install, adopt, status, unlink, backup, init, edit, list as list_mod, migrate
 
 app.command(name="init")(init.init_cmd)
 app.command(name="link")(link.link_cmd)
@@ -67,6 +67,7 @@ app.command(name="backup")(backup.backup_cmd)
 app.command(name="edit")(edit.edit_cmd)
 app.command(name="list")(list_mod.list_cmd)
 app.command(name="ls", hidden=True)(list_mod.list_cmd)
+app.command(name="migrate")(migrate.migrate_cmd)
 
 
 if __name__ == "__main__":
