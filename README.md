@@ -30,8 +30,11 @@ That's it. Two commands and your dotfiles are linked.
 | `dots link` | Create symlinks for all modules |
 | `dots unlink` | Remove symlinks |
 | `dots status` | Show link state grouped by status |
+| `dots list` | List modules or backups with filters |
+| `dots edit` | Open module folder or path.yaml in $EDITOR |
 | `dots adopt <path>` | Import an existing config into the repo |
 | `dots install` | Install dependencies from `path.yaml` files |
+| `dots migrate` | Upgrade path.yaml from v2 to v3 schema |
 | `dots backup` | Git commit and optional push |
 
 ## Quick examples
@@ -60,6 +63,19 @@ dots install -m Zsh
 
 # Preview without executing
 dots link --dry-run
+
+# List modules
+dots list
+dots list --type minimal
+dots list --variant stdlib
+
+# Edit a module
+dots edit Zsh
+dots edit Nvim --file   # open path.yaml directly
+
+# Migrate to schema v3
+dots migrate
+dots migrate --dry-run
 ```
 
 ---
