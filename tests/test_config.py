@@ -1,14 +1,16 @@
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-from dots.core.config import DotsConfig, MARKER_FILE
+from dots.core.config import DotsConfig, MARKER_DIR, MARKER_CONFIG, LEGACY_MARKER, is_dotfiles_repo
 
 
 # ── Unit tests (no filesystem dependency) ────────────────────────────────────
 
-def test_load_finds_marker_file(tmp_path):
-    """DotsConfig.load() must find dots.toml walking up from cwd."""
-    marker = tmp_path / MARKER_FILE
+def test_load_finds_new_marker(tmp_path):
+    """DotsConfig.load() must find .dots/config.yaml walking up from cwd."""
+    marker_dir = tmp_path / MARKER_DIR
+    marker_dir.mkdir()
+    marker = marker_dir / MARKER_CONFIG
     marker.write_text("[dots]\nversion = \"1\"\n")
 
     with patch.dict("os.environ", {}, clear=True), \
@@ -20,10 +22,24 @@ def test_load_finds_marker_file(tmp_path):
     assert config.current_os in ("linux", "mac", "windows", "unknown")
 
 
-def test_load_finds_marker_in_parent(tmp_path):
-    """DotsConfig.load() must walk up and find dots.toml in a parent dir."""
-    marker = tmp_path / MARKER_FILE
+def test_load_finds_legacy_marker(tmp_path):
+    """DotsConfig.load() must find legacy dots.toml (backward compatibility)."""
+    marker = tmp_path / LEGACY_MARKER
     marker.write_text("[dots]\nversion = \"1\"\n")
+
+    with patch.dict("os.environ", {}, clear=True), \
+         patch("dots.core.config.Path.cwd", return_value=tmp_path), \
+         patch("dots.core.config.Path.home", return_value=tmp_path / "home"):
+        config = DotsConfig.load()
+
+    assert config.repo_root == tmp_path.resolve()
+
+
+def test_load_finds_marker_in_parent(tmp_path):
+    """DotsConfig.load() must walk up and find marker in a parent dir."""
+    marker_dir = tmp_path / MARKER_DIR
+    marker_dir.mkdir()
+    (marker_dir / MARKER_CONFIG).write_text("[dots]\nversion = \"1\"\n")
     nested = tmp_path / "subdir" / "deeper"
     nested.mkdir(parents=True)
 
@@ -36,8 +52,8 @@ def test_load_finds_marker_in_parent(tmp_path):
 
 
 def test_load_raises_when_no_marker(tmp_path):
-    """DotsConfig.load() must raise RuntimeError when no dots.toml is found."""
-    # tmp_path has no dots.toml and no parents that would have one
+    """DotsConfig.load() must raise RuntimeError when no marker is found."""
+    # tmp_path has no marker and no parents that would have one
     # We root the search at a leaf path with no marker
     isolated = tmp_path / "no_marker_here"
     isolated.mkdir()
@@ -45,13 +61,15 @@ def test_load_raises_when_no_marker(tmp_path):
     with patch.dict("os.environ", {}, clear=True), \
          patch("dots.core.config.Path.cwd", return_value=isolated), \
          patch("dots.core.config.Path.home", return_value=isolated / "home"):
-        with pytest.raises(RuntimeError, match=MARKER_FILE):
+        with pytest.raises(RuntimeError, match=MARKER_DIR):
             DotsConfig.load()
 
 
 def test_get_module_dirs_returns_dirs_with_path_yaml(tmp_path):
     """get_module_dirs() must only return dirs containing path.yaml."""
-    (tmp_path / MARKER_FILE).write_text("[dots]\nversion = \"1\"\n")
+    marker_dir = tmp_path / MARKER_DIR
+    marker_dir.mkdir()
+    (marker_dir / MARKER_CONFIG).write_text("[dots]\nversion = \"1\"\n")
 
     # Create two valid modules
     for name in ("Nvim", "Zsh"):
@@ -81,17 +99,17 @@ def test_get_module_dirs_returns_dirs_with_path_yaml(tmp_path):
 def test_integration_config_loads_from_real_repo():
     """
     Integration: DotsConfig.load() from within the real dotfiles repo.
-    Skips if no dots.toml is present in the environment.
+    Skips if no marker (.dots/config.yaml or dots.toml) is present.
     """
     import os
     from pathlib import Path
 
     # Walk up from cwd to find the marker
     cwd = Path.cwd()
-    found = any((p / MARKER_FILE).exists() for p in [cwd] + list(cwd.parents))
+    found = any(is_dotfiles_repo(p) for p in [cwd] + list(cwd.parents))
 
     if not found:
-        pytest.skip("No dots.toml found in current path hierarchy — skipping integration test")
+        pytest.skip("No dotfiles marker found in current path hierarchy — skipping integration test")
 
     config = DotsConfig.load()
     assert config.repo_root.exists()

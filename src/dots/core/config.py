@@ -4,15 +4,30 @@ Shared configuration for Dots CLI.
 This module provides a single source of truth for all runtime context,
 eliminating fragile path resolution via __file__ parent chains.
 
-Repo detection uses a marker file strategy: dots.toml must exist at the
+Repo detection uses a marker directory strategy: .dots/config.yaml must exist at the
 root of the dotfiles repository. This is portable across machines and
 operating systems, with no hardcoded assumptions about installed tools.
+
+Backward compatibility: legacy dots.toml marker is also supported.
 """
 from dataclasses import dataclass
 from pathlib import Path
 from dots.core.system import detect_os
 
-MARKER_FILE = "dots.toml"
+MARKER_DIR = ".dots"
+MARKER_CONFIG = "config.yaml"
+LEGACY_MARKER = "dots.toml"
+
+
+def is_dotfiles_repo(path: Path) -> bool:
+    """Check if path is a dotfiles repo (new .dots/config.yaml or legacy dots.toml)."""
+    # New format: .dots/config.yaml
+    if (path / MARKER_DIR / MARKER_CONFIG).exists():
+        return True
+    # Legacy format: dots.toml
+    if (path / LEGACY_MARKER).exists():
+        return True
+    return False
 
 
 @dataclass(frozen=True)
@@ -45,11 +60,11 @@ class DotsConfig:
         4. Common locations in user's home (~/Dot.files, ~/.dotfiles, ~/dotfiles)
         """
         import os
-        
+
         # 1. Environment variable override
         if "DOTS_REPO" in os.environ:
             potential_root = Path(os.environ["DOTS_REPO"]).resolve()
-            if (potential_root / MARKER_FILE).exists():
+            if is_dotfiles_repo(potential_root):
                 return cls._create(potential_root)
 
         # 2. Global configuration file (~/.dotsrc)
@@ -61,7 +76,7 @@ class DotsConfig:
                     if line.startswith("DOTS_REPO="):
                         path_str = line.split("=", 1)[1].strip('"\'')
                         potential_root = Path(path_str).resolve()
-                        if (potential_root / MARKER_FILE).exists():
+                        if is_dotfiles_repo(potential_root):
                             return cls._create(potential_root)
             except Exception:
                 pass  # Ignore malformed file
@@ -69,19 +84,19 @@ class DotsConfig:
         # 3. Walk up from CWD
         search_from = Path.cwd()
         for parent in [search_from] + list(search_from.parents):
-            if (parent / MARKER_FILE).exists():
+            if is_dotfiles_repo(parent):
                 return cls._create(parent)
-                
+
         # 4. Common fallback locations
         for common_dir in ["Dot.files", ".dotfiles", "dotfiles"]:
             potential_root = home / common_dir
-            if (potential_root / MARKER_FILE).exists():
+            if is_dotfiles_repo(potential_root):
                 return cls._create(potential_root)
 
         raise RuntimeError(
             f"Could not find a dotfiles repository.\n"
-            f"No '{MARKER_FILE}' marker file found in current directory tree or common locations.\n"
-            f"To fix this, create the marker file at the root of your dotfiles repo:\n"
+            f"No '{MARKER_DIR}/{MARKER_CONFIG}' or '{LEGACY_MARKER}' found in current directory tree or common locations.\n"
+            f"To fix this, initialize the dotfiles repository:\n"
             f"  cd ~/your-dotfiles && dots init\n"
             f"Or specify the location explicitly: export DOTS_REPO=~/your-dotfiles"
         )
