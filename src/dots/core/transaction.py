@@ -65,7 +65,12 @@ class TransactionLog:
         ))
     
     def unlink(self, path: Path):
-        """Remove a symlink and record it."""
+        """Remove a symlink and record it. Safe for TOCTOU: handles race conditions."""
+        # Handle case where symlink was deleted manually between check and action
+        if not path.exists() and not path.is_symlink():
+            # is_symlink() returns True even for broken symlinks (symlink exists but target doesn't)
+            return  # Already gone, nothing to do
+        
         target = path.readlink() if path.is_symlink() else None
         path.unlink()
         self.actions.append(LinkAction(

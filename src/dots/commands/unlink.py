@@ -60,9 +60,14 @@ def unlink_cmd(
                         module_tree.add(f"[red]✗[/red] {src.name} → {final_dest} [red](to be removed)[/red]")
                         module_stats["unlinked"] += 1
                     else:
-                        module_tree.add(f"[green]✔[/green] {src.name} → {final_dest} [green](removed)[/green]")
-                        module_stats["unlinked"] += 1
-                        transaction.unlink(final_dest)
+                        try:
+                            transaction.unlink(final_dest)
+                            module_tree.add(f"[green]✔[/green] {src.name} → {final_dest} [green](removed)[/green]")
+                            module_stats["unlinked"] += 1
+                        except FileNotFoundError:
+                            # TOCTOU race: symlink was deleted manually after state check
+                            module_tree.add(f"[yellow]⚠[/yellow] {src.name} → {final_dest} [yellow](already deleted, skipping)[/yellow]")
+                            module_stats["not_linked"] += 1
                 elif status.state == "conflict":
                     module_tree.add(f"[yellow]⚠[/yellow] {src.name} → {final_dest} [yellow](conflict, skipping)[/yellow]")
                     module_stats["not_linked"] += 1
