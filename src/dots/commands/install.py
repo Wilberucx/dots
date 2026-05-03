@@ -3,7 +3,6 @@ import subprocess
 import shutil
 import os
 import tempfile
-import platform
 import tarfile
 import zipfile
 import requests
@@ -22,17 +21,8 @@ from dots.ui.output import (
 )
 from dots.plugins.managers import get_package_manager, PackageManager
 from dots.core.config import DotsConfig
-from dots.core.yaml_parser import parse_dependencies, Dependency
-
-
-def get_system_arch() -> str:
-    """Detect system architecture (x86_64, aarch64, etc)."""
-    machine = platform.machine().lower()
-    if machine in ["x86_64", "amd64"]:
-        return "x86_64"
-    elif machine in ["aarch64", "arm64"]:
-        return "aarch64"
-    return machine
+from dots.core.yaml_parser import parse_dependencies, Dependency, parse_single_dependency
+from dots.core.template import get_system_arch, build_context, render
 
 
 def expand_path(path_str: str) -> Path:
@@ -42,13 +32,13 @@ def expand_path(path_str: str) -> Path:
 
 def install_git_dep(dep: Dependency, dry_run: bool):
     """Handle git repository cloning."""
-    if not dep.source or not dep.target:
+    if not dep.url or not dep.dest:
         print_warning(
             f"Skipping git dependency '{dep.name}': missing source or target."
         )
         return
 
-    dest = expand_path(dep.target)
+    dest = expand_path(dep.dest)
     if dest.exists():
         print_info(f"  [skip] {dep.name} already exists at {dest}")
         return
@@ -57,7 +47,7 @@ def install_git_dep(dep: Dependency, dry_run: bool):
     if not dry_run:
         try:
             subprocess.run(
-                ["git", "clone", dep.source, str(dest)],
+                ["git", "clone", dep.url, str(dest)],
                 check=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -83,13 +73,14 @@ def _build_fallback_dep(name: str, fallback: dict) -> Dependency:
     return Dependency(
         name=fallback.get("name", name),
         type=fallback.get("type", "binary"),
-        source=fallback.get("source"),
-        target=fallback.get("target"),
+        url=fallback.get("url"),
+        dest=fallback.get("dest"),
         version=fallback.get("version"),
         ref=fallback.get("ref"),
-        arch_map=fallback.get("arch_map"),
+        arch=fallback.get("arch"),
         post_install=fallback.get("post_install"),
-        extract_path=fallback.get("extract-path"),
+        extract=fallback.get("extract"),
+        bin=fallback.get("bin"),
     )
 
 
@@ -97,22 +88,22 @@ def install_package_dep(dep: Dependency, manager: PackageManager, dry_run: bool)
     """
     Handle type: package dependencies with per-manager name mapping.
 
-    Looks up the package name for the current manager in dep.package_managers.
+    Looks up the package name for the current manager in dep.managers.
     If the current manager is not listed, skips with a warning.
     If already installed (shutil.which), skips silently.
-    If fallback is present and manager not in package_managers, uses fallback.
+    If fallback is present and manager not in managers, uses fallback.
     """
-    if not dep.package_managers:
+    if not dep.managers:
         pkg_name = dep.name
     else:
-        pkg_name = dep.package_managers.get(manager.name)
+        pkg_name = dep.managers.get(manager.name)
         if pkg_name is None:
             if dep.fallback:
                 print_info(
                     f"  [{manager.name}] {dep.name} not available — "
                     f"using fallback ({dep.fallback.get('type', 'binary')})"
                 )
-                fallback_dep = _build_fallback_dep(dep.name, dep.fallback)
+                fallback_dep = parse_single_dependency(dep.fallback)
                 if fallback_dep.type == "binary":
                     install_binary_dep(fallback_dep, dry_run)
                 elif fallback_dep.type == "git":
@@ -126,7 +117,8 @@ def install_package_dep(dep: Dependency, manager: PackageManager, dry_run: bool)
             print_warning(f"  [skip] {dep.name}: not available for {manager.name}")
             return
 
-    if shutil.which(dep.name):
+    binary_name = dep.bin or dep.name
+    if shutil.which(binary_name):
         print_info(f"  [skip] {dep.name} already installed")
         return
 
@@ -149,27 +141,21 @@ def install_package_dep(dep: Dependency, manager: PackageManager, dry_run: bool)
 
 def install_binary_dep(dep: Dependency, dry_run: bool):
     """Handle binary download and extraction."""
-    if not dep.source or not dep.target:
+    if not dep.url or not dep.dest:
         print_warning(
             f"Skipping binary dependency '{dep.name}': missing source or target."
         )
         return
 
-    dest = expand_path(dep.target)
+    dest = expand_path(dep.dest)
     if dest.exists():
         print_info(f"  [skip] {dep.name} already exists at {dest}")
         return
 
-    # Handle templating
-    arch = get_system_arch()
-    url = dep.source.replace("{{arch}}", arch)
-    if dep.arch_map:
-        # If arch_map is provided, use it to resolve the arch string
-        mapped_arch = dep.arch_map.get(arch, arch)
-        url = dep.source.replace("{{arch}}", mapped_arch)
-
-    if dep.version:
-        url = url.replace("{{version}}", dep.version)
+    # Build context and render template (single pass, no double replacement)
+    ctx = build_context(dep.version, dep.arch)
+    url = render(dep.url, ctx)
+    extract = render(dep.extract, ctx) if dep.extract else None
 
     print_info(f"  [bin] Downloading {dep.name} from {url}...")
 
@@ -193,22 +179,22 @@ def install_binary_dep(dep: Dependency, dry_run: bool):
         # Extract or move
         if url.endswith(".tar.gz") or url.endswith(".tgz"):
             with tarfile.open(tmp_path, "r:gz") as tar:
-                if dep.extract_path:
+                if extract:
                     # Extraer solo el miembro especificado
                     try:
-                        member = tar.getmember(dep.extract_path)
+                        member = tar.getmember(extract)
                         # Extraer a un directorio temporal y mover al destino
                         import tempfile
 
                         with tempfile.TemporaryDirectory() as extract_dir:
                             tar.extract(member, path=extract_dir, filter="data")
-                            extracted = Path(extract_dir) / dep.extract_path
+                            extracted = Path(extract_dir) / extract
                             dest.parent.mkdir(parents=True, exist_ok=True)
                             shutil.move(str(extracted), dest)
                             dest.chmod(0o755)
                     except KeyError:
                         print_error(
-                            f"  extract-path '{dep.extract_path}' not found in archive."
+                            f"  extract '{extract}' not found in archive."
                             f" Available members: {[m.name for m in tar.getmembers()]}"
                         )
                         return
@@ -293,7 +279,7 @@ def install_cmd(
             install_git_dep(dep, dry_run)
         elif dep.type == "binary":
             install_binary_dep(dep, dry_run)
-        elif dep.type in ("package", "system"):  # "system" como alias legacy
+        elif dep.type == "package":
             install_package_dep(dep, manager, dry_run)
         else:
             print_warning(f"  [skip] {dep.name}: unknown type '{dep.type}'")

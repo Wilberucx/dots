@@ -47,7 +47,9 @@ def test_os_specific_destination():
                 {
                     "source": ".gitconfig",
                     "destination": "~/.gitconfig-default",
-                    "destination-linux": "~/.gitconfig"
+                    "per-os": {
+                        "linux": "~/.gitconfig"
+                    }
                 }
             ]
         }))
@@ -78,13 +80,13 @@ def test_frozen_dataclass():
             pass  # Expected — frozen dataclass
 
 def test_destination_override_by_os(tmp_path):
-    """destination-override.linux toma prioridad sobre destination."""
+    """per-os[current_os] toma prioridad sobre destination."""
     yaml_content = """
 files:
   - source: config.toml
     os: [linux, mac]
     destination: ~/.config/tool/config.toml
-    destination-override:
+    per-os:
       mac: ~/Library/Preferences/tool/config.toml
 """
     yaml_path = tmp_path / "path.yaml"
@@ -143,23 +145,23 @@ dependencies:
     assert autosugg.ref is None
 
 def test_dependency_package_managers_field(tmp_path):
-    """Campo package-managers se parsea correctamente en type: package."""
+    """Campo managers (v3) se parsea correctamente en type: package."""
     from dots.core.yaml_parser import parse_dependencies
     yaml_content = """
 dependencies:
   - name: ripgrep
     type: package
-    package-managers:
+    managers:
       pacman: ripgrep
       apt: ripgrep
       brew: ripgrep
   - name: eza
     type: package
-    package-managers:
+    managers:
       pacman: eza
       brew: eza
   - name: git
-    type: system
+    type: package
 """
     yaml_path = tmp_path / "path.yaml"
     yaml_path.write_text(yaml_content)
@@ -169,16 +171,16 @@ dependencies:
 
     rg = deps[0]
     assert rg.type == "package"
-    assert rg.package_managers == {"pacman": "ripgrep", "apt": "ripgrep", "brew": "ripgrep"}
+    assert rg.managers == {"pacman": "ripgrep", "apt": "ripgrep", "brew": "ripgrep"}
 
     eza = deps[1]
     assert eza.type == "package"
-    assert eza.package_managers == {"pacman": "eza", "brew": "eza"}
-    assert eza.package_managers.get("apt") is None
+    assert eza.managers == {"pacman": "eza", "brew": "eza"}
+    assert eza.managers.get("apt") is None
 
     git_dep = deps[2]
-    assert git_dep.type == "system"
-    assert git_dep.package_managers is None
+    assert git_dep.type == "package"  # type: system ya no existe, es alias de package
+    assert git_dep.managers is None
 
 def test_string_shorthand_is_package_type(tmp_path):
     """String shorthand usa type: package por default (no system)."""

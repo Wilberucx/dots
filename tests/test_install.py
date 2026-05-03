@@ -32,8 +32,8 @@ def git_dep():
     return Dependency(
         name="powerlevel10k",
         type="git",
-        source="https://github.com/romkatv/powerlevel10k.git",
-        target="~/.local/share/zsh/plugins/powerlevel10k",
+        url="https://github.com/romkatv/powerlevel10k.git",
+        dest="~/.local/share/zsh/plugins/powerlevel10k",
     )
 
 
@@ -42,8 +42,8 @@ def git_dep_with_ref():
     return Dependency(
         name="powerlevel10k",
         type="git",
-        source="https://github.com/romkatv/powerlevel10k.git",
-        target="~/.local/share/zsh/plugins/powerlevel10k",
+        url="https://github.com/romkatv/powerlevel10k.git",
+        dest="~/.local/share/zsh/plugins/powerlevel10k",
         ref="v1.19.0",
     )
 
@@ -58,8 +58,8 @@ class TestInstallGitDep:
         dep = Dependency(
             name=git_dep.name,
             type=git_dep.type,
-            source=git_dep.source,
-            target=str(target),
+            url=git_dep.url,
+            dest=str(target),
         )
         with patch("dots.commands.install.subprocess.run") as mock_run:
             install_git_dep(dep, dry_run=False)
@@ -76,8 +76,8 @@ class TestInstallGitDep:
         dep = Dependency(
             name="powerlevel10k",
             type="git",
-            source="https://github.com/romkatv/powerlevel10k.git",
-            target=str(target),
+            url="https://github.com/romkatv/powerlevel10k.git",
+            dest=str(target),
         )
         with patch("dots.commands.install.subprocess.run") as mock_run:
             install_git_dep(dep, dry_run=False)
@@ -89,8 +89,8 @@ class TestInstallGitDep:
         dep = Dependency(
             name="powerlevel10k",
             type="git",
-            source="https://github.com/romkatv/powerlevel10k.git",
-            target=str(target),
+            url="https://github.com/romkatv/powerlevel10k.git",
+            dest=str(target),
             ref="v1.19.0",
         )
         with patch("dots.commands.install.subprocess.run") as mock_run:
@@ -106,8 +106,8 @@ class TestInstallGitDep:
         dep = Dependency(
             name="powerlevel10k",
             type="git",
-            source="https://github.com/romkatv/powerlevel10k.git",
-            target=str(target),
+            url="https://github.com/romkatv/powerlevel10k.git",
+            dest=str(target),
         )
         with patch("dots.commands.install.subprocess.run") as mock_run:
             install_git_dep(dep, dry_run=False)
@@ -120,8 +120,8 @@ class TestInstallGitDep:
         dep = Dependency(
             name="powerlevel10k",
             type="git",
-            source="https://github.com/romkatv/powerlevel10k.git",
-            target=str(target),
+            url="https://github.com/romkatv/powerlevel10k.git",
+            dest=str(target),
             ref="v1.19.0",
         )
         with patch("dots.commands.install.subprocess.run") as mock_run:
@@ -154,7 +154,7 @@ class TestInstallPackageDep:
         dep = Dependency(
             name="rg",
             type="package",
-            package_managers={"pacman": "ripgrep", "apt": "ripgrep"},
+            managers={"pacman": "ripgrep", "apt": "ripgrep"},
         )
         with patch("dots.commands.install.shutil.which", return_value=None), \
              patch("dots.commands.install.subprocess.run") as mock_run:
@@ -166,7 +166,7 @@ class TestInstallPackageDep:
         dep = Dependency(
             name="eza",
             type="package",
-            package_managers={"brew": "eza"},  # pacman ausente
+            managers={"brew": "eza"},  # pacman ausente
         )
         with patch("dots.commands.install.subprocess.run") as mock_run:
             install_package_dep(dep, mock_manager, dry_run=False)
@@ -218,11 +218,12 @@ class TestInstallPackageDep:
         dep = Dependency(
             name="starship",
             type="package",
-            package_managers={"pacman": "starship", "brew": "starship"},
+            managers={"pacman": "starship", "brew": "starship"},
             fallback={
+                "name": "starship",
                 "type": "binary",
-                "source": "https://example.com/starship.tar.gz",
-                "target": str(dest),
+                "url": "https://example.com/starship.tar.gz",
+                "dest": str(dest),
             },
         )
         mock_manager.name = "apt"
@@ -239,11 +240,11 @@ class TestInstallPackageDep:
         dep = Dependency(
             name="starship",
             type="package",
-            package_managers={"pacman": "starship"},
+            managers={"pacman": "starship"},
             fallback={
                 "type": "binary",
-                "source": "https://example.com/starship.tar.gz",
-                "target": str(tmp_path / "starship"),
+                "url": "https://example.com/starship.tar.gz",
+                "dest": str(tmp_path / "starship"),
             },
         )
 
@@ -259,11 +260,12 @@ class TestInstallPackageDep:
         dep = Dependency(
             name="oh-my-zsh",
             type="package",
-            package_managers={"brew": "oh-my-zsh"},
+            managers={"brew": "oh-my-zsh"},
             fallback={
+                "name": "oh-my-zsh",
                 "type": "git",
-                "source": "https://github.com/ohmyzsh/ohmyzsh.git",
-                "target": "~/.oh-my-zsh",
+                "url": "https://github.com/ohmyzsh/ohmyzsh.git",
+                "dest": "~/.oh-my-zsh",
             },
         )
         mock_manager.name = "apt"
@@ -273,7 +275,7 @@ class TestInstallPackageDep:
             mock_git.assert_called_once()
             called_dep = mock_git.call_args[0][0]
             assert called_dep.type == "git"
-            assert called_dep.source == "https://github.com/ohmyzsh/ohmyzsh.git"
+            assert called_dep.url == "https://github.com/ohmyzsh/ohmyzsh.git"
 
 # ─── install_binary_dep ──────────────────────────────────────────────────────
 
@@ -286,8 +288,8 @@ class TestInstallBinaryDep:
         dep = Dependency(
             name="mybin",
             type="binary",
-            source="https://example.com/mybin",
-            target=str(target),
+            url="https://example.com/mybin",
+            dest=str(target),
         )
         with patch("dots.commands.install.requests.get") as mock_get:
             install_binary_dep(dep, dry_run=False)
@@ -299,8 +301,8 @@ class TestInstallBinaryDep:
         dep = Dependency(
             name="mybin",
             type="binary",
-            source="https://example.com/mybin",
-            target=str(target),
+            url="https://example.com/mybin",
+            dest=str(target),
         )
         with patch("dots.commands.install.requests.get") as mock_get:
             install_binary_dep(dep, dry_run=True)
@@ -313,8 +315,8 @@ class TestInstallBinaryDep:
         dep = Dependency(
             name="mybin",
             type="binary",
-            source="https://example.com/mybin-{{arch}}",
-            target=str(target),
+            url="https://example.com/mybin-{{arch}}",
+            dest=str(target),
         )
         mock_response = MagicMock()
         mock_response.iter_content.return_value = [b"data"]
@@ -332,9 +334,9 @@ class TestInstallBinaryDep:
         dep = Dependency(
             name="mybin",
             type="binary",
-            source="https://example.com/mybin-{{arch}}",
-            target=str(target),
-            arch_map={"x86_64": "amd64"},
+            url="https://example.com/mybin-{{arch}}",
+            dest=str(target),
+            arch={"x86_64": "amd64"},
         )
         mock_response = MagicMock()
         mock_response.iter_content.return_value = [b"data"]
@@ -354,8 +356,8 @@ class TestInstallBinaryDep:
         dep = Dependency(
             name="mybin",
             type="binary",
-            source="https://example.com/mybin-{{version}}",
-            target=str(target),
+            url="https://example.com/mybin-{{version}}",
+            dest=str(target),
             version="1.2.3",
         )
         mock_response = MagicMock()
@@ -373,8 +375,8 @@ class TestInstallBinaryDep:
         dep = Dependency(
             name="mybin",
             type="binary",
-            source="https://example.com/mybin",
-            target=str(target),
+            url="https://example.com/mybin",
+            dest=str(target),
         )
         mock_response = MagicMock()
         mock_response.iter_content.return_value = [b"fake_binary_data"]
@@ -421,9 +423,9 @@ class TestInstallBinaryDep:
         dep = Dependency(
             name="eza",
             type="binary",
-            source="https://example.com/eza-{{arch}}.tar.gz",
-            target=str(dest),
-            extract_path="eza-linux-x86_64/eza",
+            url="https://example.com/eza-{{arch}}.tar.gz",
+            dest=str(dest),
+            extract="eza-linux-x86_64/eza",
         )
 
         mock_response = MagicMock()
@@ -462,9 +464,9 @@ class TestInstallBinaryDep:
         dep = Dependency(
             name="mytool",
             type="binary",
-            source="https://example.com/mytool.tar.gz",
-            target=str(dest),
-            extract_path="wrong-dir/mytool",  # no existe en el tarball
+            url="https://example.com/mytool.tar.gz",
+            dest=str(dest),
+            extract="wrong-dir/mytool",  # no existe en el tarball
         )
 
         mock_response = MagicMock()

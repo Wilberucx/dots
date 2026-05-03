@@ -3,6 +3,7 @@ from typing import List, Optional, Dict, Any, Union
 from dataclasses import dataclass
 import yaml
 from dots.core.system import detect_os
+from dots.core.schema import validate_dependency, validate_file_mapping
 
 
 @dataclass(frozen=True)
@@ -10,18 +11,17 @@ class Dependency:
     """Represents a dependency to be installed."""
 
     name: str
-    type: str = "package"  # system, git, binary, script, curl, package
-    source: Optional[str] = None  # URL, package name, or script content
-    target: Optional[str] = None  # Destination path (for git/binary)
+    type: str = "package"  # package, git, binary, script, curl
+    url: Optional[str] = None          # URL, package name, or script content (era: source)
+    dest: Optional[str] = None         # Destination path (for git/binary) (era: target)
     version: Optional[str] = None
     ref: Optional[str] = None  # git tag/branch/commit hash
-    arch_map: Optional[Dict[str, str]] = None  # Mapping for architecture-specific URLs
+    arch: Optional[Dict[str, str]] = None  # Mapping for architecture-specific URLs (era: arch_map)
+    managers: Optional[Dict[str, str]] = None  # {"pacman": "pkg", "apt": "pkg"} (era: package_managers)
+    extract: Optional[str] = None  # ruta relativa del binario dentro del tarball (era: extract_path)
+    fallback: Optional[Dict[str, Any]] = None  # inline dep para cuando PM no tiene el paquete
     post_install: Optional[str] = None  # Command to run after installation
-    package_managers: Optional[Dict[str, str]] = None  # {"pacman": "pkg", "apt": "pkg"}
-    extract_path: Optional[str] = None  # ruta relativa del binario dentro del tarball
-    fallback: Optional[Dict[str, Any]] = (
-        None  # inline dep para cuando PM no tiene el paquete
-    )
+    bin: Optional[str] = None  # nombre del ejecutable cuando difiere de name
 
 
 @dataclass(frozen=True)
@@ -64,6 +64,10 @@ def parse_path_yaml(yaml_path: Path, current_os: str = None) -> List[DotFileMapp
     mappings: List[DotFileMapping] = []
 
     for item in data.get("files", []):
+        # Validate file mapping
+        errors = validate_file_mapping(item, str(yaml_path))
+        # Errors logged by caller
+
         source = item.get("source")
         if not source:
             continue
@@ -74,21 +78,18 @@ def parse_path_yaml(yaml_path: Path, current_os: str = None) -> List[DotFileMapp
             continue
 
         # Determine destination
-        # 1. explicit 'destination-OS'
+        # 1. per-os[current_os]
         # 2. default 'destination'
+        # 3. Skip
 
         dest = None
 
-        # 1. Nuevo override explícito por OS
-        override = item.get("destination-override", {})
-        if isinstance(override, dict):
-            dest = override.get(current_os)
+        # 1. Override explícito por OS
+        per_os = item.get("per-os", {})
+        if isinstance(per_os, dict):
+            dest = per_os.get(current_os)
 
-        # 2. Retrocompatibilidad con destination-linux / destination-mac
-        if not dest:
-            dest = item.get(f"destination-{current_os}")
-
-        # 3. Destino genérico
+        # 2. Destino genérico
         if not dest:
             dest = item.get("destination")
 
@@ -98,6 +99,29 @@ def parse_path_yaml(yaml_path: Path, current_os: str = None) -> List[DotFileMapp
         mappings.append(DotFileMapping(source.rstrip("/"), dest))
 
     return mappings
+
+
+def parse_single_dependency(raw_dict: Dict[str, Any]) -> Dependency:
+    """
+    Parses a single dependency dictionary into a Dependency dataclass.
+    Used by both parse_dependencies and fallback logic.
+    """
+    name = raw_dict.get("name")
+    
+    return Dependency(
+        name=name,
+        type=raw_dict.get("type", "package"),
+        url=raw_dict.get("url"),
+        dest=raw_dict.get("dest"),
+        version=raw_dict.get("version"),
+        ref=raw_dict.get("ref"),
+        arch=raw_dict.get("arch"),
+        managers=raw_dict.get("managers"),
+        extract=raw_dict.get("extract"),
+        post_install=raw_dict.get("post-install") or raw_dict.get("post_install"),
+        fallback=raw_dict.get("fallback"),
+        bin=raw_dict.get("bin"),
+    )
 
 
 def parse_dependencies(yaml_path: Path) -> List[Dependency]:
@@ -120,31 +144,23 @@ def parse_dependencies(yaml_path: Path) -> List[Dependency]:
     raw_deps = data.get("dependencies", [])
     dependencies: List[Dependency] = []
 
+    # Validate dependencies
     for d in raw_deps:
         if isinstance(d, str):
             # Legacy string format -> Package
             dependencies.append(Dependency(name=d))
         elif isinstance(d, dict):
-            # Complex object format
+            # Validate before parsing
+            errors = validate_dependency(d, str(yaml_path))
+            if errors:
+                # Errors are logged by caller or via schema validation
+                pass
+
             name = d.get("name")
             if not name:
                 continue  # Skip unnamed dependencies
 
-            dependencies.append(
-                Dependency(
-                    name=name,
-                    type=d.get("type", "package"),
-                    source=d.get("source"),
-                    target=d.get("target"),
-                    version=d.get("version"),
-                    ref=d.get("ref"),
-                    arch_map=d.get("arch_map"),
-                    post_install=d.get("post_install"),
-                    package_managers=d.get("package-managers"),
-                    extract_path=d.get("extract-path"),
-                    fallback=d.get("fallback"),
-                )
-            )
+            dependencies.append(parse_single_dependency(d))
 
     return dependencies
 
@@ -249,3 +265,25 @@ def parse_module_meta(yaml_path: Path) -> dict:
         meta["type"] = str(data["type"])
 
     return meta
+
+
+def validate_path_yaml(yaml_path: Path) -> list[str]:
+    """
+    Valida un path.yaml y retorna lista de errores.
+    Retorna lista vacía si todo OK.
+    """
+    from dots.core.schema import validate_path_yaml as schema_validate
+
+    if not yaml_path.exists():
+        return []
+
+    try:
+        with open(yaml_path, "r") as f:
+            data = yaml.safe_load(f)
+    except yaml.YAMLError:
+        return [f"[{yaml_path}]: YAML inválido"]
+
+    if not data:
+        return []
+
+    return schema_validate(data, str(yaml_path))
