@@ -45,12 +45,12 @@ Some packages have different names per PM. **ripgrep** is the canonical example:
 | apt | `ripgrep` |
 | brew | `ripgrep` |
 
-But `rg` (the binary) is the same everywhere. Use `package-managers` to map:
+But `rg` (the binary) is the same everywhere. Use `managers` to map:
 
 ```yaml
 - name: rg
   type: package
-  package-managers:
+  managers:
     pacman: ripgrep
     apt: ripgrep
     brew: ripgrep
@@ -85,20 +85,20 @@ Clones a Git repository to a local path. Use for plugins, themes, and tools that
 
 | Field | Required | Purpose |
 |-------|----------|---------|
-| `source` | Yes | Git URL (https or ssh) |
-| `target` | Yes | Destination path (`~` expanded) |
+| `url` | Yes | Git URL (https or ssh) |
+| `dest` | Yes | Destination path (`~` expanded) |
 | `ref` | No | Tag, branch, or commit hash |
-| `post_install` | No | Shell command after clone |
+| `post-install` | No | Shell command after clone |
 
 ### Example: Zsh Plugin
 
 ```yaml
 - name: powerlevel10k
   type: git
-  source: https://github.com/romkatv/powerlevel10k.git
-  target: ~/.local/share/zsh/plugins/powerlevel10k
+  url: https://github.com/romkatv/powerlevel10k.git
+  dest: ~/.local/share/zsh/plugins/powerlevel10k
   ref: v1.19.0
-  post_install: ~/.fzf/install --all
+  post-install: ~/.fzf/install --all
 ```
 
 **Why `ref` matters:** Without it, you get whatever the default branch is at clone time — a moving target. Pinning `ref` ensures reproducible installs.
@@ -134,19 +134,19 @@ Architecture detection:
 platform.machine() → x86_64, aarch64, armv7l, etc.
 ```
 
-### `arch_map` Field
+### `arch` Field
 
-Some projects use different arch strings in their URLs. eza uses `x86_64` and `aarch64` (matching our detection). But starship uses `x86_64` and `aarch64` too. 
+Some projects use different arch strings in their URLs. eza uses `x86_64` and `aarch64` (matching our detection). But starship uses `x86_64` and `aarch64` too.
 
-A project that differs: some use `amd64` instead of `x86_64`. Use `arch_map` to translate:
+A project that differs: some use `amd64` instead of `x86_64`. Use `arch` to translate:
 
 ```yaml
-arch_map:
+arch:
   x86_64: amd64      # detection → URL segment
   aarch64: arm64
 ```
 
-### `extract_path` Field
+### `extract` Field
 
 Tarballs from GitHub releases often contain multiple files:
 
@@ -157,40 +157,40 @@ starship-{{arch}}-unknown-linux-musl.tar.gz
 └── README.md
 ```
 
-Without `extract_path`, tarfile extracts **all members** to the target's parent directory — polluting `$HOME/.local/bin/` with LICENSE files.
+Without `extract`, tarfile extracts **all members** to the target's parent directory — polluting `$HOME/.local/bin/` with LICENSE files.
 
-With `extract_path: starship`, only the `starship` member is extracted to `target`.
+With `extract: starship`, only the `starship` member is extracted to `dest`.
 
 ### Example: eza
 
 ```yaml
 - name: eza
   type: binary
-  source: https://github.com/eza-community/eza/releases/download/v{{version}}/eza_{{arch}}-unknown-linux-musl.tar.gz
-  target: ~/.local/bin/eza
+  url: https://github.com/eza-community/eza/releases/download/v{{version}}/eza_{{arch}}-unknown-linux-musl.tar.gz
+  dest: ~/.local/bin/eza
   version: "0.18.21"
-  extract-path: eza
-  arch_map:
+  extract: eza
+  arch:
     x86_64: x86_64
     aarch64: aarch64
 ```
 
-**Why a static arch_map?** Consistency. If eza ever changed their URL format to `eza_x86_64` instead of `eza_x86_64`, you'd only change the map, not the URL template.
+**Why a static arch?** Consistency. If eza ever changed their URL format to `eza_x86_64` instead of `eza_x86_64`, you'd only change the map, not the URL template.
 
 ### Example: starship (with fallback)
 
 ```yaml
 - name: starship
   type: package
-  package-managers:
+  managers:
     pacman: starship
     brew: starship
   fallback:
     type: binary
-    source: https://github.com/starship/starship/releases/download/v{{version}}/starship-{{arch}}-unknown-linux-musl.tar.gz
-    target: ~/.local/bin/starship
+    url: https://github.com/starship/starship/releases/download/v{{version}}/starship-{{arch}}-unknown-linux-musl.tar.gz
+    dest: ~/.local/bin/starship
     version: "1.19.0"
-    extract-path: starship
+    extract: starship
 ```
 
 ---
@@ -201,7 +201,7 @@ With `extract_path: starship`, only the `starship` member is extracted to `targe
 
 `fallback` triggers when:
 
-1. A `package` dependency uses `package-managers`
+1. A `package` dependency uses `managers`
 2. The current PM is **not** in that dict
 3. A `fallback` is defined
 
@@ -365,15 +365,16 @@ Next run, if you haven't resolved the `.bak`:
 |-------|-------|-------------|
 | `name` | all | Unique identifier; used for deduplication |
 | `type` | all | `package` (default), `git`, `binary` |
-| `source` | git, binary | URL or repo |
-| `target` | git, binary | Destination path |
+| `url` | git, binary | URL or repo |
+| `dest` | git, binary | Destination path |
 | `version` | binary | Template variable for URL |
 | `ref` | git | tag/branch/commit |
-| `arch_map` | binary | Arch string translation |
-| `package-managers` | package | PM → package name mapping |
-| `extract-path` | binary | Archive member to extract |
+| `arch` | binary | Arch string translation |
+| `managers` | package | PM → package name mapping |
+| `extract` | binary | Archive member to extract |
 | `fallback` | package | Inline dep when PM unavailable |
-| `post_install` | all | Shell command after install |
+| `post-install` | all | Shell command after install |
+| `bin` | package | Executable name if different from `name` |
 
 ### Deprecated: `type: system`
 

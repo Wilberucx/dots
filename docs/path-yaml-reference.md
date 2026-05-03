@@ -59,13 +59,13 @@ files:
 
 ### OS-specific destination
 
-Use `destination` as the default and `destination-override` for exceptions:
+Use `per-os` for OS-specific destinations:
 
 ```yaml
 - source: config.toml
   os: [linux, mac]
   destination: ~/.config/tool/config.toml        # default
-  destination-override:
+  per-os:
     mac: ~/Library/Preferences/tool/config.toml  # mac override
 ```
 
@@ -87,7 +87,7 @@ dependencies:
 
 ### `type: package` — system package manager
 For packages that may have different names per package manager.
-Without `package-managers`, uses the name directly:
+Without `managers`, uses the name directly:
 
 ```yaml
 - name: fzf
@@ -99,7 +99,7 @@ With per-manager name mapping:
 ```yaml
 - name: rg
   type: package
-  package-managers:
+  managers:
     pacman: ripgrep
     apt: ripgrep
     brew: ripgrep
@@ -108,6 +108,18 @@ With per-manager name mapping:
 If the current package manager is not listed, the package is skipped
 with a warning — unless a `fallback` is declared.
 
+### Executable name (`bin`)
+If the installed binary has a different name than `name`:
+
+```yaml
+- name: bat
+  type: package
+  bin: batcat    # executable name if different from package name
+  managers:
+    apt: bat
+    brew: bat
+```
+
 ### `fallback` — automatic fallback for unavailable packages
 When a package is not available in the current package manager,
 `fallback` provides an alternative installation method:
@@ -115,17 +127,17 @@ When a package is not available in the current package manager,
 ```yaml
 - name: starship
   type: package
-  package-managers:
+  managers:
     pacman: starship
     brew: starship
     # apt not listed — will use fallback
   fallback:
     type: binary
-    source: https://github.com/starship/starship/releases/download/v{{version}}/starship-{{arch}}-unknown-linux-musl.tar.gz
-    target: ~/.local/bin/starship
+    url: https://github.com/starship/starship/releases/download/v{{version}}/starship-{{arch}}-unknown-linux-musl.tar.gz
+    dest: ~/.local/bin/starship
     version: "1.19.0"
-    extract-path: starship   # path of the binary inside the archive
-    arch_map:
+    extract: starship   # path of the binary inside the archive
+    arch:
       x86_64: x86_64
       aarch64: aarch64
 ```
@@ -136,8 +148,8 @@ Fallback supports `type: binary` and `type: git`.
 ```yaml
 - name: powerlevel10k
   type: git
-  source: https://github.com/romkatv/powerlevel10k.git
-  target: ~/.local/share/zsh/plugins/powerlevel10k
+  url: https://github.com/romkatv/powerlevel10k.git
+  dest: ~/.local/share/zsh/plugins/powerlevel10k
   ref: v1.19.0   # optional: pin to tag, branch, or commit hash
 ```
 
@@ -148,11 +160,11 @@ If the target already exists, skips silently.
 ```yaml
 - name: eza
   type: binary
-  source: https://github.com/eza-community/eza/releases/download/v{{version}}/eza_{{arch}}-unknown-linux-musl.tar.gz
-  target: ~/.local/bin/eza
+  url: https://github.com/eza-community/eza/releases/download/v{{version}}/eza_{{arch}}-unknown-linux-musl.tar.gz
+  dest: ~/.local/bin/eza
   version: "0.18.21"
-  extract-path: eza               # member path inside the archive
-  arch_map:
+  extract: eza               # member path inside the archive
+  arch:
     x86_64: x86_64
     aarch64: aarch64
 ```
@@ -160,20 +172,20 @@ If the target already exists, skips silently.
 **Template variables:**
 - `{{version}}` — replaced with the `version` field value
 - `{{arch}}` — replaced with detected system arch (`x86_64`, `aarch64`)
-  `arch_map` maps the detected arch to a custom string if needed
+  `arch` maps the detected arch to a custom string if needed
 
-**`extract-path`:** relative path of the binary inside the archive.
+**`extract`:** relative path of the binary inside the archive.
 If omitted, extracts the entire archive to the target's parent directory.
 
-### `post_install` — run a command after installation
+### `post-install` — run a command after installation
 Available on any dependency type:
 
 ```yaml
 - name: fzf
   type: git
-  source: https://github.com/junegunn/fzf.git
-  target: ~/.fzf
-  post_install: ~/.fzf/install --all
+  url: https://github.com/junegunn/fzf.git
+  dest: ~/.fzf
+  post-install: ~/.fzf/install --all
 ```
 
 ---
@@ -191,7 +203,7 @@ files:
   - source: config.toml
     os: [linux, mac]
     destination: ~/.config/tool/config.toml
-    destination-override:
+    per-os:
       mac: ~/Library/Preferences/tool/config.toml
 
 dependencies:
@@ -202,42 +214,50 @@ dependencies:
   # Package with per-manager mapping
   - name: rg
     type: package
-    package-managers:
+    managers:
       pacman: ripgrep
       apt: ripgrep
       brew: ripgrep
 
+  # Package with different binary name
+  - name: bat
+    type: package
+    bin: batcat
+    managers:
+      apt: bat
+      brew: bat
+
   # Package with fallback for apt
   - name: starship
     type: package
-    package-managers:
+    managers:
       pacman: starship
       brew: starship
     fallback:
       type: binary
-      source: https://github.com/starship/starship/releases/download/v{{version}}/starship-{{arch}}-unknown-linux-musl.tar.gz
-      target: ~/.local/bin/starship
+      url: https://github.com/starship/starship/releases/download/v{{version}}/starship-{{arch}}-unknown-linux-musl.tar.gz
+      dest: ~/.local/bin/starship
       version: "1.19.0"
-      extract-path: starship
-      arch_map:
+      extract: starship
+      arch:
         x86_64: x86_64
         aarch64: aarch64
 
   # Git repository
   - name: powerlevel10k
     type: git
-    source: https://github.com/romkatv/powerlevel10k.git
-    target: ~/.local/share/zsh/plugins/powerlevel10k
+    url: https://github.com/romkatv/powerlevel10k.git
+    dest: ~/.local/share/zsh/plugins/powerlevel10k
     ref: v1.19.0
 
   # Binary download
   - name: eza
     type: binary
-    source: https://github.com/eza-community/eza/releases/download/v{{version}}/eza_{{arch}}-unknown-linux-musl.tar.gz
-    target: ~/.local/bin/eza
+    url: https://github.com/eza-community/eza/releases/download/v{{version}}/eza_{{arch}}-unknown-linux-musl.tar.gz
+    dest: ~/.local/bin/eza
     version: "0.18.21"
-    extract-path: eza
-    arch_map:
+    extract: eza
+    arch:
       x86_64: x86_64
       aarch64: aarch64
 ```
@@ -257,3 +277,15 @@ When `dots link` encounters an existing file at the destination:
 
 No timestamp suffixes. One `.bak` per file — intentional friction
 to keep your dotfiles intentional and clean.
+
+---
+
+## Schema v2 deprecation
+
+If you have existing `path.yaml` files using v2 syntax (e.g., `source`, `target`, `package-managers`, `destination-override`), run:
+
+```bash
+dots migrate
+```
+
+This will automatically upgrade to v3 syntax.

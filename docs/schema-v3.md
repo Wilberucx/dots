@@ -1,7 +1,7 @@
 # Schema v3 — path.yaml
 
 > **Versión**: 3.0.0
-> **Status**: Draft
+> **Status**: Active
 > **Scope**: Estandarización del schema de `dependencies` y `files` en `path.yaml`
 
 ## Principio
@@ -153,6 +153,21 @@ arch:
   x86_64: amd64   # transforma x86_64 -> amd64 en la URL
   aarch64: arm64  # transforma aarch64 -> arm64
 ```
+
+---
+
+## v2 Detection
+
+Si se detecta uso de schema v2, dots falla rápido con mensaje claro:
+
+```
+[path.yaml] Schema v2 detected in dependencies[0]. Run 'dots migrate' to upgrade to v3 automatically.
+```
+
+Los campos detectados:
+
+- Dependencies: `source`, `target`, `extract-path`, `arch_map`, `package-managers`
+- Files: `destination-override`, `destination-linux`, `destination-mac`
 
 ---
 
