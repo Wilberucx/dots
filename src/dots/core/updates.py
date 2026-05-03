@@ -7,7 +7,7 @@ import requests
 from dots.ui.output import console
 
 CACHE_FILE = Path.home() / ".cache" / "dots" / "update.json"
-GITHUB_API_URL = "https://api.github.com/repos/cantoarch/dots/releases/latest"
+GITHUB_API_URL = "https://api.github.com/repos/Wilberucx/dots/tags"
 
 def is_newer(latest: str, current: str) -> bool:
     """Simple semantic version comparison."""
@@ -28,15 +28,17 @@ def _fetch_and_cache():
         response = requests.get(GITHUB_API_URL, timeout=1.5)
         if response.status_code == 200:
             data = response.json()
-            latest_version = data.get("tag_name", "").lstrip("v")
-            
-            if latest_version:
-                cache_data = {
-                    "latest_version": latest_version,
-                    "last_check": time.time()
-                }
-                with open(CACHE_FILE, "w") as f:
-                    json.dump(cache_data, f)
+            # Tags endpoint returns a list; first tag is the most recent
+            if data and len(data) > 0:
+                latest_version = data[0].get("name", "").lstrip("v")
+
+                if latest_version:
+                    cache_data = {
+                        "latest_version": latest_version,
+                        "last_check": time.time()
+                    }
+                    with open(CACHE_FILE, "w") as f:
+                        json.dump(cache_data, f)
     except Exception:
         # Silently fail on network issues or API errors
         pass
