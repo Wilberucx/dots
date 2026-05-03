@@ -3,7 +3,8 @@ from typing import List, Optional, Dict, Any, Union
 from dataclasses import dataclass
 import yaml
 from dots.core.system import detect_os
-from dots.core.schema import validate_dependency, validate_file_mapping
+from dots.core.schema import validate_dependency, validate_file_mapping, detect_v2_schema
+from dots.ui.output import print_error
 
 
 @dataclass(frozen=True)
@@ -58,7 +59,17 @@ def parse_path_yaml(yaml_path: Path, current_os: str = None) -> List[DotFileMapp
     except yaml.YAMLError:
         return []
 
-    if not data or "files" not in data:
+    if not data:
+        return []
+
+    # Early fail on v2 schema
+    v2_errors = detect_v2_schema(data, str(yaml_path))
+    if v2_errors:
+        for err in v2_errors:
+            print_error(err)
+        return []
+
+    if "files" not in data:
         return []
 
     mappings: List[DotFileMapping] = []
@@ -138,7 +149,17 @@ def parse_dependencies(yaml_path: Path) -> List[Dependency]:
     except yaml.YAMLError:
         return []
 
-    if not data or "dependencies" not in data:
+    if not data:
+        return []
+
+    # Early fail on v2 schema
+    v2_errors = detect_v2_schema(data, str(yaml_path))
+    if v2_errors:
+        for err in v2_errors:
+            print_error(err)
+        return []
+
+    if "dependencies" not in data:
         return []
 
     raw_deps = data.get("dependencies", [])

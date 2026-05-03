@@ -124,13 +124,13 @@ def test_dependency_ref_field(tmp_path):
 dependencies:
   - name: powerlevel10k
     type: git
-    source: https://github.com/romkatv/powerlevel10k.git
-    target: ~/.local/share/zsh/plugins/powerlevel10k
+    url: https://github.com/romkatv/powerlevel10k.git
+    dest: ~/.local/share/zsh/plugins/powerlevel10k
     ref: v1.19.0
   - name: zsh-autosuggestions
     type: git
-    source: https://github.com/zsh-users/zsh-autosuggestions.git
-    target: ~/.local/share/zsh/plugins/zsh-autosuggestions
+    url: https://github.com/zsh-users/zsh-autosuggestions.git
+    dest: ~/.local/share/zsh/plugins/zsh-autosuggestions
 """
     yaml_path = tmp_path / "path.yaml"
     yaml_path.write_text(yaml_content)

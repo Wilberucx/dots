@@ -3,6 +3,39 @@
 from typing import Optional
 
 
+# Campos v2 que indican schema obsoleto
+V2_DEP_FIELDS = {"source", "target", "extract-path", "arch_map", "package-managers"}
+V2_FILE_FIELDS = {"destination-linux", "destination-mac", "destination-override"}
+
+
+def detect_v2_schema(data: dict, yaml_path: str) -> list[str]:
+    """
+    Detecta uso de schema v2 y retorna error early fail.
+    Se ejecuta antes de parsear para dar mensaje claro.
+    """
+    errors = []
+
+    # Check dependencies
+    deps = data.get("dependencies", [])
+    for i, dep in enumerate(deps):
+        if isinstance(dep, dict) and V2_DEP_FIELDS.intersection(dep.keys()):
+            errors.append(
+                f"[{yaml_path}] Schema v2 detected in dependencies[{i}]. "
+                f"Run 'dots migrate' to upgrade to v3 automatically."
+            )
+
+    # Check files
+    files = data.get("files", [])
+    for i, f in enumerate(files):
+        if isinstance(f, dict) and V2_FILE_FIELDS.intersection(f.keys()):
+            errors.append(
+                f"[{yaml_path}] Schema v2 detected in files[{i}]. "
+                f"Run 'dots migrate' to upgrade to v3 automatically."
+            )
+
+    return errors
+
+
 # Campos requeridos por tipo de dependency
 REQUIRED_FIELDS: dict[str, list[str]] = {
     "binary": ["url", "dest"],
