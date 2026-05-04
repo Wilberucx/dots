@@ -9,7 +9,7 @@ def list_cmd(
     unlinked: bool = typer.Option(False, "--unlinked", help="Show unlinked modules"),
     broken: bool = typer.Option(False, "--broken", help="Show broken modules"),
     variant: bool = typer.Option(False, "--variant", help="Show variants"),
-    bak: bool = typer.Option(False, "--bak", help="Show backup paths"),
+    backups: bool = typer.Option(False, "--backups", help="Show backup (.orig) files"),
 ):
     """
     List modules or backups with optional filters.
@@ -20,7 +20,7 @@ def list_cmd(
     results = set()
 
     # If no flags are provided, show all module names
-    if not any([linked, unlinked, broken, variant, bak]):
+    if not any([linked, unlinked, broken, variant, backups]):
         for module_name in all_modules:
             results.add(module_name)
 
@@ -41,11 +41,10 @@ def list_cmd(
                 for v in vinfo.variants:
                     results.add(f"{module_name}:{v}")
 
-        if bak:
-            for s in statuses:
-                bak_path = Path(str(s.destination) + ".orig")
-                if bak_path.exists():
-                    results.add(str(bak_path))
+    # Search all .orig files in home directory (outside module loop)
+    if backups:
+        for p in Path.home().rglob("*.orig"):
+            results.add(str(p))
 
     for item in sorted(results):
         console.print(item)
