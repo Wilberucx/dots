@@ -205,11 +205,12 @@ def link_cmd(
 
                 elif status.state == "pending":
                     if status.detail == "backup needed":
-                        backup_path = Path(str(final_dest) + ".orig")
+                        # Use backup_path from status if available, fallback to manual computation
+                        backup_path = status.backup_path or Path(str(final_dest) + ".orig")
                         if backup_path.exists():
                             # .orig already exists -> require user attention and do not auto-create another backup
                             module_tree.add(
-                                f"[yellow]⚠[/yellow] {src.name} → {final_dest} [yellow](.orig exists at {backup_path}, review before creating new backups)[/yellow]"
+                                f"[yellow]⚠[/yellow] {src.name} → {final_dest} [yellow](.orig exists at {backup_path}, run 'dots status --backups' to review)[/yellow]"
                             )
                             module_stats["pending"] += 1
                         else:
