@@ -38,6 +38,11 @@ def status_cmd(
         "-f",
         help="Output format: default, table, json",
     ),
+    backups: bool = typer.Option(
+        False,
+        "--backups",
+        help="Show only mappings with .orig backup files",
+    ),
 ):
     """
     Show status of all dotfiles modules grouped by state.
@@ -62,18 +67,19 @@ def status_cmd(
                 state_filter.add(s)
 
     if format == OutputFormat.table:
-        _render_table(all_modules, state_filter, config)
+        _render_table(all_modules, state_filter, config, backups)
     elif format == OutputFormat.json:
-        _render_json(all_modules, state_filter, config)
+        _render_json(all_modules, state_filter, config, backups)
     else:
         print_header("Dots Status")
-        _render_default(all_modules, state_filter, config)
+        _render_default(all_modules, state_filter, config, backups)
 
 
 def _render_default(
     all_modules: dict,
     state_filter: set[str] | None,
     config,
+    backups: bool = False,
 ) -> None:
     """Output actual agrupado por estado."""
 
@@ -85,10 +91,24 @@ def _render_default(
     not_linked = []
 
     for module_name, statuses in all_modules.items():
+        # Filter by --backups flag
+        if backups:
+            has_backup = any(s.backup_path for s in statuses)
+            if not has_backup:
+                continue
+
         module_linked = sum(1 for s in statuses if s.state == "linked")
         module_broken = sum(1 for s in statuses if s.state in ("conflict", "unsafe"))
         module_missing = sum(1 for s in statuses if s.state == "missing")
         module_pending = sum(1 for s in statuses if s.state == "pending")
+
+        # Collect backup info for display
+        backup_info = None
+        if backups:
+            backup_files = [s for s in statuses if s.backup_path]
+            if backup_files:
+                backup_names = [s.backup_path.name for s in backup_files]
+                backup_info = ", ".join(backup_names)
 
         # Categorize module by worst state
         if module_broken > 0:
@@ -104,21 +124,33 @@ def _render_default(
                     reason.append(f"{conflicts} conflict{'s' if conflicts > 1 else ''}")
                 if unsafe > 0:
                     reason.append(f"{unsafe} unsafe path{'s' if unsafe > 1 else ''}")
-                broken.append((module_name, ", ".join(reason)))
+                info = ", ".join(reason)
+                if backup_info:
+                    info = f"{info} [warning]({backup_info})[/warning]"
+                broken.append((module_name, info))
         elif module_missing > 0:
             if not state_filter or "missing" in state_filter:
+                reason = f"{module_missing} missing source{'s' if module_missing > 1 else ''}"
+                if backup_info:
+                    reason = f"{reason} [warning]({backup_info})[/warning]"
                 missing_src.append(
                     (
                         module_name,
-                        f"{module_missing} missing source{'s' if module_missing > 1 else ''}",
+                        reason,
                     )
                 )
         elif module_pending > 0:
             if not state_filter or "pending" in state_filter:
-                unlinked.append((module_name, f"{module_pending} unlinked"))
+                info = f"{module_pending} unlinked"
+                if backup_info:
+                    info = f"{info} [warning]({backup_info})[/warning]"
+                unlinked.append((module_name, info))
         elif module_linked > 0:
             if not state_filter or "linked" in state_filter:
-                linked.append((module_name, f"{module_linked} linked"))
+                info = f"{module_linked} linked"
+                if backup_info:
+                    info = f"{info} [warning]({backup_info})[/warning]"
+                linked.append((module_name, info))
         else:
             not_linked.append((module_name, "no files to link"))
 
@@ -207,6 +239,7 @@ def _render_table(
     all_modules: dict,
     state_filter: set[str] | None,
     config,
+    backups: bool = False,
 ) -> None:
     """Tabla Rich con columnas Module/Source/Destination/State/Type."""
     from rich.table import Table
@@ -232,6 +265,7 @@ def _render_table(
     table.add_column("Destination", no_wrap=True)
     table.add_column("State", no_wrap=True)
     table.add_column("Type", style="dim", no_wrap=True, min_width=10)
+    table.add_column("Backup", style="dim", no_wrap=True)
 
     total = 0
 
@@ -245,8 +279,17 @@ def _render_table(
             if state_filter and st.state not in state_filter:
                 continue
 
+            # Filter by --backups flag
+            if backups and not st.backup_path:
+                continue
+
             label, color = STATE_STYLE.get(st.state, (st.state, "white"))
             state_text = Text(f"● {label}", style=color)
+
+            # Backup column with indicator
+            backup_cell = ""
+            if st.backup_path:
+                backup_cell = f"[warning]⚠ {st.backup_path.name}[/warning]"
 
             mod_cell = module_name if first_row else ""
             type_cell = module_type if first_row else ""
@@ -258,6 +301,7 @@ def _render_table(
                 str(st.destination).replace(str(config.home_dir), "~"),
                 state_text,
                 type_cell,
+                backup_cell,
             )
             total += 1
 
@@ -273,6 +317,7 @@ def _render_json(
     all_modules: dict,
     state_filter: set[str] | None,
     config,
+    backups: bool = False,
 ) -> None:
     """JSON estructurado para scripting."""
     import json
@@ -305,18 +350,26 @@ def _render_json(
             if state_filter and st.state not in state_filter:
                 continue
 
+            # Filter by --backups flag
+            if backups and not st.backup_path:
+                continue
+
             label = STATE_LABEL.get(st.state, str(st.state))
             summary[label] = summary.get(label, 0) + 1
 
-            files.append(
-                {
-                    "source": st.source.name,
-                    "destination": str(st.destination).replace(
-                        str(config.home_dir), "~"
-                    ),
-                    "state": label,
-                }
-            )
+            file_entry = {
+                "source": st.source.name,
+                "destination": str(st.destination).replace(
+                    str(config.home_dir), "~"
+                ),
+                "state": label,
+            }
+
+            # Include backup_path if present
+            if st.backup_path:
+                file_entry["backup_path"] = str(st.backup_path)
+
+            files.append(file_entry)
 
         if files:
             modules_data[module_name] = {

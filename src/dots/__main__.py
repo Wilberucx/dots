@@ -56,6 +56,7 @@ def main_callback(
 
 
 from dots.commands import link, install, adopt, status, unlink, backup, init, edit, list as list_mod, migrate
+from dots.core.updates import check_for_updates_async, notify_if_needed
 
 app.command(name="init")(init.init_cmd)
 app.command(name="link")(link.link_cmd)
@@ -63,15 +64,19 @@ app.command(name="unlink")(unlink.unlink_cmd)
 app.command(name="install")(install.install_cmd)
 app.command(name="status")(status.status_cmd)
 app.command(name="adopt")(adopt.adopt_cmd)
-app.command(name="backup")(backup.backup_cmd)
+app.add_typer(backup.backup_app, name="backup")
 app.command(name="edit")(edit.edit_cmd)
 app.command(name="list")(list_mod.list_cmd)
 app.command(name="ls", hidden=True)(list_mod.list_cmd)
 app.command(name="migrate")(migrate.migrate_cmd)
 
 
-if __name__ == "__main__":
-    app()
-
 def main():
-    app()
+    check_for_updates_async()
+    try:
+        app()
+    finally:
+        notify_if_needed()
+
+if __name__ == "__main__":
+    main()

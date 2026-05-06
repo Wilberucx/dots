@@ -43,18 +43,62 @@ def test_commit_prevents_rollback():
         
         assert dest.is_symlink()  # Still exists
 
-def test_backup_rollback():
-    with tempfile.TemporaryDirectory() as tmp:
-        original = Path(tmp) / "config.txt"
-        original.write_text("original content")
-        backup = Path(tmp) / "config.txt-backup"
-        
-        log = TransactionLog()
-        log.backup(original, backup)
-        assert not original.exists()
-        assert backup.exists()
-        
-        log.rollback()
-        assert original.exists()
-        assert original.read_text() == "original content"
-        assert not backup.exists()
+def test_backup_rollback(tmp_path):
+    original = Path(tmp_path) / "config.txt"
+    original.write_text("original content")
+    backup = Path(tmp_path) / "config.txt.orig"
+    
+    log = TransactionLog()
+    log.backup(original, backup)
+    assert not original.exists()
+    assert backup.exists()
+    
+    log.rollback()
+    assert original.exists()
+    assert original.read_text() == "original content"
+    assert not backup.exists()
+
+
+def test_backup_already_deleted(tmp_path):
+    """TOCTOU: file deleted manually before calling backup()."""
+    source = tmp_path / "config"
+    source.write_text("original content")
+    backup = tmp_path / "config.bak"
+    
+    # Simulate manual deletion - file no longer exists
+    source.unlink()
+    assert not source.exists()
+    
+    log = TransactionLog()
+    # Should not raise FileNotFoundError
+    log.backup(source, backup)
+
+
+def test_unlink_already_deleted(tmp_path):
+    """TOCTOU: symlink deleted manually before calling unlink()."""
+    target = tmp_path / "target"
+    target.write_text("hello")
+    symlink = tmp_path / "ghost_link"
+    symlink.symlink_to(target)
+    
+    # Simulate manual deletion - symlink no longer exists
+    symlink.unlink()
+    assert not symlink.exists()
+    
+    log = TransactionLog()
+    # Should not raise FileNotFoundError
+    log.unlink(symlink)
+
+
+def test_unlink_broken_symlink(tmp_path):
+    """Broken symlink: points to a target that doesn't exist."""
+    target = tmp_path / "nonexistent_target"
+    symlink = tmp_path / "broken_link"
+    symlink.symlink_to(target)  # target doesn't exist - broken symlink
+    
+    # is_symlink() returns True for broken symlinks
+    assert symlink.is_symlink()
+    
+    log = TransactionLog()
+    log.unlink(symlink)
+    assert not symlink.exists()

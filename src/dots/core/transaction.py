@@ -7,7 +7,7 @@ from typing import Literal, Optional
 import shutil
 
 
-ActionType = Literal["symlink", "backup", "mkdir", "unlink"]
+ActionType = Literal["symlink", "backup", "mkdir", "unlink", "move"]
 
 
 @dataclass
@@ -48,7 +48,11 @@ class TransactionLog:
         ))
     
     def backup(self, path: Path, backup_path: Path):
-        """Move a file to backup and record it."""
+        """Move a file to backup and record it. Safe for TOCTOU: handles race conditions."""
+        # Handle case where file was deleted manually between check and action
+        if not path.exists() and not path.is_symlink():
+            return  # Already gone, nothing to do
+        
         shutil.move(str(path), str(backup_path))
         self.actions.append(LinkAction(
             type="backup",
@@ -56,6 +60,14 @@ class TransactionLog:
             backup_path=backup_path
         ))
     
+    def move(self, src: Path, dest: Path) -> None:
+        """Mueve src → dest. Rollback restaura dest → src."""
+        if not src.exists():
+            return
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(src), dest)
+        self.actions.append(LinkAction(type="move", path=src, target=dest))
+
     def mkdir(self, path: Path):
         """Create a directory and record it."""
         path.mkdir(parents=True, exist_ok=True)
@@ -65,7 +77,12 @@ class TransactionLog:
         ))
     
     def unlink(self, path: Path):
-        """Remove a symlink and record it."""
+        """Remove a symlink and record it. Safe for TOCTOU: handles race conditions."""
+        # Handle case where symlink was deleted manually between check and action
+        if not path.exists() and not path.is_symlink():
+            # is_symlink() returns True even for broken symlinks (symlink exists but target doesn't)
+            return  # Already gone, nothing to do
+        
         target = path.readlink() if path.is_symlink() else None
         path.unlink()
         self.actions.append(LinkAction(
@@ -94,6 +111,11 @@ class TransactionLog:
                     # Restore the backup
                     if action.backup_path and action.backup_path.exists():
                         shutil.move(str(action.backup_path), str(action.path))
+
+                elif action.type == "move":
+                    # Restore the move
+                    if action.target and action.target.exists():
+                        shutil.move(str(action.target), str(action.path))
                 
                 elif action.type == "mkdir":
                     # Remove directory if empty

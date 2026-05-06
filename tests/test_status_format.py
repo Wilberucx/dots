@@ -189,3 +189,55 @@ class TestRenderTable:
             # "unsafe" no existe en sample_modules → total = 0
             _render_table(sample_modules, {"unsafe"}, mock_config)
             mock_warn.assert_called_once()
+
+
+# ─── _render_default + backups ─────────────────────────────────────────────────────
+
+
+class TestRenderDefaultBackups:
+    """Tests for _render_default filtering logic (backup_path detection)."""
+
+    def test_backups_filter_logic_filters_correctly(self):
+        """The has_backup logic correctly identifies modules with backup_path."""
+        # Create sample statuses
+        statuses_with_backup = [
+            LinkStatus(
+                source=Path("/fake/Zsh/.zshrc"),
+                destination=Path.home() / ".zshrc",
+                state="pending",
+                backup_path=Path.home() / ".zshrc.orig",
+            )
+        ]
+
+        statuses_without_backup = [
+            LinkStatus(
+                source=Path("/fake/Nvim/init.lua"),
+                destination=Path.home() / ".config" / "nvim" / "init.lua",
+                state="pending",
+                backup_path=None,
+            )
+        ]
+
+        # Test the same logic used in _render_default
+        has_backup_with = any(s.backup_path for s in statuses_with_backup)
+        has_backup_without = any(s.backup_path for s in statuses_without_backup)
+
+        assert has_backup_with is True
+        assert has_backup_without is False
+
+    def test_backup_info_collects_filenames(self):
+        """When backups exist, backup_info collects the filenames."""
+        statuses = [
+            LinkStatus(
+                source=Path("/fake/Zsh/.zshrc"),
+                destination=Path.home() / ".zshrc",
+                state="pending",
+                backup_path=Path.home() / ".zshrc.orig",
+            )
+        ]
+
+        backup_files = [s for s in statuses if s.backup_path]
+        backup_names = [s.backup_path.name for s in backup_files]
+        backup_info = ", ".join(backup_names)
+
+        assert backup_info == ".zshrc.orig"

@@ -205,22 +205,23 @@ def link_cmd(
 
                 elif status.state == "pending":
                     if status.detail == "backup needed":
-                        backup_path = Path(str(final_dest) + "-backup")
+                        # Use backup_path from status if available, fallback to manual computation
+                        backup_path = status.backup_path or Path(str(final_dest) + ".orig")
                         if backup_path.exists():
-                            # Backup already exists -> require user attention and do not auto-create another backup
+                            # .orig already exists -> require user attention and do not auto-create another backup
                             module_tree.add(
-                                f"[yellow]⚠[/yellow] {src.name} → {final_dest} [yellow](backup exists at {backup_path}, review before creating new backups)[/yellow]"
+                                f"[yellow]⚠[/yellow] {src.name} → {final_dest} [yellow](.orig exists at {backup_path}, run 'dots status --backups' to review)[/yellow]"
                             )
                             module_stats["pending"] += 1
                         else:
                             if dry_run:
                                 module_tree.add(
-                                    f"[yellow]⚠[/yellow] {src.name} → {final_dest} [yellow](backup needed)[/yellow]"
+                                    f"[yellow]⚠[/yellow] {src.name} → {final_dest} [yellow](.orig needed)[/yellow]"
                                 )
                                 module_stats["pending"] += 1
                             else:
                                 module_tree.add(
-                                    f"[green]✔[/green] {src.name} → {final_dest} [green](backed up and created)[/green]{variant_tag}"
+                                    f"[green]✔[/green] {src.name} → {final_dest} [green](.orig saved and linked)[/green]{variant_tag}"
                                 )
                                 module_stats["linked"] += 1
                                 transaction.backup(final_dest, backup_path)

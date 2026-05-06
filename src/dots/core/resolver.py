@@ -7,7 +7,7 @@ by providing a single function to scan modules and resolve symlink states.
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 import os
 
 from dots.core.config import DotsConfig
@@ -31,6 +31,7 @@ class LinkStatus:
     destination: Path
     state: LinkState
     detail: str = ""
+    backup_path: Optional[Path] = None
 
 
 def expand_path(path_str: str) -> Path:
@@ -223,12 +224,15 @@ def resolve_modules(
                     for child in sorted(src.iterdir()):
                         child_dest = dest / child.name
                         if not is_safe_path(child_dest):
+                            orig_path = Path(str(child_dest) + ".orig")
+                            backup = orig_path if orig_path.exists() else None
                             statuses.append(
                                 LinkStatus(
                                     source=child,
                                     destination=child_dest,
                                     state="unsafe",
                                     detail="path outside home directory",
+                                    backup_path=backup,
                                 )
                             )
                             continue
@@ -239,12 +243,16 @@ def resolve_modules(
                                 t = (child_dest.parent / t).resolve()
                             else:
                                 t = t.resolve()
+                            orig_path = Path(str(child_dest) + ".orig")
+                            backup = orig_path if orig_path.exists() else None
                             if t == child.resolve():
-                                statuses.append(LinkStatus(source=child, destination=child_dest, state="linked"))
+                                statuses.append(LinkStatus(source=child, destination=child_dest, state="linked", backup_path=backup))
                             else:
-                                statuses.append(LinkStatus(source=child, destination=child_dest, state="conflict", detail=f"points to {t}"))
+                                statuses.append(LinkStatus(source=child, destination=child_dest, state="conflict", detail=f"points to {t}", backup_path=backup))
                         elif child_dest.exists():
-                            statuses.append(LinkStatus(source=child, destination=child_dest, state="pending", detail="backup needed"))
+                            orig_path = Path(str(child_dest) + ".orig")
+                            backup = orig_path if orig_path.exists() else None
+                            statuses.append(LinkStatus(source=child, destination=child_dest, state="pending", detail="backup needed", backup_path=backup))
                         else:
                             statuses.append(LinkStatus(source=child, destination=child_dest, state="pending", detail="will create"))
                     continue  # skip the shared state-check below
@@ -255,12 +263,15 @@ def resolve_modules(
 
                 # Safety check
                 if not is_safe_path(final_dest):
+                    orig_path = Path(str(final_dest) + ".orig")
+                    backup = orig_path if orig_path.exists() else None
                     statuses.append(
                         LinkStatus(
                             source=src,
                             destination=final_dest,
                             state="unsafe",
                             detail="path outside home directory",
+                            backup_path=backup,
                         )
                     )
                     continue
@@ -273,6 +284,9 @@ def resolve_modules(
                     else:
                         target = target.resolve()
 
+                    orig_path = Path(str(final_dest) + ".orig")
+                    backup = orig_path if orig_path.exists() else None
+
                     if target == src.resolve():
                         statuses.append(
                             LinkStatus(
@@ -280,6 +294,7 @@ def resolve_modules(
                                 destination=final_dest,
                                 state="linked",
                                 detail="",
+                                backup_path=backup,
                             )
                         )
                     else:
@@ -289,15 +304,19 @@ def resolve_modules(
                                 destination=final_dest,
                                 state="conflict",
                                 detail=f"points to {target}",
+                                backup_path=backup,
                             )
                         )
                 elif final_dest.exists():
+                    orig_path = Path(str(final_dest) + ".orig")
+                    backup = orig_path if orig_path.exists() else None
                     statuses.append(
                         LinkStatus(
                             source=src,
                             destination=final_dest,
                             state="pending",
                             detail="backup needed",
+                            backup_path=backup,
                         )
                     )
                 else:
