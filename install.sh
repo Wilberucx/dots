@@ -26,6 +26,7 @@ detect_pm() {
     if command -v pacman &>/dev/null;   then echo "pacman"
     elif command -v apt-get &>/dev/null; then echo "apt"
     elif command -v brew &>/dev/null;    then echo "brew"
+    elif command -v pkg &>/dev/null;    then echo "pkg"
     else echo "unknown"
     fi
 }
@@ -43,6 +44,7 @@ ensure() {
         pacman) sudo pacman -S --noconfirm "$pkg" ;;
         apt)    sudo apt-get install -y "$pkg" ;;
         brew)   brew install "$pkg" ;;
+        pkg)   pkg install -y "$pkg" ;;
         *)      error "No supported package manager. Install $pkg manually." ;;
     esac
 }
@@ -69,6 +71,7 @@ if ! command -v pipx &>/dev/null; then
         pacman) sudo pacman -S --noconfirm python-pipx ;;
         apt)    sudo apt-get install -y pipx ;;
         brew)   brew install pipx ;;
+        pkg)    python3 -m pip install --user pipx ;;
         *)      python3 -m pip install --user pipx ;;
     esac
     export PATH="$PATH:$HOME/.local/bin"
