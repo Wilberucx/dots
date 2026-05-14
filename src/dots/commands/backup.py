@@ -69,12 +69,18 @@ def sync_from_remote(dots_dir: Path) -> dict:
     if not upstream:
         return {"status": "no_upstream", "conflicts": [], "ahead": 0}
 
-    subprocess.run(
-        ["git", "fetch", "--quiet", "origin"],
-        cwd=dots_dir,
-        capture_output=True,
-        timeout=10,
-    )
+    try:
+        subprocess.run(
+            ["git", "fetch", "--quiet", "origin"],
+            cwd=dots_dir,
+            capture_output=True,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        console.print(
+            "[yellow]⚠[/yellow] fetch timed out — skipping sync, pushing anyway"
+        )
+        return {"status": "clean", "conflicts": [], "ahead": 0}
 
     ahead = get_remote_ahead_count(dots_dir, upstream)
 
@@ -212,6 +218,132 @@ def run_backup(
     except subprocess.CalledProcessError as e:
         console.print(f"[red]✘ git commit failed:[/red] {e.stderr.decode()}")
         return False
+
+    # Commit first, then sync. This is intentional: --rebase places local commits
+    # on top of remote history, so your current system state always ends up as HEAD.
+    if push:
+        if not no_sync:
+            sync_result = sync_from_remote(dots_dir)
+
+            if sync_result["status"] == "no_upstream":
+                console.print(
+                    "[dim]ℹ No upstream branch configured — skipping sync[/dim]"
+                )
+
+            elif sync_result["status"] == "pulled":
+                console.print(
+                    f"[green]✔[/green] Pulled {sync_result['ahead']} commit(s) from remote"
+                )
+
+            elif sync_result["status"] == "conflicts":
+                resolved = resolve_conflicts_interactive(
+                    dots_dir, sync_result["conflicts"]
+                )
+                if not resolved:
+                    return False
+
+            elif sync_result["status"] == "error":
+                return False
+
+            # "clean" — no output, continuar silenciosamente
+
+        try:
+            subprocess.run(
+                ["git", "push"],
+                cwd=dots_dir,
+                check=True,
+                capture_output=True,
+            )
+            console.print("[green]✔[/green] git push")
+        except subprocess.CalledProcessError as e:
+            console.print(f"[red]✘ git push failed:[/red] {e.stderr.decode()}")
+            return False
+
+    return True
+
+
+@backup_app.command(name="run")
+def backup_cmd(
+    push: bool = typer.Option(
+        True, "--push/--no-push", help="Push to remote after commit (default: on)"
+    ),
+    no_sync: bool = typer.Option(
+        False, "--no-sync", help="Skip remote sync check, push directly"
+    ),
+    message: str = typer.Option(
+        None, "--message", "-m", help="Commit message (default: timestamp)"
+    ),
+):
+    """
+    Backup dotfiles with git commit and optional push.
+    """
+    print_header("Dots Backup")
+
+    config = DotsConfig.load()
+    dots_dir = config.repo_root
+    commit_msg = message if message else default_commit_message()
+
+    success = run_backup(commit_msg, dots_dir, push=push, no_sync=no_sync)
+
+    if not success:
+        raise typer.Exit(1)
+
+
+@backup_app.command(name="list")
+def list_cmd(
+    limit: int = typer.Option(
+        10, "--limit", "-n", help="Cantidad de backups a mostrar"
+    ),
+):
+    """Lista los últimos backups."""
+    print_header("Backup History")
+
+    config = DotsConfig.load()
+    dots_dir = config.repo_root
+
+    try:
+        result = subprocess.run(
+            ["git", "log", f"-{limit}", "--format=%h|%ar|%s"],
+            cwd=dots_dir,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        lines = result.stdout.strip().split("\n")
+        if not lines or lines == [""]:
+            console.print("[yellow]ℹ[/yellow] No hay backups en el historial")
+            return
+
+        for line in lines:
+            if "|" in line:
+                hash_part, rest = line.split("|", 1)
+                console.print(f"[yellow]{hash_part}[/yellow] {rest}")
+
+    except subprocess.CalledProcessError as e:
+        console.print(f"[red]✘ git log failed:[/red] {e.stderr}")
+        raise typer.Exit(1)
+
+
+@backup_app.command(name="diff")
+def diff_cmd(
+    ref: str = typer.Argument("HEAD~1", help="Commit o ref para comparar contra HEAD"),
+):
+    """Muestra qué cambió desde el último backup o un ref específico."""
+    print_header(f"Diff: {ref} → HEAD")
+
+    config = DotsConfig.load()
+    dots_dir = config.repo_root
+
+    try:
+        subprocess.run(
+            ["git", "diff", "--stat", ref, "HEAD"],
+            cwd=dots_dir,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        console.print(f"[red]✘ git diff failed:[/red] {e.stderr}")
+        raise typer.Exit(1)alse
 
     # Commit first, then sync. This is intentional: --rebase places local commits
     # on top of remote history, so your current system state always ends up as HEAD.
