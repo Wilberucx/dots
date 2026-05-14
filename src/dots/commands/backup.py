@@ -343,7 +343,7 @@ def diff_cmd(
         )
     except subprocess.CalledProcessError as e:
         console.print(f"[red]✘ git diff failed:[/red] {e.stderr}")
-        raise typer.Exit(1)alse
+        raise typer.Exit(1)
 
     # Commit first, then sync. This is intentional: --rebase places local commits
     # on top of remote history, so your current system state always ends up as HEAD.
