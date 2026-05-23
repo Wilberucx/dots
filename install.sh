@@ -75,14 +75,17 @@ install_from_release() {
     info "Extracting..."
     tar -xzf dots.tar.gz 2>/dev/null || { cd /; rm -rf "$tmp_dir"; return 1; }
 
-    if [[ ! -f "dots" ]]; then
+    # Find the extracted binary (may be named dots-{os}-{arch})
+    local extracted
+    extracted=$(find . -maxdepth 1 -type f -name 'dots-*' 2>/dev/null | head -1)
+    if [[ -z "$extracted" ]]; then
         cd /; rm -rf "$tmp_dir"
         return 1
     fi
 
-    chmod +x dots
+    chmod +x "$extracted"
     mkdir -p "$BIN_DIR"
-    cp dots "$BINARY"
+    cp "$extracted" "$BINARY"
     cd /
     rm -rf "$tmp_dir"
     return 0
