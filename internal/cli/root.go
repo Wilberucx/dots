@@ -48,6 +48,32 @@ dependencies, backups, and cross-platform configuration.`,
 // repoPath is the --path flag value, set in PersistentPreRunE.
 var repoPath string
 
+// cachedConfig caches the loaded DotsConfig so PersistentPreRunE and the
+// command handler share the same instance, avoiding redundant I/O.
+var cachedConfig *config.DotsConfig
+
+// loadConfig loads or returns the cached DotsConfig, respecting --path flag.
+func loadConfig() (*config.DotsConfig, error) {
+	if cachedConfig != nil {
+		return cachedConfig, nil
+	}
+	if repoPath != "" {
+		absPath, err := filepath.Abs(repoPath)
+		if err != nil {
+			return nil, err
+		}
+		if !config.IsDotfilesRepo(absPath) {
+			return nil, fmt.Errorf("not a dotfiles repository: %s", absPath)
+		}
+		os.Setenv("DOTS_REPO", absPath)
+	}
+	cfg, err := config.Load()
+	if err == nil {
+		cachedConfig = cfg
+	}
+	return cfg, err
+}
+
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&repoPath, "path", "p", "", "Path to dotfiles repository (overrides auto-detection)")
 
@@ -63,21 +89,6 @@ func init() {
 
 	// backup is a group with subcommands
 	rootCmd.AddCommand(backupCmd)
-}
-
-// loadConfig loads DotsConfig, respecting --path flag.
-func loadConfig() (*config.DotsConfig, error) {
-	if repoPath != "" {
-		absPath, err := filepath.Abs(repoPath)
-		if err != nil {
-			return nil, err
-		}
-		if !config.IsDotfilesRepo(absPath) {
-			return nil, fmt.Errorf("not a dotfiles repository: %s", absPath)
-		}
-		os.Setenv("DOTS_REPO", absPath)
-	}
-	return config.Load()
 }
 
 // Execute runs the root command.

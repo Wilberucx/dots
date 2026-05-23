@@ -25,12 +25,11 @@ const (
 
 // Issue represents a single diagnostic finding.
 type Issue struct {
-	Module     string // Module name (e.g. "Nvim")
-	File       string // Path to path.yaml relative to repo root
-	Severity   Severity
-	Message    string
-	Field      string // Optional: the problematic field name
-	LineNumber int    // Optional: approximate line number (0 if unknown)
+	Module   string   // Module name (e.g. "Nvim")
+	File     string   // Path to path.yaml relative to repo root
+	Severity Severity
+	Message  string
+	Field    string   // Optional: the problematic field name
 }
 
 // Result holds all findings from a syntax check run.
@@ -64,6 +63,10 @@ func RunSyntaxCheck(cfg *config.DotsConfig) *Result {
 
 	modDirs, err := cfg.GetModuleDirs(nil, nil)
 	if err != nil {
+		result.Issues = append(result.Issues, Issue{
+			Severity: SeverityWarning,
+			Message:  fmt.Sprintf("cannot scan modules: %v", err),
+		})
 		return result
 	}
 
@@ -124,11 +127,13 @@ func checkPathYAML(moduleName, relPath, yamlPath string, cfg *config.DotsConfig,
 	}
 
 	// Check for v2 schema fields (dependencies)
+	hasV2 := false
 	if deps, ok := raw["dependencies"].([]interface{}); ok {
 		for i, dep := range deps {
 			if d, ok := dep.(map[string]interface{}); ok {
 				for field := range d {
 					if yaml.V2DepFields[field] {
+						hasV2 = true
 						result.Issues = append(result.Issues, Issue{
 							Module:   moduleName,
 							File:     relPath,
@@ -148,6 +153,7 @@ func checkPathYAML(moduleName, relPath, yamlPath string, cfg *config.DotsConfig,
 			if file, ok := f.(map[string]interface{}); ok {
 				for field := range file {
 					if yaml.V2FileFields[field] {
+						hasV2 = true
 						result.Issues = append(result.Issues, Issue{
 							Module:   moduleName,
 							File:     relPath,
@@ -163,7 +169,7 @@ func checkPathYAML(moduleName, relPath, yamlPath string, cfg *config.DotsConfig,
 
 	// Don't continue validating structure if v2 fields are present — the parser
 	// will silently ignore these files, making further validation misleading.
-	if hasV2Fields(raw) {
+	if hasV2 {
 		return
 	}
 
@@ -207,33 +213,6 @@ func checkPathYAML(moduleName, relPath, yamlPath string, cfg *config.DotsConfig,
 	}
 }
 
-// hasV2Fields returns true if the raw data contains any v2 schema fields.
-func hasV2Fields(raw map[string]interface{}) bool {
-	if deps, ok := raw["dependencies"].([]interface{}); ok {
-		for _, dep := range deps {
-			if d, ok := dep.(map[string]interface{}); ok {
-				for field := range d {
-					if yaml.V2DepFields[field] {
-						return true
-					}
-				}
-			}
-		}
-	}
-	if files, ok := raw["files"].([]interface{}); ok {
-		for _, f := range files {
-			if file, ok := f.(map[string]interface{}); ok {
-				for field := range file {
-					if yaml.V2FileFields[field] {
-						return true
-					}
-				}
-			}
-		}
-	}
-	return false
-}
-
 // validateDep checks a single dependency entry for structural validity.
 func validateDep(dep map[string]interface{}, moduleName, relPath string, result *Result) {
 	depName, _ := dep["name"].(string)
@@ -248,57 +227,33 @@ func validateDep(dep map[string]interface{}, moduleName, relPath string, result 
 
 	prefix := fmt.Sprintf("dependency '%s'", depName)
 
-	// Validate type
-	knownTypes := map[string]bool{"package": true, "git": true, "binary": true}
-	if !knownTypes[depType] {
+	// Validate type (reuse schema's known type registry)
+	if _, ok := yaml.RequiredFieldsByType[depType]; !ok {
+		knownTypes := make([]string, 0, len(yaml.RequiredFieldsByType))
+		for t := range yaml.RequiredFieldsByType {
+			knownTypes = append(knownTypes, t)
+		}
 		result.Issues = append(result.Issues, Issue{
 			Module:   moduleName,
 			File:     relPath,
 			Severity: SeverityError,
 			Field:    "type",
-			Message:  fmt.Sprintf("%s: unknown type '%s' (known: package, git, binary)", prefix, depType),
+			Message:  fmt.Sprintf("%s: unknown type '%s' (known: %v)", prefix, depType, knownTypes),
 		})
 	}
 
-	// Check required fields by type
-	switch depType {
-	case "git":
-		if getStr(dep, "url") == "" {
-			result.Issues = append(result.Issues, Issue{
-				Module:   moduleName,
-				File:     relPath,
-				Severity: SeverityError,
-				Field:    "url",
-				Message:  fmt.Sprintf("%s: required field 'url' missing for type 'git'", prefix),
-			})
-		}
-		if getStr(dep, "dest") == "" {
-			result.Issues = append(result.Issues, Issue{
-				Module:   moduleName,
-				File:     relPath,
-				Severity: SeverityError,
-				Field:    "dest",
-				Message:  fmt.Sprintf("%s: required field 'dest' missing for type 'git'", prefix),
-			})
-		}
-	case "binary":
-		if getStr(dep, "url") == "" {
-			result.Issues = append(result.Issues, Issue{
-				Module:   moduleName,
-				File:     relPath,
-				Severity: SeverityError,
-				Field:    "url",
-				Message:  fmt.Sprintf("%s: required field 'url' missing for type 'binary'", prefix),
-			})
-		}
-		if getStr(dep, "dest") == "" {
-			result.Issues = append(result.Issues, Issue{
-				Module:   moduleName,
-				File:     relPath,
-				Severity: SeverityError,
-				Field:    "dest",
-				Message:  fmt.Sprintf("%s: required field 'dest' missing for type 'binary'", prefix),
-			})
+	// Check required fields by type (reuse schema's RequiredFieldsByType)
+	if fields, ok := yaml.RequiredFieldsByType[depType]; ok {
+		for _, field := range fields {
+			if getStr(dep, field) == "" {
+				result.Issues = append(result.Issues, Issue{
+					Module:   moduleName,
+					File:     relPath,
+					Severity: SeverityError,
+					Field:    field,
+					Message:  fmt.Sprintf("%s: required field '%s' missing for type '%s'", prefix, field, depType),
+				})
+			}
 		}
 	}
 

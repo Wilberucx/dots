@@ -1,7 +1,8 @@
 // Package cli contains internal migration helpers for path.yaml v2→v3 upgrades.
-// The `dots migrate` CLI command has been removed; migration now happens
-// automatically when the syntax checker detects v2 schema, or can be called
-// programmatically via these functions.
+// The `dots migrate` CLI command has been removed. These helpers are preserved
+// as internal utilities for potential future auto-migration from the syntax
+// checker, or for programmatic use. Currently they have no production caller
+// inside the cli package — they are kept for reference and testing.
 package cli
 
 import (
