@@ -14,6 +14,7 @@ Migrar `dots` — un gestor de dotfiles CLI actualmente escrito en Python (3,900
 ## 2. Contexto y Estado Actual
 
 ### Situación actual
+
 - `dots` es un CLI maduro escrito en Python 3.10+
 - Stack: `typer` + `rich` + `pyyaml` + `InquirerPy` + `requests`
 - ~6,150 líneas de Python totales (fuente + tests)
@@ -21,17 +22,20 @@ Migrar `dots` — un gestor de dotfiles CLI actualmente escrito en Python (3,900
 - Instalación: `pipx install` (requiere Python 3.10+, pipx, venv)
 
 ### Problema
+
 - **Startup overhead de ~600ms** incluso para comandos triviales (`dots --help`, `dots list`)
 - Instalación compleja: el `install.sh` tiene que bootstrappear pipx
 - El usuario ejecuta estos comandos a diario — la latencia se acumula
 
 ### Suposiciones
+
 - Se mantiene la interfaz CLI exacta (flags, subcomandos, comportamiento)
 - Los archivos `path.yaml` y la estructura del repositorio de dotfiles NO cambian
 - `dots.toml` como marker legacy se mantiene soportado
 - Compatibilidad con Linux, macOS (y Windows si aplica)
 
 ### Dependencias externas
+
 - Go 1.22+ como herramienta de build
 - Charm Libraries (Lipgloss, Bubbletea) para output TUI
 - `gopkg.in/yaml.v3` para YAML
@@ -164,11 +168,13 @@ type TransactionLog struct {
 ## 4. Fases e Hitos
 
 ### Fase 0: Setup del Proyecto Go + Core Types
+
 **DURACIÓN ESTIMADA**: 1 día
 **OBJETIVO**: Proyecto Go compilable, paquete core types, YAML parser funcionando.
 **ENTREGABLE**: `go build ./cmd/dots` produce binario, `dots --help` funciona, YAML parser pasa tests.
 
 #### Tareas
+
 - [ ] Inicializar módulo Go: `go mod init github.com/cantoarch/dots`
 - [ ] Crear estructura de directorios: `cmd/dots/`, `internal/`
 - [ ] Implementar `internal/system/system.go`: `DetectOS()`, `IsSafePath()`, `ExpandPath()`
@@ -181,6 +187,7 @@ type TransactionLog struct {
 - [ ] Tests: `TestDetectOS`, `TestIsSafePath`, `TestParsePathYAML`, `TestDetectVariants`
 
 #### Criterio de Aceptación
+
 - [ ] `go build ./cmd/dots` produce binario
 - [ ] `./dots --help` se imprime instantáneamente
 - [ ] YAML parser lee path.yaml correctamente
@@ -189,11 +196,13 @@ type TransactionLog struct {
 ---
 
 ### Fase 1: Core Engine — resolver + transaction + service
+
 **DURACIÓN ESTIMADA**: 1.5 días
 **OBJETIVO**: Resolver de symlinks, transaction log, y service layer.
 **ENTREGABLE**: `dots status` funcional con output básico.
 
 #### Tareas
+
 - [ ] Implementar `internal/resolver/resolver.go`:
   - `ResolveModules()` — escanea módulos, resuelve estado de symlinks
   - `GetActiveVariant()` — detecta variante activa
@@ -206,6 +215,7 @@ type TransactionLog struct {
 - [ ] Tests unitarios para transaction log
 
 #### Criterio de Aceptación
+
 - [ ] `dots status` muestra árbol de módulos con colores
 - [ ] `dots status --format json` output válido
 - [ ] `dots status --state linked` filtra correctamente
@@ -214,11 +224,13 @@ type TransactionLog struct {
 ---
 
 ### Fase 2: Comandos link + unlink + list
+
 **DURACIÓN ESTIMADA**: 1.5 días
 **OBJETIVO**: Operaciones principales de symlinks.
 **ENTREGABLE**: `dots link`, `dots unlink`, `dots list` funcionales.
 
 #### Tareas
+
 - [ ] Implementar comando `link`:
   - `--module`, `--type`, `--dry-run`, `--force`, `--interactive`, `--variant`
   - Trees con estado por módulo
@@ -231,6 +243,7 @@ type TransactionLog struct {
 - [ ] Tests: integración mock para link/unlink
 
 #### Criterio de Aceptación
+
 - [ ] `dots link -m Zsh -m Nvim` enlaza módulos específicos
 - [ ] `dots link -i` abre selector interactivo
 - [ ] `dots link --dry-run` no hace cambios
@@ -241,11 +254,13 @@ type TransactionLog struct {
 ---
 
 ### Fase 3: Comandos init + adopt + edit
+
 **DURACIÓN ESTIMADA**: 1 día
 **OBJETIVO**: Gestión del repositorio de dotfiles.
 **ENTREGABLE**: `dots init`, `dots adopt`, `dots edit` funcionales.
 
 #### Tareas
+
 - [ ] Implementar `internal/writer/module_writer.go`: `LoadModuleData()`, `IsDestinationDeclared()`, `AppendFileEntry()`
 - [ ] Implementar comando `init`:
   - Detección de shell (Zsh, Bash, Fish)
@@ -260,6 +275,7 @@ type TransactionLog struct {
 - [ ] Implementar `internal/ui/confirm.go` con survey (yes/no prompts)
 
 #### Criterio de Aceptación
+
 - [ ] `dots init` crea `.dots/config.yaml`
 - [ ] `dots adopt ~/.zshrc` mueve archivo y registra
 - [ ] `dots adopt ~/.zshrc` con variant existente ofrece crear variante
@@ -268,11 +284,13 @@ type TransactionLog struct {
 ---
 
 ### Fase 4: Comando install + package managers
+
 **DURACIÓN ESTIMADA**: 1.5 días
 **OBJETIVO**: Instalación de dependencias.
 **ENTREGABLE**: `dots install` funcional con package managers, git, y binarios.
 
 #### Tareas
+
 - [ ] Implementar `internal/manager/manager.go`:
   - `GetPackageManager()` detecta pacman/apt/brew/pkg
   - `PackageManager` struct con `InstallCommand()`, `NeedsSudo`
@@ -290,6 +308,7 @@ type TransactionLog struct {
 - [ ] Tests: mock HTTP server, mock package manager
 
 #### Criterio de Aceptación
+
 - [ ] `dots install` instala dependencias de todos los módulos
 - [ ] `dots install -m Zsh` solo de Zsh
 - [ ] `dots install --dry-run` muestra comandos sin ejecutar
@@ -299,11 +318,13 @@ type TransactionLog struct {
 ---
 
 ### Fase 5: Comando backup + version updates
+
 **DURACIÓN ESTIMADA**: 1 día
 **OBJETIVO**: Git backup, sync con remote, y notificación de actualizaciones.
 **ENTREGABLE**: `dots backup run`, `backup list`, `backup diff`, y notificación de versión.
 
 #### Tareas
+
 - [ ] Implementar operaciones git con `os/exec`:
   - `git add .`, `git commit`, `git push`
   - `git fetch`, `git pull --autostash --rebase`
@@ -321,6 +342,7 @@ type TransactionLog struct {
 - [ ] Tests: mock git commands, mock HTTP
 
 #### Criterio de Aceptación
+
 - [ ] `dots backup run` hace commit + push
 - [ ] `dots backup run --no-push` solo commit
 - [ ] `dots backup list` muestra historial
@@ -330,11 +352,13 @@ type TransactionLog struct {
 ---
 
 ### Fase 6: Comando migrate (v2 → v3) + docs
+
 **DURACIÓN ESTIMADA**: 0.5 días
 **OBJETIVO**: Migración de schema path.yaml y documentación.
 **ENTREGABLE**: `dots migrate`, README, y todo funcional.
 
 #### Tareas
+
 - [ ] Implementar comando `migrate`:
   - Escanea path.yaml files
   - Migra field names v2 → v3
@@ -346,6 +370,7 @@ type TransactionLog struct {
 - [ ] CI/CD: GitHub Actions para Go build + test
 
 #### Criterio de Aceptación
+
 - [ ] `dots migrate --dry-run` preview cambios
 - [ ] `dots migrate -y` aplica migración
 - [ ] `go test ./...` pasa al 100%
@@ -353,11 +378,13 @@ type TransactionLog struct {
 ---
 
 ### Fase 7: Testing + Polishing
+
 **DURACIÓN ESTIMADA**: 1 día
 **OBJETIVO**: Cobertura de tests, edge cases, rendimiento.
 **ENTREGABLE**: Suite de tests completa, benchmark comparativo.
 
 #### Tareas
+
 - [ ] Tests unitarios para todos los paquetes internos
 - [ ] Tests de integración (mock filesystem + git)
 - [ ] Benchmarks comparativos Python vs Go
@@ -366,6 +393,7 @@ type TransactionLog struct {
 - [ ] Verificar `dots --help` instantáneo
 
 #### Criterio de Aceptación
+
 - [ ] Cobertura >80% en paquetes core
 - [ ] Benchmarks muestran <10ms startup
 - [ ] Cross-compile exitoso para 3 plataformas
@@ -701,12 +729,12 @@ func PrintInfo(msg string) {
 
 ## 6. Testing y Validación
 
-| Tipo de test | Cobertura | Herramienta | Criterio |
-|---|---|---|---|
-| **Unit tests** | Core: config, yaml, transaction, resolver, template, system | `go test` + testify | >80% cobertura en paquetes core |
-| **Integration tests** | Link/unlink cycle con mock filesystem | `go test` + temp dirs | Happy path + edge cases |
-| **Smoke tests** | Todos los comandos | Script shell | Exit code 0, output esperado |
-| **Benchmark** | Startup time vs Python | `hyperfine` (externo) | <10ms vs ~600ms |
+| Tipo de test          | Cobertura                                                   | Herramienta           | Criterio                        |
+| --------------------- | ----------------------------------------------------------- | --------------------- | ------------------------------- |
+| **Unit tests**        | Core: config, yaml, transaction, resolver, template, system | `go test` + testify   | >80% cobertura en paquetes core |
+| **Integration tests** | Link/unlink cycle con mock filesystem                       | `go test` + temp dirs | Happy path + edge cases         |
+| **Smoke tests**       | Todos los comandos                                          | Script shell          | Exit code 0, output esperado    |
+| **Benchmark**         | Startup time vs Python                                      | `hyperfine` (externo) | <10ms vs ~600ms                 |
 
 ---
 
@@ -745,13 +773,13 @@ POST-DEPLOY:
 
 ## 9. Riesgos y Mitigaciones
 
-| Riesgo | Probabilidad | Impacto | Mitigación |
-|---|---|---|---|
-| **Edge cases en symlinks** (TOCTOU, permisos, NTFS junctions) | Media | Alto | Tests exhaustivos + misma lógica que Python |
-| **Diferencia en YAML parsing** (orden de keys, comentarios) | Baja | Medio | Tests con path.yaml reales del usuario |
-| **Bubbletea selector no idéntico a InquirerPy** | Media | Bajo | Iterar sobre feedback del usuario |
-| **go-git vs os/exec edge cases** | Media | Medio | Usar os/exec (delegar a git CLI) |
-| **Cross-compile Windows** | Media | Bajo | CI con Windows, o soporte "best-effort" |
+| Riesgo                                                        | Probabilidad | Impacto | Mitigación                                  |
+| ------------------------------------------------------------- | ------------ | ------- | ------------------------------------------- |
+| **Edge cases en symlinks** (TOCTOU, permisos, NTFS junctions) | Media        | Alto    | Tests exhaustivos + misma lógica que Python |
+| **Diferencia en YAML parsing** (orden de keys, comentarios)   | Baja         | Medio   | Tests con path.yaml reales del usuario      |
+| **Bubbletea selector no idéntico a InquirerPy**               | Media        | Bajo    | Iterar sobre feedback del usuario           |
+| **go-git vs os/exec edge cases**                              | Media        | Medio   | Usar os/exec (delegar a git CLI)            |
+| **Cross-compile Windows**                                     | Media        | Bajo    | CI con Windows, o soporte "best-effort"     |
 
 ---
 
@@ -772,13 +800,13 @@ POST-DEPLOY:
 - **Tests actuales**: `tests/` — ~2,200 LOC de tests para guiar la migración
 - **Path.yaml spec**: `docs/path-yaml-reference.md`
 - **Skills relacionadas**: `gentleman-bubbletea` (Bubbletea TUI patterns para Go)
-- **Charm Libraries Docs**: https://github.com/charmbracelet
-- **Cobra CLI Docs**: https://github.com/spf13/cobra
+- **Charm Libraries Docs**: <https://github.com/charmbracelet>
+- **Cobra CLI Docs**: <https://github.com/spf13/cobra>
 
 ---
 
 ## 12. Primeros pasos al aprobar
 
-1. Ejecutar `go mod init github.com/cantoarch/dots` y crear estructura de directorios
+1. Ejecutar `go mod init github.com/Wilberucx/dots` y crear estructura de directorios
 2. Implementar `internal/system/system.go` y `internal/config/config.go` (Fase 0)
 3. Implementar `internal/yaml/parser.go` (el parser de path.yaml es la pieza más crítica — todo depende de él)

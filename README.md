@@ -8,7 +8,7 @@ dotfile manager — declarative, symlink-based, yours.
 curl -fsSL https://raw.githubusercontent.com/Wilberucx/dots/main/install.sh | bash
 ```
 
-Requires Python 3.10+ and git.
+Zero dependencies — just curl or wget. Installs to `~/.local/bin/dots`.
 
 ## Setup
 
@@ -26,7 +26,7 @@ That's it. Two commands and your dotfiles are linked.
 
 | Command             | Description                                  |
 | ------------------- | -------------------------------------------- |
-| `dots init`         | Initialize repo — creates `dots.toml` marker |
+| `dots init`         | Initialize repo — creates `.dots/config.yaml` |
 | `dots link`         | Create symlinks for all modules              |
 | `dots unlink`       | Remove symlinks                              |
 | `dots status`       | Show link state grouped by status            |
@@ -66,12 +66,11 @@ dots link --dry-run
 
 # List modules
 dots list
-dots list --type minimal
-dots list --variant stdlib
+dots list --variant
 
 # Edit a module
 dots edit Zsh
-dots edit Nvim --file   # open path.yaml directly
+dots edit Nvim --config   # open path.yaml directly
 
 # Migrate to schema v3
 dots migrate
@@ -109,26 +108,35 @@ dots migrate --dry-run
 ## Documentation
 
 - [path.yaml reference](docs/path-yaml-reference.md) — module structure, dependency types
+- [Schema v3](docs/schema-v3.md) — current schema specification
+- [Dependencies](docs/dependencies.md) — dependency types (git, binary, package)
 
 ---
 
 ## Installation
 
-### Stable (pipx)
+### Stable (recommended)
 
 ```bash
-pipx install ~/dots
-pipx upgrade dots
+curl -fsSL https://raw.githubusercontent.com/Wilberucx/dots/main/install.sh | bash
 ```
+
+Downloads the pre-built Go binary from GitHub Releases. Zero dependencies.
+
+### Via Go
+
+```bash
+go install github.com/cantoarch/dots/cmd/dots@latest
+```
+
+Requires the Go toolchain.
 
 ### Development
 
 ```bash
 cd ~/Work/dots
-python3 -m venv .venv
-.venv/bin/pip install -e ".[dev]"
-
-.venv/bin/dots --help
+go build -o /tmp/dots ./cmd/dots/
+/tmp/dots --help
 ```
 
 ---
@@ -147,8 +155,7 @@ git checkout dev
 # Release
 git checkout main
 git merge dev
-# Update version in pyproject.toml
+# Update version
 git tag v0.x.x
 git push origin main --tags
-pipx reinstall dots
 ```
