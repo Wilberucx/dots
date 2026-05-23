@@ -27,10 +27,13 @@ dependencies, backups, and cross-platform configuration.`,
 
 		// Run syntax checker only for mutating commands
 		switch cmd.Name() {
-		case "link", "unlink", "install", "adopt", "run":
+		case "link", "unlink", "install", "adopt":
 			if cfg, err := loadConfig(); err == nil {
 				result := checker.RunSyntaxCheck(cfg)
 				checker.PrintResult(result)
+				if result.HasErrors() {
+					return fmt.Errorf("syntax check failed — fix the errors above and retry")
+				}
 			}
 		}
 
