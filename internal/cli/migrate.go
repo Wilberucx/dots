@@ -1,3 +1,7 @@
+// Package cli contains internal migration helpers for path.yaml v2→v3 upgrades.
+// The `dots migrate` CLI command has been removed; migration now happens
+// automatically when the syntax checker detects v2 schema, or can be called
+// programmatically via these functions.
 package cli
 
 import (
@@ -6,9 +10,7 @@ import (
 	"path/filepath"
 	"reflect"
 
-	"github.com/Wilberucx/dots/internal/ui"
-	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
+	yamlv3 "gopkg.in/yaml.v3"
 )
 
 // v2→v3 field mappings for dependencies.
@@ -18,96 +20,6 @@ var depFieldMap = map[string]string{
 	"extract-path":     "extract",
 	"arch_map":         "arch",
 	"package-managers": "managers",
-}
-
-// v2 file fields to detect (destination-linux/mac → per-os, destination-override → per-os).
-var fileFieldMap = map[string]bool{
-	"destination-linux":    true,
-	"destination-mac":      true,
-	"destination-override": true,
-}
-
-func init() {
-	migrateCmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runMigrate(cmd)
-	}
-}
-
-// ─── CLI entry point ────────────────────────────────────────────────────────
-
-func runMigrate(cmd *cobra.Command) error {
-	dryRun, _ := cmd.Flags().GetBool("dry-run")
-	yes, _ := cmd.Flags().GetBool("yes")
-
-	cfg, err := loadConfig()
-	if err != nil {
-		return fmt.Errorf("loading config: %w", err)
-	}
-
-	repoRoot := cfg.RepoRoot
-	ui.PrintHeader("Migrating path.yaml")
-	fmt.Printf("  Scanning %s for path.yaml files...\n", repoRoot)
-
-	pathYAMLFiles := findPathYAMLFiles(repoRoot)
-
-	if len(pathYAMLFiles) == 0 {
-		ui.PrintInfo("No path.yaml files found.")
-		return nil
-	}
-	fmt.Printf("  Found %d path.yaml file(s).\n\n", len(pathYAMLFiles))
-
-	// Preview phase
-	var filesToMigrate []string
-	for _, fp := range pathYAMLFiles {
-		rel, _ := filepath.Rel(repoRoot, fp)
-		modified, _ := migrateFile(fp, true) // dry-run = true
-		if modified {
-			fmt.Printf("  → %s (needs migration)\n", rel)
-			filesToMigrate = append(filesToMigrate, fp)
-		} else {
-			fmt.Printf("    %s (already v3)\n", rel)
-		}
-	}
-
-	if len(filesToMigrate) == 0 {
-		fmt.Println()
-		ui.PrintSuccess("All files already at v3 format.")
-		return nil
-	}
-
-	if dryRun {
-		fmt.Println()
-		ui.PrintWarning(fmt.Sprintf("--dry-run: no files were modified."))
-		return nil
-	}
-
-	// Confirmation prompt
-	if !yes {
-		fmt.Println()
-		ui.PrintInfo(fmt.Sprintf("Migrate %d file(s)?", len(filesToMigrate)))
-		confirmed := ui.RunConfirm("Proceed with migration?", true)
-		if !confirmed {
-			ui.PrintInfo("Aborted.")
-			return nil
-		}
-	}
-
-	// Apply migration
-	fmt.Println()
-	for _, fp := range filesToMigrate {
-		rel, _ := filepath.Rel(repoRoot, fp)
-		modified, err := migrateFile(fp, false) // dry-run = false
-		if err != nil {
-			ui.PrintWarning(fmt.Sprintf("  ✗ %s: %v", rel, err))
-		} else {
-			fmt.Printf("  ✓ %s\n", rel)
-		}
-		_ = modified // we know it was modified because preview found it
-	}
-
-	fmt.Println()
-	ui.PrintSuccess(fmt.Sprintf("Migration complete: %d file(s) updated.", len(filesToMigrate)))
-	return nil
 }
 
 // ─── File discovery ─────────────────────────────────────────────────────────
@@ -146,7 +58,7 @@ func migrateFile(filePath string, dryRun bool) (bool, error) {
 	}
 
 	var raw map[string]interface{}
-	if err := yaml.Unmarshal(data, &raw); err != nil {
+	if err := yamlv3.Unmarshal(data, &raw); err != nil {
 		return false, nil
 	}
 
@@ -203,7 +115,7 @@ func migrateFile(filePath string, dryRun bool) (bool, error) {
 	}
 
 	// Write back
-	out, err := yaml.Marshal(raw)
+	out, err := yamlv3.Marshal(raw)
 	if err != nil {
 		return false, nil
 	}

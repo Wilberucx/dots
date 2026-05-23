@@ -32,8 +32,8 @@ func DetectV2Schema(data map[string]interface{}, yamlPath string) []string {
 				for field := range d {
 					if V2DepFields[field] {
 						errors = append(errors, fmt.Sprintf(
-							"Schema v2 detected in dependencies[%d] (%s). Run 'dots migrate' to upgrade to v3 automatically.",
-							i, yamlPath,
+							"Schema v2 detected in dependencies[%d] (%s). Update to v3: rename '%s' to '%s'.",
+							i, yamlPath, field, DepV2ToV3(field),
 						))
 						break
 					}
@@ -49,8 +49,8 @@ func DetectV2Schema(data map[string]interface{}, yamlPath string) []string {
 				for field := range file {
 					if V2FileFields[field] {
 						errors = append(errors, fmt.Sprintf(
-							"Schema v2 detected in files[%d] (%s). Run 'dots migrate' to upgrade to v3 automatically.",
-							i, yamlPath,
+							"Schema v2 detected in files[%d] (%s). Update to v3: use 'per-os' instead of '%s'.",
+							i, yamlPath, field,
 						))
 						break
 					}
@@ -60,6 +60,24 @@ func DetectV2Schema(data map[string]interface{}, yamlPath string) []string {
 	}
 
 	return errors
+}
+
+// DepV2ToV3 maps a v2 field name to its v3 equivalent.
+func DepV2ToV3(field string) string {
+	switch field {
+	case "source":
+		return "url"
+	case "target":
+		return "dest"
+	case "extract-path":
+		return "extract"
+	case "arch_map":
+		return "arch"
+	case "package-managers":
+		return "managers"
+	default:
+		return field
+	}
 }
 
 // ValidateDependency validates a single dependency dict.

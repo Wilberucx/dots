@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/Wilberucx/dots/internal/checker"
 	"github.com/Wilberucx/dots/internal/config"
 	"github.com/Wilberucx/dots/internal/ui"
 	"github.com/spf13/cobra"
@@ -23,6 +24,16 @@ dependencies, backups, and cross-platform configuration.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Check for updates in background goroutine
 		go checkForUpdates()
+
+		// Run syntax checker only for mutating commands
+		switch cmd.Name() {
+		case "link", "unlink", "install", "adopt", "run":
+			if cfg, err := loadConfig(); err == nil {
+				result := checker.RunSyntaxCheck(cfg)
+				checker.PrintResult(result)
+			}
+		}
+
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -49,7 +60,6 @@ func init() {
 	rootCmd.AddCommand(adoptCmd)
 	rootCmd.AddCommand(editCmd)
 	rootCmd.AddCommand(listCmd)
-	rootCmd.AddCommand(migrateCmd)
 
 	// backup is a group with subcommands
 	rootCmd.AddCommand(backupCmd)
@@ -208,17 +218,7 @@ func init() {
 	installCmd.Flags().StringSliceP("type", "t", nil, "Install deps only for modules of this type (repeatable)")
 }
 
-// migrateCmd represents the `dots migrate` command.
-var migrateCmd = &cobra.Command{
-	Use:   "migrate",
-	Short: "Migrate path.yaml files from v2 to v3 format",
-	Long:  "Migrate all path.yaml files in the repository from v2 to v3 format.",
-}
 
-func init() {
-	migrateCmd.Flags().Bool("dry-run", false, "Preview changes without modifying files")
-	migrateCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
-}
 
 // ─── backup group (dots backup {run,list,diff}) ──────────────────────────────
 
