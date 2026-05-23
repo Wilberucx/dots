@@ -224,14 +224,13 @@ func runLink(cmd *cobra.Command) error {
 		effVariant := getEffectiveVariant(modName)
 		variantTag := ""
 		if effVariant != "" {
-			variantTag = fmt.Sprintf(" [%s]", effVariant)
-		}
+				variantTag = fmt.Sprintf(" [%s]", effVariant)
+			}
 
 		for _, st := range statuses {
 			if tx.fail != nil {
 				break
 			}
-
 			srcName := filepath.Base(st.Source)
 			shortDest := shortDisplayPath(st.Destination, cfg.HomeDir)
 
@@ -307,10 +306,10 @@ func runLink(cmd *cobra.Command) error {
 
 			case resolver.StatePending:
 				if st.Detail == "backup needed" {
-					backupPath := st.BackupPath
-					if backupPath == "" {
-						backupPath = st.Destination + ".orig"
-					}
+				backupPath := st.BackupPath
+				if backupPath == "" {
+					backupPath = st.Destination + ".orig"
+				}
 					if _, err := os.Stat(backupPath); err == nil {
 						rows = append(rows, linkRow{
 							icon:   ui.WarningStyle.Render(ui.IconConflict),
@@ -336,8 +335,8 @@ func runLink(cmd *cobra.Command) error {
 								detail: ui.SuccessStyle.Render(fmt.Sprintf("(.orig saved and linked)%s", variantTag)),
 							})
 							modStats.linked++
-							tx.backup(st.Destination, backupPath)
-							tx.symlink(st.Destination, st.Source)
+						tx.backup(st.Destination, backupPath)
+						tx.symlink(st.Destination, st.Source)
 						}
 					}
 				} else {
@@ -357,11 +356,11 @@ func runLink(cmd *cobra.Command) error {
 							detail: ui.SuccessStyle.Render(fmt.Sprintf("(created)%s", variantTag)),
 						})
 						modStats.linked++
-						parentDir := filepath.Dir(st.Destination)
-						if _, err := os.Stat(parentDir); os.IsNotExist(err) {
-							tx.mkdir(parentDir)
-						}
-						tx.symlink(st.Destination, st.Source)
+					parentDir := filepath.Dir(st.Destination)
+							if _, err := os.Stat(parentDir); os.IsNotExist(err) {
+								tx.mkdir(parentDir)
+							}
+							tx.symlink(st.Destination, st.Source)
 					}
 				}
 			}

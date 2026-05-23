@@ -184,6 +184,31 @@ func TestDetectVariants_WithGlobSources(t *testing.T) {
 	assert.Contains(t, info.Variants, "canto")
 }
 
+func TestDetectVariants_WithDirectoryPrefix(t *testing.T) {
+	// Zsh-like case: root-level source and subdirectory source
+	mappings := []DotFileMapping{
+		{Source: ".zshrc", Destination: "~/.zshrc"},
+		{Source: "termux/.zshrc", Destination: "~/.zshrc"},
+	}
+
+	info := DetectVariants(mappings)
+	assert.True(t, info.HasVariants)
+	assert.Equal(t, []string{".zshrc", "termux"}, info.Variants)
+	assert.Equal(t, "termux", info.DefaultVariant)
+}
+
+func TestDetectVariants_FalsePositiveSamePrefix(t *testing.T) {
+	// Edge case: "foo" and "foo/bar" have same variant key "foo" but are not real variants
+	mappings := []DotFileMapping{
+		{Source: "foo", Destination: "~/.config/foo"},
+		{Source: "foo/bar", Destination: "~/.config/foo"},
+	}
+
+	info := DetectVariants(mappings)
+	assert.False(t, info.HasVariants, "should not detect variants when only one unique key exists")
+	assert.Empty(t, info.Variants)
+}
+
 func TestFilterByVariant(t *testing.T) {
 	mappings := []DotFileMapping{
 		{Source: "nvim", Destination: "~/.config/nvim"},

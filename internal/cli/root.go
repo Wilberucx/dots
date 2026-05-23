@@ -25,15 +25,19 @@ dependencies, backups, and cross-platform configuration.`,
 		// Check for updates in background goroutine
 		go checkForUpdates()
 
-		// Run syntax checker only for mutating commands
-		switch cmd.Name() {
-		case "link", "unlink", "install", "adopt":
-			if cfg, err := loadConfig(); err == nil {
-				result := checker.RunSyntaxCheck(cfg)
+		// Run syntax checker for mutating commands and read-only commands
+		if cfg, err := loadConfig(); err == nil {
+			result := checker.RunSyntaxCheck(cfg)
+
+			switch cmd.Name() {
+			case "link", "unlink", "install", "adopt":
 				checker.PrintResult(result)
 				if result.HasErrors() {
 					return fmt.Errorf("syntax check failed — fix the errors above and retry")
 				}
+			case "status", "list":
+				// Show issues for conscious review without blocking
+				checker.PrintResult(result)
 			}
 		}
 
@@ -292,6 +296,6 @@ func init() {
 }
 
 // Version is set at build time via -ldflags.
-var Version = "0.9.0"
+var Version = "0.9.1"
 
 // checkForUpdates and notifyIfNeeded are implemented in updates.go

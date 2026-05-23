@@ -222,8 +222,8 @@ files:
 	require.NoError(t, err)
 	require.NotNil(t, info)
 	assert.True(t, info.HasVariants)
-	assert.Contains(t, info.Variants, "wilber/.zshrc")
-	assert.Contains(t, info.Variants, "canto/.zshrc")
+	assert.Contains(t, info.Variants, "wilber")
+	assert.Contains(t, info.Variants, "canto")
 }
 
 func TestGetActiveVariant_NoVariants(t *testing.T) {
@@ -292,7 +292,7 @@ files:
 	})
 
 	// Test with explicit variant
-	results, err := ResolveModules(cfg, []string{"Hypr"}, nil, "wilber/hyprland.conf")
+	results, err := ResolveModules(cfg, []string{"Hypr"}, nil, "wilber")
 	require.NoError(t, err)
 	require.Contains(t, results, "Hypr")
 	require.Len(t, results["Hypr"], 1)

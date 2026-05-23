@@ -73,37 +73,50 @@ func GetActiveVariant(cfg *config.DotsConfig, moduleName string) (string, error)
 
 	moduleDir := filepath.Join(cfg.RepoRoot, moduleName)
 
-	for _, variantSource := range variantInfo.Variants {
-		dest, ok := variantInfo.VariantDestinations[variantSource]
-		if !ok {
-			continue
+	// For each variant, check if ALL its source files are symlinked correctly
+	for _, variantName := range variantInfo.Variants {
+		allLinked := true
+		for _, m := range mappings {
+			if yaml.VariantKey(m.Source) != variantName {
+				continue
+			}
+			destPath := strings.TrimRight(system.ExpandPath(m.Destination), "/")
+			srcPath := filepath.Join(moduleDir, strings.TrimLeft(m.Source, "/"))
+
+			if fi, err := os.Lstat(destPath); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+				linkTarget, err := os.Readlink(destPath)
+				if err != nil {
+					allLinked = false
+					break
+				}
+
+				// Resolve relative symlinks
+				if !filepath.IsAbs(linkTarget) {
+					linkTarget = filepath.Join(filepath.Dir(destPath), linkTarget)
+				}
+				linkTarget, err = filepath.EvalSymlinks(linkTarget)
+				if err != nil {
+					allLinked = false
+					break
+				}
+
+				srcResolved, err := filepath.EvalSymlinks(srcPath)
+				if err != nil {
+					allLinked = false
+					break
+				}
+
+				if linkTarget != srcResolved {
+					allLinked = false
+					break
+				}
+			} else {
+				allLinked = false
+				break
+			}
 		}
-		destPath := system.ExpandPath(dest)
-		srcPath := filepath.Join(moduleDir, strings.TrimLeft(variantSource, "/"))
-
-		if fi, err := os.Lstat(destPath); err == nil && fi.Mode()&os.ModeSymlink != 0 {
-			linkTarget, err := os.Readlink(destPath)
-			if err != nil {
-				continue
-			}
-
-			// Resolve relative symlinks
-			if !filepath.IsAbs(linkTarget) {
-				linkTarget = filepath.Join(filepath.Dir(destPath), linkTarget)
-			}
-			linkTarget, err = filepath.EvalSymlinks(linkTarget)
-			if err != nil {
-				continue
-			}
-
-			srcResolved, err := filepath.EvalSymlinks(srcPath)
-			if err != nil {
-				continue
-			}
-
-			if linkTarget == srcResolved {
-				return variantSource, nil
-			}
+		if allLinked {
+			return variantName, nil
 		}
 	}
 
@@ -240,6 +253,7 @@ func resolveModuleMappings(cfg *config.DotsConfig, modulePath string, mappings [
 }
 
 // resolveSingleState resolves the state of a single source→destination mapping.
+// It stores ABSOLUTE paths in LinkStatus. The `~` shorthand is only for display.
 func resolveSingleState(src, dest, modulePath, homeDir string) LinkStatus {
 	// Safety check
 	if !system.IsSafePath(dest) {
@@ -249,8 +263,8 @@ func resolveSingleState(src, dest, modulePath, homeDir string) LinkStatus {
 			backup = origPath
 		}
 		return LinkStatus{
-			Source:      shortPath(src, homeDir),
-			Destination: shortPath(dest, homeDir),
+			Source:      src,
+			Destination: dest,
 			State:       StateUnsafe,
 			Detail:      "path outside home directory",
 			BackupPath:  backup,
@@ -263,13 +277,16 @@ func resolveSingleState(src, dest, modulePath, homeDir string) LinkStatus {
 		backup = origPath
 	}
 
+	// Strip trailing slash so os.Lstat doesn't follow symlinks
+	dest = strings.TrimRight(dest, "/")
+
 	// Check current state
 	if fi, err := os.Lstat(dest); err == nil && fi.Mode()&os.ModeSymlink != 0 {
 		target, err := os.Readlink(dest)
 		if err != nil {
 			return LinkStatus{
-				Source:      shortPath(src, homeDir),
-				Destination: shortPath(dest, homeDir),
+				Source:      src,
+				Destination: dest,
 				State:       StateConflict,
 				Detail:      fmt.Sprintf("cannot read link: %v", err),
 				BackupPath:  backup,
@@ -291,8 +308,8 @@ func resolveSingleState(src, dest, modulePath, homeDir string) LinkStatus {
 
 		if target == srcResolved {
 			return LinkStatus{
-				Source:      shortPath(src, homeDir),
-				Destination: shortPath(dest, homeDir),
+				Source:      src,
+				Destination: dest,
 				State:       StateLinked,
 				Detail:      "",
 				BackupPath:  backup,
@@ -300,8 +317,8 @@ func resolveSingleState(src, dest, modulePath, homeDir string) LinkStatus {
 		}
 
 		return LinkStatus{
-			Source:      shortPath(src, homeDir),
-			Destination: shortPath(dest, homeDir),
+			Source:      src,
+			Destination: dest,
 			State:       StateConflict,
 			Detail:      fmt.Sprintf("points to %s", shortPath(target, homeDir)),
 			BackupPath:  backup,
@@ -310,8 +327,8 @@ func resolveSingleState(src, dest, modulePath, homeDir string) LinkStatus {
 
 	if _, err := os.Stat(dest); err == nil {
 		return LinkStatus{
-			Source:      shortPath(src, homeDir),
-			Destination: shortPath(dest, homeDir),
+			Source:      src,
+			Destination: dest,
 			State:       StatePending,
 			Detail:      "backup needed",
 			BackupPath:  backup,
@@ -319,8 +336,8 @@ func resolveSingleState(src, dest, modulePath, homeDir string) LinkStatus {
 	}
 
 	return LinkStatus{
-		Source:      shortPath(src, homeDir),
-		Destination: shortPath(dest, homeDir),
+		Source:      src,
+		Destination: dest,
 		State:       StatePending,
 		Detail:      "will create",
 		BackupPath:  "",

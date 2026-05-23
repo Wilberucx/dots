@@ -216,7 +216,7 @@ func DetectVariants(mappings []DotFileMapping) VariantInfo {
 
 	destToSources := make(map[string][]string)
 	for _, m := range mappings {
-		key := variantKey(m.Source)
+		key := VariantKey(m.Source)
 		destToSources[m.Destination] = append(destToSources[m.Destination], key)
 	}
 
@@ -224,21 +224,31 @@ func DetectVariants(mappings []DotFileMapping) VariantInfo {
 	variantDests := make(map[string]string)
 
 	for dest, sources := range destToSources {
-		if len(sources) > 1 {
-			for _, src := range sources {
+		// Deduplicate variant keys for this destination to avoid false positives
+		// (e.g., "foo" and "foo/bar" both map to variant key "foo")
+		localSeen := make(map[string]bool)
+		uniqueSources := make([]string, 0)
+		for _, s := range sources {
+			if !localSeen[s] {
+				uniqueSources = append(uniqueSources, s)
+				localSeen[s] = true
+			}
+		}
+		if len(uniqueSources) > 1 {
+			for _, src := range uniqueSources {
 				allVariants = append(allVariants, src)
 				variantDests[src] = dest
 			}
 		}
 	}
 
-	// Deduplicate while preserving order
-	seen := make(map[string]bool)
+	// Final deduplicate across all destinations while preserving order
+	globalSeen := make(map[string]bool)
 	orderedVariants := make([]string, 0)
 	for _, v := range allVariants {
-		if !seen[v] {
+		if !globalSeen[v] {
 			orderedVariants = append(orderedVariants, v)
-			seen[v] = true
+			globalSeen[v] = true
 		}
 	}
 
@@ -271,15 +281,30 @@ func FilterByVariant(mappings []DotFileMapping, variant string) []DotFileMapping
 	return result
 }
 
-func variantKey(source string) string {
+// VariantKey extracts the variant name from a source path.
+// For sources in subdirectories (e.g., "termux/.zshrc"), it returns just the directory
+// prefix ("termux"). For root-level sources, it returns the source name as-is.
+// For glob sources, it returns the directory prefix before the glob.
+func VariantKey(source string) string {
 	if idx := strings.Index(source, "*"); idx != -1 {
 		return strings.TrimRight(source[:idx], "/")
+	}
+	// For sources with directory prefix (e.g., "termux/.zshrc"), use directory name
+	if idx := strings.Index(source, "/"); idx != -1 {
+		return source[:idx]
 	}
 	return source
 }
 
+// normalizedSource returns the variant key for a source path, used for matching
+// in FilterByVariant.
 func normalizedSource(source string) string {
-	return strings.TrimRight(source, "/*")
+	s := strings.TrimRight(source, "/*")
+	// For sources in subdirectories, use directory as variant key
+	if idx := strings.Index(s, "/"); idx != -1 {
+		return s[:idx]
+	}
+	return s
 }
 
 func getString(m map[string]interface{}, key string, defaults ...string) string {
