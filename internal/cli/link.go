@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cantoarch/dots/internal/config"
-	"github.com/cantoarch/dots/internal/resolver"
-	"github.com/cantoarch/dots/internal/transaction"
-	"github.com/cantoarch/dots/internal/ui"
-	"github.com/cantoarch/dots/internal/yaml"
+	"github.com/Wilberucx/dots/internal/config"
+	"github.com/Wilberucx/dots/internal/resolver"
+	"github.com/Wilberucx/dots/internal/transaction"
+	"github.com/Wilberucx/dots/internal/ui"
+	"github.com/Wilberucx/dots/internal/yaml"
 	"github.com/spf13/cobra"
 )
 

@@ -126,7 +126,7 @@ Downloads the pre-built Go binary from GitHub Releases. Zero dependencies.
 ### Via Go
 
 ```bash
-go install github.com/cantoarch/dots/cmd/dots@latest
+go install github.com/Wilberucx/dots/cmd/dots@latest
 ```
 
 Requires the Go toolchain.

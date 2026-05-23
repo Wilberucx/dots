@@ -5,7 +5,7 @@ set -euo pipefail
 
 # ─── Repo info ───────────────────────────────────────────────────────────────
 GITHUB_REPO="Wilberucx/dots"        # GitHub owner/repo (for releases)
-GO_MODULE="github.com/cantoarch/dots"  # Go module path (for go install)
+GO_MODULE="github.com/Wilberucx/dots"  # Go module path (for go install)
 BIN_DIR="${HOME}/.local/bin"
 BINARY="${BIN_DIR}/dots"
 VERSION="${DOTS_VERSION:-latest}"

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cantoarch/dots/internal/config"
-	"github.com/cantoarch/dots/internal/yaml"
+	"github.com/Wilberucx/dots/internal/config"
+	"github.com/Wilberucx/dots/internal/yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -1,6 +1,6 @@
 package main
 
-import "github.com/cantoarch/dots/internal/cli"
+import "github.com/Wilberucx/dots/internal/cli"
 
 func main() {
 	cli.Execute()

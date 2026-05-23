@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cantoarch/dots/internal/resolver"
-	"github.com/cantoarch/dots/internal/system"
+	"github.com/Wilberucx/dots/internal/resolver"
+	"github.com/Wilberucx/dots/internal/system"
 	"github.com/spf13/cobra"
 )
 
