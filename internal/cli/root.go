@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cantoarch/dots/internal/config"
-	"github.com/cantoarch/dots/internal/ui"
+	"github.com/Wilberucx/dots/internal/config"
+	"github.com/Wilberucx/dots/internal/ui"
 	"github.com/spf13/cobra"
 )
 

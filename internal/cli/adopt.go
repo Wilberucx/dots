@@ -5,10 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cantoarch/dots/internal/system"
-	"github.com/cantoarch/dots/internal/transaction"
-	"github.com/cantoarch/dots/internal/ui"
-	"github.com/cantoarch/dots/internal/writer"
+	"github.com/Wilberucx/dots/internal/system"
+	"github.com/Wilberucx/dots/internal/transaction"
+	"github.com/Wilberucx/dots/internal/ui"
+	"github.com/Wilberucx/dots/internal/writer"
 	"github.com/spf13/cobra"
 )
 

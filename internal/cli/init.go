@@ -5,15 +5,15 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cantoarch/dots/internal/config"
-	"github.com/cantoarch/dots/internal/ui"
-	"github.com/cantoarch/dots/internal/writer"
+	"github.com/Wilberucx/dots/internal/config"
+	"github.com/Wilberucx/dots/internal/ui"
+	"github.com/Wilberucx/dots/internal/writer"
 	"github.com/spf13/cobra"
 )
 
 const markerContent = `# .dots/config.yaml — marker for the dots CLI
 # This file identifies this directory as a dotfiles repository managed by dots.
-# See: https://github.com/cantoarch/dots
+# See: https://github.com/Wilberucx/dots
 
 [dots]
 version = "1"

@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cantoarch/dots/internal/config"
-	"github.com/cantoarch/dots/internal/system"
-	"github.com/cantoarch/dots/internal/yaml"
+	"github.com/Wilberucx/dots/internal/config"
+	"github.com/Wilberucx/dots/internal/system"
+	"github.com/Wilberucx/dots/internal/yaml"
 )
 
 // LinkState represents the state of a single source→destination mapping.

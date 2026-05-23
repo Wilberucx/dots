@@ -9,12 +9,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cantoarch/dots/internal/config"
-	"github.com/cantoarch/dots/internal/plugins"
-	"github.com/cantoarch/dots/internal/system"
-	"github.com/cantoarch/dots/internal/template"
-	"github.com/cantoarch/dots/internal/ui"
-	"github.com/cantoarch/dots/internal/yaml"
+	"github.com/Wilberucx/dots/internal/config"
+	"github.com/Wilberucx/dots/internal/plugins"
+	"github.com/Wilberucx/dots/internal/system"
+	"github.com/Wilberucx/dots/internal/template"
+	"github.com/Wilberucx/dots/internal/ui"
+	"github.com/Wilberucx/dots/internal/yaml"
 	"github.com/spf13/cobra"
 )
 

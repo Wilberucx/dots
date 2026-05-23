@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cantoarch/dots/internal/config"
-	"github.com/cantoarch/dots/internal/yaml"
+	"github.com/Wilberucx/dots/internal/config"
+	"github.com/Wilberucx/dots/internal/yaml"
 )
 
 // ModuleInfo holds aggregated information about a module.

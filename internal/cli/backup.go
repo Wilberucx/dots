@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cantoarch/dots/internal/ui"
+	"github.com/Wilberucx/dots/internal/ui"
 	"github.com/spf13/cobra"
 )
 

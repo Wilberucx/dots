@@ -4,11 +4,29 @@ dotfile manager — declarative, symlink-based, yours.
 
 ## Install
 
+### Stable (recommended)
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Wilberucx/dots/main/install.sh | bash
 ```
 
-Zero dependencies — just curl or wget. Installs to `~/.local/bin/dots`.
+Zero dependencies — just curl or wget. Downloads the pre-built Go binary from GitHub Releases and installs to `~/.local/bin/dots`.
+
+### Via Go
+
+```bash
+go install github.com/Wilberucx/dots/cmd/dots@latest
+```
+
+Requires the Go toolchain.
+
+### Development
+
+```bash
+cd ~/Work/dots
+go build -o /tmp/dots ./cmd/dots/
+/tmp/dots --help
+```
 
 ## Setup
 
@@ -111,35 +129,7 @@ dots migrate --dry-run
 - [Schema v3](docs/schema-v3.md) — current schema specification
 - [Dependencies](docs/dependencies.md) — dependency types (git, binary, package)
 
----
 
-## Installation
-
-### Stable (recommended)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Wilberucx/dots/main/install.sh | bash
-```
-
-Downloads the pre-built Go binary from GitHub Releases. Zero dependencies.
-
-### Via Go
-
-```bash
-go install github.com/cantoarch/dots/cmd/dots@latest
-```
-
-Requires the Go toolchain.
-
-### Development
-
-```bash
-cd ~/Work/dots
-go build -o /tmp/dots ./cmd/dots/
-/tmp/dots --help
-```
-
----
 
 ## Git Workflow
 

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cantoarch/dots/internal/system"
+	"github.com/Wilberucx/dots/internal/system"
 
 	"gopkg.in/yaml.v3"
 )
