@@ -100,7 +100,7 @@ func notifyIfNeeded() {
 	if isNewer(cache.LatestVersion, Version) {
 		fmt.Println()
 		fmt.Printf("✨ A new version of dots is available: v%s (current: %s)\n", cache.LatestVersion, Version)
-		fmt.Printf("   Update with: pipx upgrade dots\n")
+		fmt.Printf("   Update with: curl -fsSL https://raw.githubusercontent.com/Wilberucx/dots/main/install.sh | bash\n")
 	}
 }
 

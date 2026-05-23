@@ -70,14 +70,9 @@ The active variant is determined by **inspecting existing symlinks at the destin
 2. For each variant's destination, checks if a symlink exists
 3. If the symlink points to the variant's source directory, that variant is active
 
-```python
-# Simplified logic from resolver.py
-for variant_source, destination in variant_info.variant_destinations.items():
-    dest_path = expand_path(destination)
-    src_path = (module_dir / variant_source.lstrip('/')).resolve()
-
-    if dest_path.is_symlink() and dest_path.readlink().resolve() == src_path:
-        return variant_source  # This one is active
+```
+# Simplified logic: for each declared variant source, check if the
+# destination symlink already points to that source's directory.
 ```
 
 If no symlink matches any variant, no variant is considered active.

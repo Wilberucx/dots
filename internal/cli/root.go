@@ -99,19 +99,13 @@ func boolFlag(cmd *cobra.Command, name string) bool {
 	return val
 }
 
-// ─── Skeleton Commands ───────────────────────────────────────────────────────
+// ─── Subcommands ────────────────────────────────────────────────────────────
 
 // initCmd represents the `dots init` command.
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize a dotfiles repository",
 	Long:  "Initialize a new dotfiles repository by creating .dots/config.yaml marker file.",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// TODO: Implement in Phase 3
-		ui.PrintHeader("Init")
-		ui.PrintWarning("Not yet implemented in Go migration")
-		return nil
-	},
 }
 
 // linkCmd represents the `dots link` command.
@@ -121,12 +115,6 @@ var linkCmd = &cobra.Command{
 	Long: `Create symlinks for dotfiles modules.
 
 By default, links all modules. Use --interactive to select specific modules.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// TODO: Implement in Phase 2
-		ui.PrintHeader("Linking Dotfiles")
-		ui.PrintWarning("Not yet implemented in Go migration")
-		return nil
-	},
 }
 
 func init() {
@@ -143,12 +131,6 @@ var unlinkCmd = &cobra.Command{
 	Use:   "unlink",
 	Short: "Remove symlinks for dotfiles modules",
 	Long:  "Remove symlinks for dotfiles modules.",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// TODO: Implement in Phase 2
-		ui.PrintHeader("Unlinking Dotfiles")
-		ui.PrintWarning("Not yet implemented in Go migration")
-		return nil
-	},
 }
 
 func init() {
@@ -162,12 +144,6 @@ var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show symlink status grouped by state",
 	Long:  "Show status of all dotfiles modules grouped by state.",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// TODO: Implement in Phase 1
-		ui.PrintHeader("Dots Status")
-		ui.PrintWarning("Not yet implemented in Go migration")
-		return nil
-	},
 }
 
 func init() {
@@ -183,16 +159,10 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List modules or backups",
 	Long:  "List modules or backups with optional filters.",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// TODO: Implement in Phase 2
-		ui.PrintWarning("Not yet implemented in Go migration")
-		return nil
-	},
+	Aliases: []string{"ls"},
 }
 
-
 func init() {
-	listCmd.Aliases = []string{"ls"}
 	listCmd.Flags().Bool("linked", false, "Show linked modules")
 	listCmd.Flags().Bool("unlinked", false, "Show unlinked modules")
 	listCmd.Flags().Bool("broken", false, "Show broken modules")
@@ -206,12 +176,6 @@ var adoptCmd = &cobra.Command{
 	Short: "Import a config file into the dotfiles repo",
 	Long:  "Import a config file into the dotfiles repo and register it in path.yaml.",
 	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// TODO: Implement in Phase 3
-		ui.PrintHeader("Adopting Configuration")
-		ui.PrintWarning("Not yet implemented in Go migration")
-		return nil
-	},
 }
 
 func init() {
@@ -225,11 +189,6 @@ var editCmd = &cobra.Command{
 	Short: "Open a module folder or its path.yaml in $EDITOR",
 	Long:  "Open a module folder or its path.yaml in your $EDITOR.",
 	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// TODO: Implement in Phase 3
-		ui.PrintWarning("Not yet implemented in Go migration")
-		return nil
-	},
 }
 
 func init() {
@@ -241,12 +200,6 @@ var installCmd = &cobra.Command{
 	Use:   "install",
 	Short: "Install dependencies declared in path.yaml files",
 	Long:  "Install dependencies declared in path.yaml files across all modules.",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// TODO: Implement in Phase 4
-		ui.PrintHeader("Installing Dependencies")
-		ui.PrintWarning("Not yet implemented in Go migration")
-		return nil
-	},
 }
 
 func init() {
@@ -260,12 +213,6 @@ var migrateCmd = &cobra.Command{
 	Use:   "migrate",
 	Short: "Migrate path.yaml files from v2 to v3 format",
 	Long:  "Migrate all path.yaml files in the repository from v2 to v3 format.",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// TODO: Implement in Phase 6
-		ui.PrintHeader("Migrating path.yaml")
-		ui.PrintWarning("Not yet implemented in Go migration")
-		return nil
-	},
 }
 
 func init() {
@@ -285,24 +232,12 @@ var backupRunCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Run a backup",
 	Long:  "Backup dotfiles with git commit and optional push.",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// TODO: Implement in Phase 5
-		ui.PrintHeader("Dots Backup")
-		ui.PrintWarning("Not yet implemented in Go migration")
-		return nil
-	},
 }
 
 var backupListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List recent backups",
 	Long:  "List the most recent backups from git history.",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// TODO: Implement in Phase 5
-		ui.PrintHeader("Backup History")
-		ui.PrintWarning("Not yet implemented in Go migration")
-		return nil
-	},
 }
 
 var backupDiffCmd = &cobra.Command{
@@ -310,12 +245,6 @@ var backupDiffCmd = &cobra.Command{
 	Short: "Show diff since last backup",
 	Long:  "Show what changed since the last backup or a specific reference.",
 	Args:  cobra.MaximumNArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		// TODO: Implement in Phase 5
-		ui.PrintHeader("Diff")
-		ui.PrintWarning("Not yet implemented in Go migration")
-		return nil
-	},
 }
 
 func init() {

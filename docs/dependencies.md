@@ -130,8 +130,8 @@ The `source` URL supports two template variables:
 
 Architecture detection:
 
-```python
-platform.machine() → x86_64, aarch64, armv7l, etc.
+```
+uname -m → x86_64, aarch64, armv7l, etc.
 ```
 
 ### `arch` Field
