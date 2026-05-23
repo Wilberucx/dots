@@ -210,11 +210,11 @@ func renderDefault(
 	}
 
 	// Display results
-	displayCategoryWithModules("✔ Linked", len(linked), linked, allModules, cfg)
-	displayCategoryWithModules("ℹ Unlinked", len(unlinked), unlinked, allModules, cfg)
-	displayCategoryWithModules("✖ Broken", len(broken), broken, allModules, cfg)
-	displayCategoryWithModules("⚠ Missing Source", len(missingSrc), missingSrc, allModules, cfg)
-	displayCategoryWithModules("• Empty", len(notLinked), notLinked, allModules, cfg)
+	displayCategoryWithModules("✔ Linked", len(linked), linked, allModules, cfg, ui.SuccessStyle)
+	displayCategoryWithModules("ℹ Unlinked", len(unlinked), unlinked, allModules, cfg, ui.DimStyle)
+	displayCategoryWithModules("✖ Broken", len(broken), broken, allModules, cfg, ui.ErrorStyle)
+	displayCategoryWithModules("⚠ Missing Source", len(missingSrc), missingSrc, allModules, cfg, ui.WarningStyle)
+	displayCategoryWithModules("• Empty", len(notLinked), notLinked, allModules, cfg, ui.DimStyle)
 
 	// Summary
 	ui.PrintDivider(0)
@@ -245,6 +245,7 @@ func displayCategoryWithModules(
 	items []moduleCategory,
 	allModules map[string][]resolver.LinkStatus,
 	cfg *config.DotsConfig,
+	entryStyle lipgloss.Style,
 ) {
 	if count == 0 {
 		return
@@ -267,16 +268,16 @@ func displayCategoryWithModules(
 
 		if variantInfo.HasVariants {
 			active, _ := resolver.GetActiveVariant(cfg, item.name)
-			fmt.Printf("  %s\n", ui.DimStyle.Render(item.name))
+			fmt.Printf("  %s\n", entryStyle.Render(item.name))
 			for _, v := range variantInfo.Variants {
 				if v == active {
-					fmt.Printf("    %s %s %s\n", ui.SuccessStyle.Render("●"), ui.BoldStyle.Render(v), ui.DimStyle.Render("← active"))
+					fmt.Printf("    %s %s %s\n", entryStyle.Render("●"), entryStyle.Render(v), ui.DimStyle.Render("← active"))
 				} else {
-					fmt.Printf("    %s %s\n", ui.DimStyle.Render("○"), ui.DimStyle.Render(v))
+					fmt.Printf("    %s %s\n", ui.DimStyle.Render("○"), entryStyle.Render(v))
 				}
 			}
 		} else {
-			fmt.Printf("  %s %s\n", ui.DimStyle.Render(item.name), ui.DimStyle.Render("("+item.info+")"))
+			fmt.Printf("  %s %s\n", entryStyle.Render(item.name), ui.DimStyle.Render("("+item.info+")"))
 		}
 	}
 	fmt.Println()
