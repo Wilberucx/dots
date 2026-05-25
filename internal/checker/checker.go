@@ -467,7 +467,7 @@ func checkSourceExistence(entry map[string]interface{}, moduleName, relPath stri
 	}
 
 	// Skip glob patterns (they're resolved at link time)
-	if strings.Contains(source, "*") {
+	if strings.ContainsAny(source, "*?[") {
 		return
 	}
 

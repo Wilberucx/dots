@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"unicode"
 
 	"github.com/Wilberucx/dots/internal/system"
 	"github.com/Wilberucx/dots/internal/transaction"
@@ -143,7 +144,9 @@ func promptModuleName(path string) string {
 	base := filepath.Base(path)
 	// Capitalize first letter as default
 	if len(base) > 0 {
-		base = string(base[0]-32) + base[1:]
+		runes := []rune(base)
+		runes[0] = unicode.ToUpper(runes[0])
+		base = string(runes)
 	}
 	return ui.RunPrompt("Module name:", base)
 }

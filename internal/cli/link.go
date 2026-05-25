@@ -126,16 +126,14 @@ func runLink(cmd *cobra.Command) error {
 		return fmt.Errorf("--variant requires --module")
 	}
 
-	// Variant auto-swap: if variant is explicitly requested and a different variant is active, auto-force
-	isVariantSwap := false
+	// Variant auto-swap: track which modules need a swap per-module, not globally
+	variantSwapModules := make(map[string]bool)
 	if variant != "" && !force && len(selectedModules) > 0 {
 		for _, modName := range selectedModules {
 			active, _ := resolver.GetActiveVariant(cfg, modName)
 			if active != "" && active != variant {
-				force = true
-				isVariantSwap = true
+				variantSwapModules[modName] = true
 				ui.PrintInfo(fmt.Sprintf("Auto-swap: %s variant '%s' → '%s'", modName, active, variant))
-				break
 			}
 		}
 	}
@@ -224,8 +222,12 @@ func runLink(cmd *cobra.Command) error {
 		effVariant := getEffectiveVariant(modName)
 		variantTag := ""
 		if effVariant != "" {
-				variantTag = fmt.Sprintf(" [%s]", effVariant)
-			}
+			variantTag = fmt.Sprintf(" [%s]", effVariant)
+		}
+
+		// Per-module force for variant swaps
+		moduleIsSwap := variantSwapModules[modName]
+		effectiveForce := force || moduleIsSwap
 
 		for _, st := range statuses {
 			if tx.fail != nil {
@@ -254,9 +256,9 @@ func runLink(cmd *cobra.Command) error {
 				modStats.conflicts++
 
 			case resolver.StateConflict:
-				if force {
+				if effectiveForce {
 					if dryRun {
-						if isVariantSwap {
+						if moduleIsSwap {
 							active, _ := resolver.GetActiveVariant(cfg, modName)
 							rows = append(rows, linkRow{
 								icon:   ui.InfoStyle.Render(ui.IconSwap),
@@ -274,7 +276,7 @@ func runLink(cmd *cobra.Command) error {
 						}
 						modStats.pending++
 					} else {
-						if isVariantSwap {
+						if moduleIsSwap {
 							active, _ := resolver.GetActiveVariant(cfg, modName)
 							rows = append(rows, linkRow{
 								icon:   ui.InfoStyle.Render(ui.IconSwap),
@@ -306,10 +308,10 @@ func runLink(cmd *cobra.Command) error {
 
 			case resolver.StatePending:
 				if st.Detail == "backup needed" {
-				backupPath := st.BackupPath
-				if backupPath == "" {
-					backupPath = st.Destination + ".orig"
-				}
+					backupPath := st.BackupPath
+					if backupPath == "" {
+						backupPath = st.Destination + ".orig"
+					}
 					if _, err := os.Stat(backupPath); err == nil {
 						rows = append(rows, linkRow{
 							icon:   ui.WarningStyle.Render(ui.IconConflict),
@@ -335,8 +337,12 @@ func runLink(cmd *cobra.Command) error {
 								detail: ui.SuccessStyle.Render(fmt.Sprintf("(.orig saved and linked)%s", variantTag)),
 							})
 							modStats.linked++
-						tx.backup(st.Destination, backupPath)
-						tx.symlink(st.Destination, st.Source)
+							parentDir := filepath.Dir(st.Destination)
+							if _, err := os.Stat(parentDir); os.IsNotExist(err) {
+								tx.mkdir(parentDir)
+							}
+							tx.backup(st.Destination, backupPath)
+							tx.symlink(st.Destination, st.Source)
 						}
 					}
 				} else {
@@ -356,11 +362,11 @@ func runLink(cmd *cobra.Command) error {
 							detail: ui.SuccessStyle.Render(fmt.Sprintf("(created)%s", variantTag)),
 						})
 						modStats.linked++
-					parentDir := filepath.Dir(st.Destination)
-							if _, err := os.Stat(parentDir); os.IsNotExist(err) {
-								tx.mkdir(parentDir)
-							}
-							tx.symlink(st.Destination, st.Source)
+						parentDir := filepath.Dir(st.Destination)
+						if _, err := os.Stat(parentDir); os.IsNotExist(err) {
+							tx.mkdir(parentDir)
+						}
+						tx.symlink(st.Destination, st.Source)
 					}
 				}
 			}

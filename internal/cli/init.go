@@ -15,8 +15,7 @@ const markerContent = `# .dots/config.yaml — marker for the dots CLI
 # This file identifies this directory as a dotfiles repository managed by dots.
 # See: https://github.com/Wilberucx/dots
 
-[dots]
-version = "1"
+version: "1"
 `
 
 func init() {

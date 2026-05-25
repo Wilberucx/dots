@@ -268,6 +268,7 @@ var backupDiffCmd = &cobra.Command{
 func init() {
 	backupRunCmd.Flags().Bool("no-push", false, "Skip push to remote after commit")
 	backupRunCmd.Flags().Bool("no-sync", false, "Skip remote sync check, push directly")
+	backupRunCmd.Flags().Bool("no-verify", false, "Skip git hooks during commit")
 	backupRunCmd.Flags().StringP("message", "m", "", "Commit message (default: timestamp)")
 
 	backupListCmd.Flags().IntP("limit", "n", 10, "Number of backups to show")
@@ -296,6 +297,6 @@ func init() {
 }
 
 // Version is set at build time via -ldflags.
-var Version = "0.10.0"
+var Version = "0.11.0"
 
 // checkForUpdates and notifyIfNeeded are implemented in updates.go

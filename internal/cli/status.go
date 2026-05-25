@@ -239,17 +239,50 @@ func renderDefault(
 
 	fmt.Println(ui.BoldStyle.Render("Summary:") + " " + strings.Join(summaryParts, " • "))
 
-	// Checker section (under the entire status, under the Summary)
-	// RunSyntaxCheck: static path.yaml validation
-	// CheckBrokenLinks: dynamic resolver check for conflicts/unsafe paths
+	// Checker section — syntax validation + broken links + health verdict
 	result := checker.RunSyntaxCheck(cfg)
 	checker.CheckBrokenLinks(cfg, result)
+
+	fmt.Println()
+	ui.PrintDivider(0)
+	fmt.Println(ui.BoldStyle.Render("Checker:"))
+
 	if len(result.Issues) > 0 {
-		fmt.Println()
-		ui.PrintDivider(0)
-		fmt.Println(ui.BoldStyle.Render("Checker:"))
 		checker.PrintResult(result)
+		fmt.Println()
 	}
+
+	printHealthVerdict(result)
+}
+
+// printHealthVerdict prints the dotfiles health status based on checker results.
+func printHealthVerdict(result *checker.Result) {
+	errCount := 0
+	warnCount := 0
+	for _, issue := range result.Issues {
+		switch issue.Severity {
+		case checker.SeverityError:
+			errCount++
+		case checker.SeverityWarning:
+			warnCount++
+		}
+	}
+
+	var verdict string
+	var style lipgloss.Style
+
+	if errCount > 0 {
+		verdict = fmt.Sprintf("Unhealthy — %d error(s), %d warning(s)", errCount, warnCount)
+		style = ui.ErrorStyle
+	} else if warnCount > 0 {
+		verdict = fmt.Sprintf("Needs Attention — %d warning(s)", warnCount)
+		style = ui.WarningStyle
+	} else {
+		verdict = "Healthy — no issues found"
+		style = ui.SuccessStyle
+	}
+
+	fmt.Printf("%s %s\n", ui.BoldStyle.Render("Dotfiles Health:"), style.Render(verdict))
 }
 
 func displayCategoryWithModules(

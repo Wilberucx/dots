@@ -93,6 +93,13 @@ func runList(cmd *cobra.Command) error {
 			if err != nil {
 				return nil
 			}
+			// Skip large/noisy directories to avoid performance issues
+			if info.IsDir() {
+				name := info.Name()
+				if name == ".cache" || name == ".git" || name == "node_modules" || name == ".npm" || name == ".cargo" || name == ".local/share/Trash" {
+					return filepath.SkipDir
+				}
+			}
 			if strings.HasSuffix(info.Name(), ".orig") {
 				results[path] = true
 			}

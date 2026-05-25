@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/Wilberucx/dots/internal/config"
 	"github.com/Wilberucx/dots/internal/plugins"
@@ -249,11 +251,20 @@ func downloadAndExtract(url, dest, extract string) error {
 		return fmt.Errorf("creating parent dir: %w", err)
 	}
 
-	// Download to temp file using net/http
+	// Download to temp file using net/http with 30s timeout
 	tmpFile := dest + ".download.tmp"
 	defer os.Remove(tmpFile)
 
-	resp, err := http.Get(url)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("creating request: %w", err)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("downloading %s: %w", url, err)
 	}

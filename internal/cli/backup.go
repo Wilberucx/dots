@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -35,6 +37,7 @@ func runBackup(cmd *cobra.Command) error {
 
 	noPush := boolFlag(cmd, "no-push")
 	noSync := boolFlag(cmd, "no-sync")
+	noVerify := boolFlag(cmd, "no-verify")
 	message := stringFlag(cmd, "message")
 
 	commitMsg := message
@@ -44,68 +47,180 @@ func runBackup(cmd *cobra.Command) error {
 
 	dotsDir := cfg.RepoRoot
 
-	if err := runBackupCore(commitMsg, dotsDir, !noPush, noSync); err != nil {
+	if err := runBackupCore(commitMsg, dotsDir, !noPush, noSync, noVerify); err != nil {
 		return err
 	}
 	return nil
 }
 
-// runBackupCore performs the core backup logic: git add, commit, optionally push.
-func runBackupCore(commitMsg, dotsDir string, push, noSync bool) error {
-	// git add .
-	addCmd := exec.Command("git", "add", ".")
-	addCmd.Dir = dotsDir
-	addCmd.Stderr = nil
-	if err := addCmd.Run(); err != nil {
-		return fmt.Errorf("git add failed: %w", err)
+// runBackupCore performs the core backup logic: pull → add → commit → push.
+// Every step runs regardless of state: syncs remote changes, stages everything,
+// commits if there are changes, and pushes local commits to remote.
+func runBackupCore(commitMsg, dotsDir string, push, noSync, noVerify bool) error {
+	// Step 0: Pre-flight check
+	ui.PrintInfo("Performing pre-flight checks...")
+	if err := preFlightCheck(dotsDir); err != nil {
+		return err
 	}
-	ui.PrintSuccess("git add .")
+	ui.PrintSuccess("Repository is in a valid state")
 
-	// Check if there are changes to commit
-	diffCmd := exec.Command("git", "diff", "--cached", "--quiet")
-	diffCmd.Dir = dotsDir
-	if err := diffCmd.Run(); err == nil {
-		ui.PrintInfo("No changes to commit")
-		return nil
-	}
-
-	// git commit
-	commit := exec.Command("git", "commit", "-m", commitMsg)
-	commit.Dir = dotsDir
-	commit.Stderr = nil
-	if out, err := commit.Output(); err != nil {
-		return fmt.Errorf("git commit failed: %s", string(out))
-	}
-	ui.PrintSuccess(fmt.Sprintf("git commit -m \"%s\"", commitMsg))
-
-	if push {
-		if !noSync {
-			syncResult := syncFromRemote(dotsDir)
-			switch syncResult.status {
-			case "no_upstream":
-				ui.PrintInfo("No upstream branch configured — skipping sync")
-			case "pulled":
-				ui.PrintSuccess(fmt.Sprintf("Pulled %d commit(s) from remote", syncResult.ahead))
-			case "conflicts":
-				resolved := resolveConflictsInteractive(dotsDir, syncResult.conflicts)
-				if !resolved {
-					return fmt.Errorf("conflict resolution aborted")
-				}
-			case "error":
-				return fmt.Errorf("sync from remote failed")
+	// Step 1: Sync from remote
+	if noSync {
+		ui.PrintInfo("Remote sync disabled (--no-sync)")
+	} else {
+		syncResult := syncFromRemote(dotsDir)
+		switch syncResult.status {
+		case "no_upstream":
+			ui.PrintInfo("No upstream branch configured — skipping sync")
+		case "clean":
+			ui.PrintSuccess("Remote is up to date")
+		case "pulled":
+			ui.PrintSuccess(fmt.Sprintf("Pulled %d commit(s) from remote", syncResult.ahead))
+		case "conflicts":
+			resolved := resolveConflictsInteractive(dotsDir, syncResult.conflicts)
+			if !resolved {
+				return fmt.Errorf("sync failed: conflict resolution aborted")
 			}
+			ui.PrintSuccess("Conflicts resolved successfully")
+		case "error":
+			if syncResult.errMsg != "" {
+				return fmt.Errorf("sync from remote failed: %s", syncResult.errMsg)
+			}
+			return fmt.Errorf("sync from remote failed")
+		}
+	}
+
+	// Step 2: Stage all changes (including deletions, tracked files, new files)
+	ui.PrintInfo("Staging changes...")
+	addCmd := exec.Command("git", "add", "-A")
+	addCmd.Dir = dotsDir
+	if out, err := addCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git add failed: %s", strings.TrimSpace(string(out)))
+	}
+	ui.PrintSuccess("Changes staged (git add -A)")
+
+	// Step 3: Commit if there are changes
+	ui.PrintInfo("Checking for changes to commit...")
+	hasChanges, err := hasStagedChanges(dotsDir)
+	if err != nil {
+		return fmt.Errorf("checking for changes: %w", err)
+	}
+
+	if hasChanges {
+		commitArgs := []string{"commit", "-m", commitMsg}
+		if noVerify {
+			commitArgs = append(commitArgs, "--no-verify")
+			ui.PrintInfo("Git hooks disabled (--no-verify)")
+		}
+		ui.PrintInfo(fmt.Sprintf("Committing with message: \"%s\"...", commitMsg))
+		commit := exec.Command("git", commitArgs...)
+		commit.Dir = dotsDir
+		if out, err := commit.CombinedOutput(); err != nil {
+			return fmt.Errorf("git commit failed: %s", strings.TrimSpace(string(out)))
+		}
+		ui.PrintSuccess("Changes committed successfully")
+	} else {
+		ui.PrintInfo("No changes to commit — working tree is clean")
+	}
+
+	// Step 4: Push (always if push is enabled)
+	if push {
+		remote := getRemoteName(dotsDir)
+
+		pushArgs := []string{"push"}
+		if remote != "" {
+			pushArgs = append(pushArgs, remote, "HEAD")
 		}
 
-		pushCmd := exec.Command("git", "push")
+		ui.PrintInfo("Pushing to remote...")
+		pushCmd := exec.Command("git", pushArgs...)
 		pushCmd.Dir = dotsDir
-		pushCmd.Stderr = nil
-		if out, err := pushCmd.Output(); err != nil {
-			return fmt.Errorf("git push failed: %s", string(out))
+		if out, err := pushCmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("git push failed: %s", strings.TrimSpace(string(out)))
 		}
-		ui.PrintSuccess("git push")
+		ui.PrintSuccess("Changes pushed to remote")
+	} else {
+		ui.PrintInfo("Push disabled (--no-push)")
+	}
+
+	ui.PrintSuccess("Backup completed successfully")
+	return nil
+}
+
+// ─── Pre-flight checks ───────────────────────────────────────────────────────
+
+func preFlightCheck(dotsDir string) error {
+	// Check 1: Is this a valid git repository?
+	gitCmd := exec.Command("git", "rev-parse", "--git-dir")
+	gitCmd.Dir = dotsDir
+	out, err := gitCmd.Output()
+	if err != nil {
+		return fmt.Errorf("not a git repository — backup requires a git repo at %s", dotsDir)
+	}
+
+	gitDir := strings.TrimSpace(string(out))
+	if !filepath.IsAbs(gitDir) {
+		gitDir = filepath.Join(dotsDir, gitDir)
+	}
+
+	// Check 2: Any in-progress operations that would conflict
+	// Using git rev-parse --git-path for proper worktree-aware path resolution
+	dangerOps := []struct {
+		file string
+		desc string
+	}{
+		{"rebase-merge", "rebase in progress"},
+		{"rebase-apply", "rebase (apply) in progress"},
+		{"MERGE_HEAD", "merge in progress"},
+		{"CHERRY_PICK_HEAD", "cherry-pick in progress"},
+		{"REVERT_HEAD", "revert in progress"},
+		{"BISECT_LOG", "bisect in progress"},
+	}
+
+	for _, op := range dangerOps {
+		pathCmd := exec.Command("git", "rev-parse", "--git-path", op.file)
+		pathCmd.Dir = dotsDir
+		pathBytes, err := pathCmd.Output()
+		if err != nil {
+			continue
+		}
+		path := strings.TrimSpace(string(pathBytes))
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(dotsDir, path)
+		}
+		if _, err := os.Stat(path); err == nil {
+			return fmt.Errorf("cannot backup: %s — aborting", op.desc)
+		}
 	}
 
 	return nil
+}
+
+// ─── Staged changes detection ────────────────────────────────────────────────
+
+// hasStagedChanges returns true if there are changes in the index.
+// Distinguishes between "clean" (0) and "error" (2) exit codes from git diff.
+func hasStagedChanges(dotsDir string) (bool, error) {
+	diffCmd := exec.Command("git", "diff", "--cached", "--quiet")
+	diffCmd.Dir = dotsDir
+
+	if err := diffCmd.Run(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			switch exitErr.ExitCode() {
+			case 1:
+				// Changes exist
+				return true, nil
+			default:
+				// Real error (exit code 2+)
+				return false, fmt.Errorf("git diff failed with exit code %d", exitErr.ExitCode())
+			}
+		}
+		// Non-exit error (command not found, etc.)
+		return false, fmt.Errorf("git diff failed: %w", err)
+	}
+
+	return false, nil
 }
 
 // ─── Remote sync helpers ─────────────────────────────────────────────────────
@@ -114,6 +229,7 @@ type syncResult struct {
 	status    string   // "clean", "pulled", "conflicts", "no_upstream", "error"
 	conflicts []string
 	ahead     int
+	errMsg    string // populated on error
 }
 
 func getUpstreamBranch(dotsDir string) string {
@@ -124,6 +240,20 @@ func getUpstreamBranch(dotsDir string) string {
 		return ""
 	}
 	return strings.TrimSpace(string(out))
+}
+
+// getRemoteName extracts the remote name from the upstream branch ref.
+// Upstream format is "remote/branch" (e.g. "origin/main").
+func getRemoteName(dotsDir string) string {
+	upstream := getUpstreamBranch(dotsDir)
+	if upstream == "" {
+		return ""
+	}
+	parts := strings.SplitN(upstream, "/", 2)
+	if len(parts) < 2 {
+		return ""
+	}
+	return parts[0]
 }
 
 func getRemoteAheadCount(dotsDir, upstream string) int {
@@ -161,12 +291,18 @@ func syncFromRemote(dotsDir string) syncResult {
 		return syncResult{status: "no_upstream"}
 	}
 
-	fetch := exec.Command("git", "fetch", "--quiet", "origin")
-	fetch.Dir = dotsDir
-	fetch.Stderr = nil
-	if err := fetch.Run(); err != nil {
-		return syncResult{status: "error"}
+	remote := getRemoteName(dotsDir)
+	if remote == "" {
+		return syncResult{status: "error", errMsg: "could not determine remote name from upstream " + upstream}
 	}
+
+	ui.PrintInfo(fmt.Sprintf("Fetching from remote \"%s\"...", remote))
+	fetch := exec.Command("git", "fetch", "--quiet", remote)
+	fetch.Dir = dotsDir
+	if out, err := fetch.CombinedOutput(); err != nil {
+		return syncResult{status: "error", errMsg: strings.TrimSpace(string(out))}
+	}
+	ui.PrintSuccess(fmt.Sprintf("Fetched from %s", remote))
 
 	ahead := getRemoteAheadCount(dotsDir, upstream)
 	if ahead == 0 {
@@ -177,13 +313,13 @@ func syncFromRemote(dotsDir string) syncResult {
 
 	pull := exec.Command("git", "pull", "--autostash", "--rebase")
 	pull.Dir = dotsDir
-	pull.Stderr = nil
-	if _, err := pull.CombinedOutput(); err != nil {
+	if out, err := pull.CombinedOutput(); err != nil {
+		errMsg := strings.TrimSpace(string(out))
 		conflicts := getConflictFiles(dotsDir)
 		if len(conflicts) > 0 {
-			return syncResult{status: "conflicts", conflicts: conflicts, ahead: ahead}
+			return syncResult{status: "conflicts", conflicts: conflicts, ahead: ahead, errMsg: errMsg}
 		}
-		return syncResult{status: "error", ahead: ahead}
+		return syncResult{status: "error", ahead: ahead, errMsg: errMsg}
 	}
 
 	return syncResult{status: "pulled", ahead: ahead}
@@ -236,9 +372,16 @@ func resolveConflictsInteractive(dotsDir string, conflicts []string) bool {
 		return false
 	}
 
+	// Mark conflicts as resolved — check for errors
 	addCmd := exec.Command("git", append([]string{"add"}, conflicts...)...)
 	addCmd.Dir = dotsDir
-	addCmd.Run()
+	if out, err := addCmd.CombinedOutput(); err != nil {
+		ui.PrintError(fmt.Sprintf("Failed to mark conflicts as resolved: %s", strings.TrimSpace(string(out))))
+		abort := exec.Command("git", "rebase", "--abort")
+		abort.Dir = dotsDir
+		abort.Run()
+		return false
+	}
 
 	if !ui.RunConfirm("Continue with rebase?", true) {
 		abort := exec.Command("git", "rebase", "--abort")
@@ -250,9 +393,8 @@ func resolveConflictsInteractive(dotsDir string, conflicts []string) bool {
 
 	continueCmd := exec.Command("git", "rebase", "--continue")
 	continueCmd.Dir = dotsDir
-	continueCmd.Stderr = nil
 	if out, err := continueCmd.CombinedOutput(); err != nil {
-		ui.PrintError(fmt.Sprintf("Failed to continue rebase: %s: %s", string(out), err))
+		ui.PrintError(fmt.Sprintf("Failed to continue rebase: %s", strings.TrimSpace(string(out))))
 		return false
 	}
 
