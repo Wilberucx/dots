@@ -33,6 +33,8 @@ func TestIsSafePath(t *testing.T) {
 		{"outside home", "/etc/passwd", false},
 		{"root", "/", false},
 		{"tmp", "/tmp", false},
+		{"tilde path inside home", "~/.config/nvim", true},
+		{"tilde home directory", "~", false},
 	}
 
 	for _, tt := range tests {

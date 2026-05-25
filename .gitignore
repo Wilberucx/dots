@@ -58,6 +58,12 @@ env/
 .DS_Store
 Thumbs.db
 
+# Go binaries
+dots
+
+# Anti-Gravity CLI
+.antigravitycli/
+
 # mypy
 .mypy_cache/
 .dmypy.json

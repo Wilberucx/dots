@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Wilberucx/dots/internal/checker"
 	"github.com/Wilberucx/dots/internal/config"
 	"github.com/Wilberucx/dots/internal/resolver"
 	"github.com/Wilberucx/dots/internal/ui"
@@ -237,6 +238,18 @@ func renderDefault(
 	}
 
 	fmt.Println(ui.BoldStyle.Render("Summary:") + " " + strings.Join(summaryParts, " • "))
+
+	// Checker section (under the entire status, under the Summary)
+	// RunSyntaxCheck: static path.yaml validation
+	// CheckBrokenLinks: dynamic resolver check for conflicts/unsafe paths
+	result := checker.RunSyntaxCheck(cfg)
+	checker.CheckBrokenLinks(cfg, result)
+	if len(result.Issues) > 0 {
+		fmt.Println()
+		ui.PrintDivider(0)
+		fmt.Println(ui.BoldStyle.Render("Checker:"))
+		checker.PrintResult(result)
+	}
 }
 
 func displayCategoryWithModules(

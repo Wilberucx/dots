@@ -10,7 +10,10 @@ import (
 	"strings"
 
 	"github.com/Wilberucx/dots/internal/config"
+	"github.com/Wilberucx/dots/internal/resolver"
+	"github.com/Wilberucx/dots/internal/ui"
 	"github.com/Wilberucx/dots/internal/yaml"
+	"github.com/charmbracelet/lipgloss"
 	yamlv3 "gopkg.in/yaml.v3"
 )
 
@@ -77,6 +80,33 @@ func RunSyntaxCheck(cfg *config.DotsConfig) *Result {
 	}
 
 	return result
+}
+
+// CheckBrokenLinks resolves all modules and appends any conflicts/unsafe paths to the issues result.
+func CheckBrokenLinks(cfg *config.DotsConfig, result *Result) {
+	allModules, err := resolver.ResolveModules(cfg, nil, nil, "")
+	if err == nil {
+		for modName, statuses := range allModules {
+			relPath := filepath.Join(modName, "path.yaml")
+			for _, st := range statuses {
+				if st.State == resolver.StateConflict {
+					result.Issues = append(result.Issues, Issue{
+						Module:   modName,
+						File:     relPath,
+						Severity: SeverityError,
+						Message:  fmt.Sprintf("broken link: destination '%s' %s", resolver.ExpandPath(st.Destination), st.Detail),
+					})
+				} else if st.State == resolver.StateUnsafe {
+					result.Issues = append(result.Issues, Issue{
+						Module:   modName,
+						File:     relPath,
+						Severity: SeverityError,
+						Message:  fmt.Sprintf("unsafe path: destination '%s' %s", resolver.ExpandPath(st.Destination), st.Detail),
+					})
+				}
+			}
+		}
+	}
 }
 
 // checkPathYAML validates a single path.yaml file.
@@ -490,15 +520,21 @@ func getStr(m map[string]interface{}, key string) string {
 // FormatIssue formats an issue as a human-readable string.
 func FormatIssue(issue Issue) string {
 	var icon string
+	var msgStyle lipgloss.Style
+
 	switch issue.Severity {
 	case SeverityError:
-		icon = "✘"
+		icon = ui.IconError
+		msgStyle = ui.ErrorStyle
 	case SeverityWarning:
-		icon = "⚠"
+		icon = ui.IconConflict
+		msgStyle = ui.WarningStyle
 	default:
-		icon = "ℹ"
+		icon = ui.IconPending
+		msgStyle = ui.DimStyle
 	}
-	return fmt.Sprintf("  %s [%s] %s", icon, issue.File, issue.Message)
+
+	return msgStyle.Render(fmt.Sprintf("  %s [%s] %s", icon, issue.File, issue.Message))
 }
 
 // PrintResult prints all issues to stdout in a user-friendly format.
@@ -507,7 +543,6 @@ func PrintResult(result *Result) {
 		return
 	}
 
-	fmt.Println()
 	for _, issue := range result.Issues {
 		fmt.Println(FormatIssue(issue))
 	}
@@ -526,10 +561,10 @@ func PrintResult(result *Result) {
 
 	var parts []string
 	if errCount > 0 {
-		parts = append(parts, fmt.Sprintf("%d error(s)", errCount))
+		parts = append(parts, ui.ErrorStyle.Render(fmt.Sprintf("%d error(s)", errCount)))
 	}
 	if warnCount > 0 {
-		parts = append(parts, fmt.Sprintf("%d warning(s)", warnCount))
+		parts = append(parts, ui.WarningStyle.Render(fmt.Sprintf("%d warning(s)", warnCount)))
 	}
 
 	fmt.Printf("  ── %s found\n", strings.Join(parts, ", "))

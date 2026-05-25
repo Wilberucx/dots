@@ -533,3 +533,33 @@ func TestFormatIssue(t *testing.T) {
 	formatted = FormatIssue(issue)
 	assert.Contains(t, formatted, "⚠")
 }
+
+func TestRunSyntaxCheck_BrokenLink(t *testing.T) {
+	cfg := setupTestRepo(t)
+	createModule(t, cfg, "Nvim", `
+files:
+  - source: init.lua
+    destination: ~/.config/nvim/init.lua
+`, map[string]string{"init.lua": "vim.cmd('colorscheme slate')"})
+
+	// Create a conflicting symlink at the destination
+	destPath := filepath.Join(cfg.HomeDir, ".config", "nvim", "init.lua")
+	err := os.MkdirAll(filepath.Dir(destPath), 0755)
+	require.NoError(t, err)
+	err = os.Symlink("/some/wrong/target", destPath)
+	require.NoError(t, err)
+
+	result := RunSyntaxCheck(cfg)
+	CheckBrokenLinks(cfg, result)
+	require.NotEmpty(t, result.Issues)
+
+	found := false
+	for _, issue := range result.Issues {
+		if issue.Severity == SeverityError && strings.Contains(issue.Message, "broken link") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected broken link error in issues")
+}
+

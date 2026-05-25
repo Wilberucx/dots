@@ -280,7 +280,7 @@ func resolveSingleState(src, dest, modulePath, homeDir string) LinkStatus {
 	// Strip trailing slash so os.Lstat doesn't follow symlinks
 	dest = strings.TrimRight(dest, "/")
 
-	// Check current state
+	// Case 1: destination exists and is a symlink
 	if fi, err := os.Lstat(dest); err == nil && fi.Mode()&os.ModeSymlink != 0 {
 		target, err := os.Readlink(dest)
 		if err != nil {
@@ -293,20 +293,34 @@ func resolveSingleState(src, dest, modulePath, homeDir string) LinkStatus {
 			}
 		}
 
+		// Expand ~ BEFORE IsAbs — OS stores symlinks with literal ~ strings.
+		// filepath.IsAbs("~/...") == false, so without expansion it gets joined
+		// to the destination's parent directory, producing a wrong path.
+		target = system.ExpandPath(target)
+
 		if !filepath.IsAbs(target) {
 			target = filepath.Join(filepath.Dir(dest), target)
 		}
-		target, err = filepath.EvalSymlinks(target)
-		if err != nil {
-		// fallback to unresolved target (keep original value)
-	}
 
+		resolvedTarget, err := filepath.EvalSymlinks(target)
+		if err != nil {
+			// Target doesn't exist on disk — dangling symlink
+			return LinkStatus{
+				Source:      src,
+				Destination: dest,
+				State:       StateConflict,
+				Detail:      fmt.Sprintf("points to %s (dangling)", shortPath(target, homeDir)),
+				BackupPath:  backup,
+			}
+		}
+
+		// Resolve the expected source too (handles symlinks inside the repo)
 		srcResolved, err := filepath.EvalSymlinks(src)
 		if err != nil {
 			srcResolved = src
 		}
 
-		if target == srcResolved {
+		if resolvedTarget == srcResolved {
 			return LinkStatus{
 				Source:      src,
 				Destination: dest,
@@ -320,11 +334,12 @@ func resolveSingleState(src, dest, modulePath, homeDir string) LinkStatus {
 			Source:      src,
 			Destination: dest,
 			State:       StateConflict,
-			Detail:      fmt.Sprintf("points to %s", shortPath(target, homeDir)),
+			Detail:      fmt.Sprintf("points to %s", shortPath(resolvedTarget, homeDir)),
 			BackupPath:  backup,
 		}
 	}
 
+	// Case 2: destination exists but is a regular file/dir (needs backup before linking)
 	if _, err := os.Stat(dest); err == nil {
 		return LinkStatus{
 			Source:      src,
@@ -335,6 +350,7 @@ func resolveSingleState(src, dest, modulePath, homeDir string) LinkStatus {
 		}
 	}
 
+	// Case 3: destination doesn't exist — ready to link
 	return LinkStatus{
 		Source:      src,
 		Destination: dest,

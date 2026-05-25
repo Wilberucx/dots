@@ -29,7 +29,11 @@ func IsSafePath(path string) bool {
 		return false
 	}
 
-	absPath, err := filepath.Abs(path)
+	// Expand ~ before resolving to absolute path.
+	// filepath.Abs does NOT expand ~, so "~/.config/nvim" would be resolved
+	// against CWD, producing a path outside HOME and incorrectly flagged as unsafe.
+	expanded := ExpandPath(path)
+	absPath, err := filepath.Abs(expanded)
 	if err != nil {
 		return false
 	}
@@ -55,10 +59,8 @@ func IsSafePath(path string) bool {
 // ExpandPath expands ~ and environment variables in a path.
 func ExpandPath(path string) string {
 	if strings.HasPrefix(path, "~") {
-		usr, err := user.Current()
-		if err == nil {
-			path = usr.HomeDir + path[1:]
-		}
+		home := getHomeDir()
+		path = home + path[1:]
 	}
 	return os.ExpandEnv(path)
 }
