@@ -31,6 +31,8 @@ type LinkStatus struct {
 	State       LinkState
 	Detail      string
 	BackupPath  string
+	ConfigSource string // original value from config (dots.lua / path.yaml)
+	ConfigDest   string // original value from config (dots.lua / path.yaml)
 }
 
 // ExpandPath expands ~ and converts to an absolute path.
@@ -594,6 +596,8 @@ func resolveLuaFileOp(cfg *config.DotsConfig, mod config.ModuleDir, op luacfg.Fi
 
 		if _, err := os.Stat(srcPath); err == nil {
 			st := resolveSingleState(srcPath, dest, mod.Path, homeDir)
+			st.ConfigSource = op.Source
+			st.ConfigDest = op.Destination
 			statuses = append(statuses, st)
 		}
 
@@ -608,6 +612,8 @@ func resolveLuaFileOp(cfg *config.DotsConfig, mod config.ModuleDir, op luacfg.Fi
 
 		if fi, err := os.Stat(srcPath); err == nil && fi.IsDir() {
 			st := resolveSingleState(srcPath, dest, mod.Path, homeDir)
+			st.ConfigSource = op.Source
+			st.ConfigDest = op.Destination
 			statuses = append(statuses, st)
 		}
 
@@ -626,6 +632,8 @@ func resolveLuaFileOp(cfg *config.DotsConfig, mod config.ModuleDir, op luacfg.Fi
 				childPath := filepath.Join(srcPath, child.Name())
 				childDest := filepath.Join(dest, child.Name())
 				st := resolveSingleState(childPath, childDest, mod.Path, homeDir)
+				st.ConfigSource = op.Source + "/" + child.Name()
+				st.ConfigDest = op.Destination
 				statuses = append(statuses, st)
 			}
 		}
@@ -646,6 +654,8 @@ func resolveLuaFileOp(cfg *config.DotsConfig, mod config.ModuleDir, op luacfg.Fi
 		for _, match := range matches {
 			childDest := filepath.Join(dest, filepath.Base(match))
 			st := resolveSingleState(match, childDest, mod.Path, homeDir)
+			st.ConfigSource = op.Pattern
+			st.ConfigDest = op.Destination
 			statuses = append(statuses, st)
 		}
 	}
@@ -727,6 +737,8 @@ func resolveModuleMappings(cfg *config.DotsConfig, modulePath string, mappings [
 					childPath := filepath.Join(src, child.Name())
 					childDest := filepath.Join(dest, child.Name())
 					st := resolveSingleState(childPath, childDest, modulePath, homeDir)
+					st.ConfigSource = m.Source
+					st.ConfigDest = m.Destination
 					statuses = append(statuses, st)
 				}
 				continue
@@ -741,6 +753,8 @@ func resolveModuleMappings(cfg *config.DotsConfig, modulePath string, mappings [
 			}
 
 			st := resolveSingleState(src, finalDest, modulePath, homeDir)
+			st.ConfigSource = m.Source
+			st.ConfigDest = m.Destination
 			statuses = append(statuses, st)
 		}
 	}

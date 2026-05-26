@@ -23,15 +23,6 @@ func init() {
 	}
 }
 
-// stateLabels maps internal state to display labels.
-var stateLabels = map[resolver.LinkState]string{
-	resolver.StateLinked:   "linked",
-	resolver.StatePending:  "unlinked",
-	resolver.StateConflict: "broken",
-	resolver.StateMissing:  "missing",
-	resolver.StateUnsafe:   "unsafe",
-}
-
 func runStatus(cmd *cobra.Command) error {
 	cfg, err := loadConfig()
 	if err != nil {
@@ -340,6 +331,23 @@ func displayCategoryWithModules(
 
 // ─── Table output ───────────────────────────────────────────────────────────
 
+func stateSymbol(state resolver.LinkState) string {
+	switch state {
+	case resolver.StateLinked:
+		return "✔ linked"
+	case resolver.StateConflict:
+		return "✖ conflict"
+	case resolver.StateUnsafe:
+		return "⚠ unsafe"
+	case resolver.StatePending:
+		return "○ unlinked"
+	case resolver.StateMissing:
+		return "… missing"
+	default:
+		return string(state)
+	}
+}
+
 func renderTable(
 	allModules map[string][]resolver.LinkStatus,
 	stateFilter map[string]bool,
@@ -350,7 +358,7 @@ func renderTable(
 		{Title: "Module", Width: 20},
 		{Title: "Source", Width: 24},
 		{Title: "Destination", Width: 36},
-		{Title: "State", Width: 10},
+		{Title: "State", Width: 12},
 		{Title: "Backup", Width: 16},
 	}
 
@@ -377,11 +385,6 @@ func renderTable(
 				continue
 			}
 
-			label := stateLabels[st.State]
-			if label == "" {
-				label = string(st.State)
-			}
-
 			modCell := ""
 			if firstRow {
 				modCell = moduleName
@@ -393,11 +396,22 @@ func renderTable(
 				backupCell = "⚠ " + filepath.Base(st.BackupPath)
 			}
 
+			// Use config values when available, fall back to resolved paths
+			srcCell := st.ConfigSource
+			if srcCell == "" {
+				srcCell = filepath.Base(st.Source)
+			}
+
+			destCell := st.ConfigDest
+			if destCell == "" {
+				destCell = shortDisplayPath(st.Destination, cfg.HomeDir)
+			}
+
 			rows = append(rows, table.Row{
 				modCell,
-				filepath.Base(st.Source),
-				shortDisplayPath(st.Destination, cfg.HomeDir),
-				label,
+				srcCell,
+				destCell,
+				stateSymbol(st.State),
 				backupCell,
 			})
 			total++

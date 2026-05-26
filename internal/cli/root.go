@@ -274,8 +274,8 @@ func init() {
 // installCmd represents the `dots install` command.
 var installCmd = &cobra.Command{
 	Use:   "install",
-	Short: "Install dependencies declared in path.yaml files",
-	Long:  "Install dependencies declared in path.yaml files across all modules.",
+	Short: "Install dependencies declared in path.yaml or dots.lua files",
+	Long:  "Install dependencies declared in path.yaml or dots.lua files across all modules.",
 }
 
 func init() {
