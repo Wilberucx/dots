@@ -74,7 +74,8 @@ dependencies:
 `, map[string]string{"init.lua": "vim.cmd('colorscheme slate')"})
 
 	result := RunSyntaxCheck(cfg)
-	assert.Empty(t, result.Issues)
+	errorsAndWarnings := filterHints(result.Issues)
+	assert.Empty(t, errorsAndWarnings)
 }
 
 func TestRunSyntaxCheck_V2DepFields(t *testing.T) {
@@ -232,7 +233,8 @@ files:
 `, map[string]string{"alacritty.yml": "colors: *default"})
 
 	result := RunSyntaxCheck(cfg)
-	assert.Empty(t, result.Issues)
+	errorsAndWarnings := filterHints(result.Issues)
+	assert.Empty(t, errorsAndWarnings)
 }
 
 func TestRunSyntaxCheck_InvalidPerOSKey(t *testing.T) {
@@ -424,7 +426,7 @@ dependencies:
 
 	// Should have issues for Fd (v2 fields) and Empty (empty file)
 	moduleSet := make(map[string]bool)
-	for _, issue := range result.Issues {
+	for _, issue := range filterHints(result.Issues) {
 		moduleSet[issue.Module] = true
 	}
 
@@ -532,6 +534,17 @@ func TestFormatIssue(t *testing.T) {
 	issue.Severity = SeverityWarning
 	formatted = FormatIssue(issue)
 	assert.Contains(t, formatted, "⚠")
+}
+
+// filterHints returns only non-hint issues (errors and warnings).
+func filterHints(issues []Issue) []Issue {
+	var filtered []Issue
+	for _, issue := range issues {
+		if issue.Severity != SeverityHint {
+			filtered = append(filtered, issue)
+		}
+	}
+	return filtered
 }
 
 func TestRunSyntaxCheck_BrokenLink(t *testing.T) {

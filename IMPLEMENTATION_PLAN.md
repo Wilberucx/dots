@@ -1,13 +1,23 @@
-# 📋 Plan de Implementación: Migración de `dots` de Python a Go
+# 📋 Plan de Implementación: Migración de YAML a Lua (`dots.lua`)
 
-_Versión: 1 — Generado: 2026-05-21_
+_Versión: 2 — Actualizado: 2026-05-25_
 _Estado: PENDIENTE DE APROBACIÓN_
 
 ---
 
 ## 1. Resumen Ejecutivo
 
-Migrar `dots` — un gestor de dotfiles CLI actualmente escrito en Python (3,900 LOC fuente + 2,200 LOC tests, 26 archivos) — a Go. El objetivo principal es eliminar la latencia de startup (~600ms por comando) que experimentas a diario. Go producirá un **binario estático único** con startup ~2ms, instalación vía `curl + chmod +x`, y un ecosistema TUI moderno (Charm/Bubbletea). La arquitectura se mantiene esencialmente igual, traduciendo cada módulo Python a su equivalente Go. **Tiempo estimado total: 2-3 sprints intensivos (~2-3 semanas).**
+Reemplazar el sistema de configuración basado en YAML (`path.yaml`, `.dots/config.yaml`) por archivos Lua embebidos (`dots.lua`, `init.lua`) usando `gopher-lua`. Esto elimina 3 DSLs inventados (files, dependencies, templates) en favor de una API Lua explícita. Se añade un sistema de plugins vía `require()` para las operaciones de dependencias (curl, git, archive), reemplazando el parsing manual de comandos. Se añaden operaciones de directorio (`dir():to()`, `dir():into()`) para manejar carpetas enteras sin declarar archivo por archivo.
+
+**Principios de diseño:**
+
+- **`module_paths` apunta DÓNDE buscar, no QUÉ cargar**: Es un field de `init.lua` que redirige la búsqueda de módulos a una ruta específica. Por defecto se busca en la raíz del repo.
+- **Reemplaza, no suma**: `module_paths = "custom/"` significa "mis módulos están en `custom/`, no busques en otro lado". Si no está ahí, no es un módulo.
+- **Flexibilidad de estructura**: No se impone una carpeta `modules/`. Los módulos se detectan escaneando directorios con `dots.lua` dentro de la ruta configurada.
+- **Prioridad de dots.lua**: Si un directorio tiene ambos `dots.lua` y `path.yaml`, `dots.lua` tiene prioridad con un warning.
+- **init.lua auto-generado**: `dots init` crea `init.lua` con configuración general.
+
+**Tiempo estimado total:** 3-4 sprints (~3-4 semanas).
 
 ---
 
@@ -15,798 +25,835 @@ Migrar `dots` — un gestor de dotfiles CLI actualmente escrito en Python (3,900
 
 ### Situación actual
 
-- `dots` es un CLI maduro escrito en Python 3.10+
-- Stack: `typer` + `rich` + `pyyaml` + `InquirerPy` + `requests`
-- ~6,150 líneas de Python totales (fuente + tests)
-- 9 comandos principales: `init`, `link`, `unlink`, `status`, `list`, `adopt`, `install`, `edit`, `backup` + `migrate`
-- Instalación: `pipx install` (requiere Python 3.10+, pipx, venv)
+- `dots` es un CLI de gestión de dotfiles escrito en Go (v0.11.0)
+- Configuración por módulo: `path.yaml` (YAML con 3 DSLs propietarios)
+- Configuración raíz: `.dots/config.yaml` (marker) + `dots.toml` (legacy)
+- Dependencias: sistema de 3 tipos (package, git, binary) con template engine `{{version}}`/`{{arch}}`
+- Package managers: pacman, apt, brew con detección automática
+- Symlinks: archivo por archivo (con expansión limitada vía `/*` en destino, no documentada)
+- Syntax checker para path.yaml
+- Transaction log para rollback
+- Bubbletea TUI para selección interactiva
 
-### Problema
+### Cómo se descubre un módulo hoy
 
-- **Startup overhead de ~600ms** incluso para comandos triviales (`dots --help`, `dots list`)
-- Instalación compleja: el `install.sh` tiene que bootstrappear pipx
-- El usuario ejecuta estos comandos a diario — la latencia se acumula
+```go
+// config.go — GetModuleDirs()
+// 1. Lee todas las entradas del repo root
+// 2. Filtra: solo directorios, sin prefijo "."
+// 3. Busca path.yaml dentro de cada directorio
+// 4. Si existe → es un módulo
+```
 
-### Suposiciones
+Esto significa: los módulos son **siempre directorios planos en la raíz del repo**. No hay soporte para anidamiento ni `modules/` subdirectorios.
 
-- Se mantiene la interfaz CLI exacta (flags, subcomandos, comportamiento)
-- Los archivos `path.yaml` y la estructura del repositorio de dotfiles NO cambian
-- `dots.toml` como marker legacy se mantiene soportado
-- Compatibilidad con Linux, macOS (y Windows si aplica)
+### Problema o gap
+
+1. **3 DSLs inventados en path.yaml** — files, dependencies, y templates tienen sintaxis propia
+2. **Sin operaciones de directorio nativas** — no se puede decir "toma esta carpeta y reemplaza esta otra". Hoy se simula con `/*` en destino, pero no está documentado ni es explícito.
+3. **Comandos parseados dentro de dots** — curl, wget, unzip, tar se manejan con lógica ad-hoc
+4. **Sin extensibilidad** — no hay forma de agregar nuevos tipos de dependencias sin modificar el core
+5. **Dos archivos de configuración raíz** — `.dots/config.yaml` + `dots.toml` legacy
+
+### Suposiciones validadas del diseño actual
+
+- Cada módulo = un directorio con un archivo de configuración (hoy `path.yaml`, mañana `dots.lua`)
+- Los módulos se descubren por presencia del archivo de configuración, no por listing explícito
+- El OS se detecta en runtime (`runtime.GOOS` → `linux`/`mac`/`windows`)
+- Los destinos pueden contener `~` que se expande al home del usuario
+- Paths inseguros (fuera de `$HOME`) se bloquean excepto confirmación explícita
+- Las dependencias se deduplican por `name` (primera definición gana)
+- Los módulos no tienen estado interno — todo se resuelve desde los archivos de configuración
 
 ### Dependencias externas
 
-- Go 1.22+ como herramienta de build
-- Charm Libraries (Lipgloss, Bubbletea) para output TUI
-- `gopkg.in/yaml.v3` para YAML
-- `github.com/spf13/cobra` para CLI framework
-- `github.com/go-git/go-git/v5` para operaciones git (alternativa a subprocess)
-- `github.com/hashicorp/go-version` para comparación de versiones
+- `github.com/yuin/gopher-lua v1.x` — runtime Lua 5.4 embebido
+- `github.com/yuin/gluamapper` — mapeo de tablas Lua a Go structs (opcional)
+- Las dependencias existentes se mantienen: cobra, bubbletea, lipgloss, yaml.v3 (temporal)
 
 ---
 
 ## 3. Arquitectura / Diseño de la Solución
 
-### Mapeo Python → Go
+### Estructura de repositorio (flexible)
 
 ```
-Python (src/dots/)              →  Go (internal/)
-├── __main__.py                  →  cmd/dots/main.go
-├── commands/                    →  internal/cli/
-│   ├── link.py                  →  link.go
-│   ├── status.py                →  status.go
-│   ├── list.py                  →  list_module.go
-│   ├── init.py                  →  init.go
-│   ├── adopt.py                 →  adopt.go
-│   ├── install.py               →  install.go
-│   ├── unlink.py                →  unlink.go
-│   ├── backup.py                →  backup.go
-│   ├── migrate.py               →  migrate.go
-│   └── edit.py                  →  edit.go
-├── core/                        →  internal/
-│   ├── config.py                →  config/config.go
-│   ├── resolver.py              →  resolver/resolver.go
-│   ├── services.py              →  resolver/service.go
-│   ├── yaml_parser.py           →  yaml/parser.go
-│   ├── schema.py                →  yaml/schema.go
-│   ├── transaction.py           →  transaction/transaction.go
-│   ├── system.py                →  system/system.go
-│   ├── template.py              →  template/template.go
-│   ├── module_writer.py         →  writer/module_writer.go
-│   └── updates.py               →  update/update.go
-├── ui/                          →  internal/ui/
-│   ├── output.py                →  output.go  (Lipgloss)
-│   ├── selector.py              →  selector.go (Bubbletea)
-│   └── theme.py                 →  theme.go
-└── plugins/                     →  internal/manager/
-    └── managers.py              →  manager.go
+dotfiles/                          ← raíz del repo
+├── init.lua                       ← configuración raíz (reemplaza .dots/config.yaml + dots.toml)
+├── Zsh/
+│   ├── dots.lua                   ← configuración del módulo (reemplaza path.yaml)
+│   └── .zshrc
+├── Kitty/
+│   ├── dots.lua
+│   └── kitty.conf
+├── Nvim/
+│   ├── dots.lua
+│   └── config/
+├── misc/                          ← se puede agrupar
+│   ├── Scripts/
+│   │   ├── dots.lua
+│   │   └── ...
+│   └── Themes/
+│       ├── dots.lua
+│       └── ...
+├── dots/                          ← plugins compartidos (opcional)
+│   └── helpers.lua
+└── .gitignore
 ```
 
-### Decisiones de Arquitectura Clave
+**Reglas de descubrimiento de módulos:**
 
-```
-DECISIÓN: CLI Framework
-OPCIONES: Cobra / standard library `flag`
-ELECCIÓN: Cobra
-RAZÓN: `dots` tiene 9+ subcomandos con flags complejos (--module repeatable, --type, --format enum, subcommittees en backup). Cobra es el estándar de facto y maneja esto elegantemente.
-TRADE-OFFS: Dependencia externa, pero es la más usada y mantenida en el ecosistema Go.
-
-DECISIÓN: Operaciones Git
-OPCIONES: `go-git/go-git` / `os/exec` llamando a git CLI
-ELECCIÓN: `os/exec` llamando a git CLI
-RAZÓN: El código actual llama a `subprocess.run(["git", ...])` y asume git instalado. `go-git` tiene edge cases con auth, worktrees, y submodules. Para backup/push/pull es más robusto delegar al git del sistema.
-TRADE-OFFS: Dependencia de tener git instalado (lo mismo que hoy).
-
-DECISIÓN: Terminal Output
-OPCIONES: Charm Lipgloss / fatih/color / manual ANSI
-ELECCIÓN: Charm Lipgloss + Bubbletea
-RAZÓN: Es el equivalente moderno de rich. El selector interactivo actual (InquirerPy) se mapea naturalmente a Bubbletea. Lipgloss da estilos ricos, tablas, colores 256.
-TRADE-OFFS: Dependencias Charm (pero son libraries Go, no runtimes).
-
-DECISIÓN: Interactive Selection (InquirerPy → Bubbletea)
-OPCIONES: Bubbletea TUI / survey library
-ELECCIÓN: Bubbletea para selectores simples, survey para confirmaciones
-RAZÓN: Bubbletea ofrece más control visual. survey es más simple para confirmaciones sí/no.
-
-DECISIÓN: Package Manager Detection
-OPCIONES: Buscar binarios en PATH / /etc/os-release
-ELECCIÓN: `os/exec` + `exec.LookPath` (igual que hoy)
-RAZÓN: Funciona cross-platform y es lo que ya hace el código Python.
+```lua
+-- Regla ÚNICA:
+-- Si init.lua tiene module_paths → buscar SOLO en esa(s) ruta(s)
+-- Si NO tiene module_paths → buscar en la raíz del repo (default)
+-- Si no está en la ruta de búsqueda → no es un módulo
+-- De forma implícita, un módulo sin dots.lua es ignorado y se informa con advertencia ya que está en el Area de búsqueda y el usuario pudo olvidar colocar el dots.lua
 ```
 
-### Modelo de Datos (Go structs)
+`module_paths` acepta:
+
+- Un string: `module_paths = "modules/"` → busca solo en `modules/`
+- Una tabla: `module_paths = {"packages/", "custom/"}` → busca en ambas rutas
+
+Ejemplos:
+
+```lua
+-- Default: busca en la raíz del repo
+return { name = "dotfiles" }
+
+-- Redirige: busca SOLO en "modules/"
+return {
+  name = "dotfiles",
+  module_paths = "modules/",
+}
+
+-- Múltiples rutas: busca en "packages/" y "custom/"
+return {
+  name = "dotfiles",
+  module_paths = {"packages/", "custom/"},
+}
+```
+
+**¿Qué pasa con módulos fuera de la ruta?** No se cargan. Si el usuario quiere excluir módulos, los mueve fuera de la ruta de búsqueda o cambia `module_paths`.
+
+### Diagrama de componentes
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        dots CLI                             │
+├─────────────────────────────────────────────────────────────┤
+│  internal/config/          internal/lua/                    │
+│  ├── config.go (adaptado)  ├── vm.go          ← gopher-lua │
+│  │                         ├── types.go       ← structs    │
+│  │                         ├── api_files.go   ← file/dir   │
+│  │                         ├── api_deps.go    ← pkg/git    │
+│  │                         ├── loader.go      ← require()  │
+│  │                         └── loader_modules.go ← scan    │
+├─────────────────────────────────────────────────────────────┤
+│  internal/yaml/ (FASE 0-4)  →  ELIMINAR (FASE 5)           │
+│  internal/template/ (FASE 0-3)  →  ELIMINAR (FASE 5)       │
+│  internal/plugins/  →  REFACTOR como plugin Lua             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Decisiones de Arquitectura
+
+```
+DECISIÓN: Descubrimiento de módulos
+OPCIONES: Lista explícita / Auto-detección por dots.lua / `module_paths` que redirige búsqueda
+ELECCIÓN: `module_paths` como field de `init.lua` que reemplaza la raíz de búsqueda
+RAZÓN: Es simple, es Lua 100% válido (dentro de `return { ... }`), y no requiere funciones globales.
+        Una sola regla: "mis módulos están aquí" (module_paths). Si no se declara, default = raíz.
+        El usuario que no necesita personalización no escribe nada.
+        El usuario que organiza en subcarpetas solo añade una línea.
+
+DECISIÓN: Estructura de directorios
+OPCIONES: Forzar modules/ / Flexible (cualquier profundidad) / Plana como hoy
+ELECCIÓN: Flexible con module_paths para redirigir búsqueda
+RAZÓN: El usuario actual tiene módulos planos en la raíz. Forzar modules/
+        rompería su estructura. Pero no debemos prohibir anidamiento.
+
+DECISIÓN: Lenguaje de scripting
+OPCIONES: Lua (gopher-lua) / Starlark (starlark-go) / YAML v4 / TOML
+ELECCIÓN: Lua (gopher-lua)
+RAZÓN: gopher-lua es la librería más madura para embeker Lua 5.4 en Go.
+        Starlark tiene menos ecosistema y su sintaxis es menos familiar.
+        YAML/TOML no permiten el nivel de expresividad que necesitamos
+        (funciones, condicionales, plugins vía require).
+
+DECISIÓN: init.lua como marker
+OPCIONES: init.lua / config.lua / dots.lua raíz
+ELECCIÓN: init.lua (con config.lua como fallback)
+RAZÓN: Es el naming estándar de Lua. Familiar para cualquiera que haya usado Lua.
+
+DECISIÓN: Coexistencia YAML + Lua
+ELECCIÓN: Coexistencia durante 3 fases, deprecación warning en fase 4, remoción en fase 5
+RAZÓN: El usuario tiene dotfiles reales con path.yaml. No podemos romperle el setup sin aviso.
+        Si ambos existen en el mismo módulo → dots.lua tiene prioridad con warning.
+
+DECISIÓN: Operaciones de directorio
+OPCIONES: dir():to() y dir():into() / flags en dir() / patrones de glob
+ELECCIÓN: Métodos encadenables to() e into()
+RAZÓN: to() es "reemplaza el destino con esta carpeta" (symlink de directorio).
+       into() es "pon los contenidos dentro del destino" (symlinks individuales).
+       Ambos son explícitos y no requieren aprender sintaxis nueva.
+```
+
+### API Lua Concreta
+
+```lua
+-- init.lua (raíz del repositorio) — GENERADO por `dots init`
+
+-- Opción A: Default — busca módulos en la RAÍZ del repo
+return {
+  name = "cantoarch/dotfiles",
+  plugins = { "dots.http", "dots.archive", "dots.git" },
+}
+
+-- Opción B: Redirigir búsqueda — busca SOLO en "modules/"
+-- return {
+--   name = "cantoarch/dotfiles",
+--   module_paths = "modules/",
+--   plugins = { "dots.http" },
+-- }
+
+-- Opción C: Múltiples rutas de búsqueda
+-- return {
+--   name = "cantoarch/dotfiles",
+--   module_paths = {"packages/", "custom/"},
+--   plugins = { "dots.http" },
+-- }
+```
+
+```lua
+-- Zsh/dots.lua
+return {
+  type = "minimal",
+
+  files = {
+    -- Archivo individual
+    file(".zshrc", "~/.zshrc"),
+
+    -- Archivo con filtro OS
+    file(".zshenv", "~/.zshenv"):when("linux"),
+
+    -- Destino por OS
+    file("alacritty.toml", "~/.config/alacritty/alacritty.toml"):per_os({
+      mac  = "~/Library/Application Support/alacritty.toml",
+      linux = "~/.config/alacritty.toml",
+    }),
+
+    -- Directorio completo: reemplaza el destino con esta carpeta
+    dir("config"):to("~/.config/tool"),
+
+    -- Contenido del directorio: los archivos DENTRO van al destino
+    dir("scripts"):into("~/.local/bin"),
+
+    -- Glob: archivos que matchean el patrón
+    glob("*.toml"):into("~/.config/"),
+  },
+
+  dependencies = {
+    -- Sistema (detección automática de PM)
+    pkg "ripgrep",
+
+    -- Sistema con nombre distinto por PM
+    pkg("fd"):on({
+      pacman = "fd",
+      apt    = "fd-find",
+      brew   = "fd",
+    }),
+
+    -- Con fallback a binary
+    pkg("starship"):on({ pacman = "starship", brew = "starship" })
+      :fallback(curl("https://github.com/..."):extract("starship")),
+
+    -- Binary: require del plugin http + archive
+    curl("https://github.com/eza-community/eza/releases/...")
+      :extract("eza")
+      :to("~/.local/bin/eza"),
+
+    -- Git clone
+    git("https://github.com/romkatv/powerlevel10k.git")
+      :to("~/.local/share/zsh/plugins/powerlevel10k")
+      :at("v1.19.0"),
+  },
+}
+```
+
+### Modelo de datos interno
 
 ```go
-// DotsConfig — inmutable, runtime config
-type DotsConfig struct {
-    RepoRoot  string // ~/dotfiles
-    CurrentOS string // "linux" | "mac" | "windows"
-    HomeDir   string
-    CLIDir    string
+// FileOp representa una operación de symlink
+type FileOp struct {
+    Type        FileOpType            // FileOpFile, FileOpDirTo, FileOpDirInto, FileOpGlob
+    Source      string                // path relativo al módulo
+    Destination string                // path de destino (con ~)
+    Pattern     string                // para glob
+    OSFilter    string                // "linux", "mac", "windows", ""
+    PerOS       map[string]string     // destino por OS
 }
 
-// DotFileMapping — un source → destination
-type DotFileMapping struct {
-    Source      string
+type FileOpType int
+const (
+    FileOpFile    FileOpType = iota // file(): symlink simple
+    FileOpDirTo                     // dir():to() — symlink de directorio
+    FileOpDirInto                   // dir():into() — expandir contenidos
+    FileOpGlob                      // glob():into() — pattern matching
+)
+
+// DepOp representa una dependencia
+type DepOp struct {
+    Name        string
+    Type        string            // "package", "binary", "git"
+    URL         string
     Destination string
-}
-
-// LinkStatus — estado de un mapping
-type LinkStatus struct {
-    Source      string
-    Destination string
-    State       string // "linked" | "conflict" | "pending" | "missing" | "unsafe"
-    Detail      string
-    BackupPath  string
-}
-
-// Dependency — una dependencia a instalar
-type Dependency struct {
-    Name       string
-    Type       string // "package" | "git" | "binary"
-    URL        string
-    Dest       string
-    Version    string
-    Ref        string
-    Arch       map[string]string
-    Managers   map[string]string
-    Extract    string
-    Fallback   *Dependency
+    Version     string
+    Ref         string
+    Extract     string
+    Arch        map[string]string
+    Managers    map[string]string
+    Bin         string
     PostInstall string
-    Bin        string
-}
-
-// TransactionLog — operaciones con rollback
-type TransactionLog struct {
-    actions   []LinkAction
-    committed bool
+    Fallback    *DepOp
 }
 ```
 
 ---
 
-## 4. Fases e Hitos
+## 4. Assumptions y Edge-cases (Revisión exhaustiva)
 
-### Fase 0: Setup del Proyecto Go + Core Types
+### Assumptions del sistema actual que se mantienen
+
+| #   | Assumption                                  | Impacto en diseño                                                                                                         | Validación                   |
+| --- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| A1  | Los módulos son directorios en el repo      | `GetModuleDirs()` escanea directorios planos. El nuevo sistema debe mantener esta detección pero permitir `module_paths`. | Código actual en `config.go` |
+| A2  | El marker del repo es un archivo específico | Hoy es `.dots/config.yaml` o `dots.toml`. El nuevo sistema añade `init.lua`. `IsDotfilesRepo()` debe detectar los 3.      | `config.go:IsDotfilesRepo()` |
+| A3  | OS se detecta en runtime                    | `runtime.GOOS` → `linux`/`mac`/`windows`. Se mantiene igual.                                                              | `system.go:DetectOS()`       |
+| A4  | `~` se expande a `$HOME`                    | Se mantiene igual vía `system.ExpandPath()`.                                                                              | `system.go:ExpandPath()`     |
+| A5  | Paths fuera de `$HOME` se bloquean          | Se mantiene igual vía `system.IsSafePath()`.                                                                              | `system.go:IsSafePath()`     |
+| A6  | Dependencias se deduplican por `name`       | Se mantiene igual. Primera definición gana.                                                                               | `install.go`                 |
+| A7  | Los módulos no tienen estado interno        | Toda la configuración está en archivos (hoy path.yaml, mañana dots.lua).                                                  | Arquitectura actual          |
+
+### Assumptions NUEVAS del diseño Lua
+
+| #   | Assumption                                                                          | Riesgo                                                  | Mitigación                                     |
+| --- | ----------------------------------------------------------------------------------- | ------------------------------------------------------- | ---------------------------------------------- |
+| B1  | `gopher-lua` puede cargar dots.lua y devolver una tabla                             | Bajo — API probada                                      | Prototipo en Fase 0                            |
+| B2  | Los métodos encadenables (`:when()`, `:to()`) funcionan con metatables Lua desde Go | Medio — metatables en gopher-lua son manuales           | Test unitario en Fase 0                        |
+| B3  | La migración path.yaml → dots.lua es determinística                                 | Medio — hay casos ambiguos (ej: directorio como source) | Migrador con `--dry-run` y preview             |
+| B4  | El usuario puede escribir Lua sin aprender gopher-lua internals                     | Bajo — la API es pequeña                                | Documentación clara y templates en `dots init` |
+| B5  | `module_paths` como field de `RootConfig` que reemplaza la raíz de búsqueda         | Bajo — es solo un string/tabla opcional en el struct    | Test de integración en Fase 2                  |
+
+### Edge-cases identificados
+
+#### E1: Directorio de módulo vacío
+
+- **Qué pasa hoy**: Se ignora (no tiene path.yaml → no es módulo)
+- **Qué debe pasar**: Se ignora (no tiene dots.lua → no es módulo)
+- **Implementación**: `loader_modules.go` filtra directorios sin dots.lua
+
+#### E2: Directorio con ambos dots.lua y path.yaml
+
+- **Qué pasa hoy**: Solo existe path.yaml
+- **Qué debe pasar**: dots.lua tiene prioridad, path.yaml se ignora con warning
+- **Implementación**: En loader_modules.go, if both exist → usar Lua, print "[WARN] Module X has both dots.lua and path.yaml. Using dots.lua."
+
+#### E3: Módulos anidados (subdirectorios)
+
+- **Qué pasa hoy**: No existen. GetModuleDirs() solo mira el primer nivel.
+- **Qué debe pasar**: Por defecto se escanean recursivamente (find -name dots.lua). init.lua puede limitar con `module_paths`.
+- **Implementación**: `loader_modules.go` usa `filepath.Walk` con exclude de `.git`, `.dots`, node_modules.
+
+#### E4: init.lua malformed (syntax error en Lua)
+
+- **Qué debe pasar**: Error claro como el checker de YAML actual — "Syntax error in init.lua: line 3: unexpected symbol near '}'"
+- **Implementación**: El VM captura errores de `L.DoFile()` y los reporta con formato estructurado.
+
+#### E5: dots.lua no retorna una tabla
+
+- **Qué debe pasar**: Error: "Module X/dots.lua must return a table, got string"
+- **Implementación**: `LoadModuleConfig()` verifica `L.Get(-1)` con type check.
+
+#### E6: dir():to() con source inexistente
+
+- **Qué debe pasar**: Error en link time: "Module X: source directory 'foo' not found"
+- **Implementación**: Validación semántica en checker + en link time.
+
+#### E7: dir():into() con directorio vacío
+
+- **Qué debe pasar**: No hace nada, éxito silencioso
+- **Implementación**: Simplemente no hay archivos que iterar.
+
+#### E8: glob() sin matches
+
+- **Qué debe pasar**: No hace nada, éxito silencioso
+- **Implementación**: `filepath.Glob()` devuelve slice vacío → no hay symlinks que crear.
+
+#### E9: Conflictos de destino entre módulos (misma destination en dos módulos distintos)
+
+- **Qué pasa hoy**: El segundo symlink sobrescribe al primero
+- **Qué debe pasar**: Igual que hoy — el último módulo linkeado gana. No hay protección cross-module.
+- **Nota**: Esto es intencional. La responsabilidad es del usuario.
+
+#### E10: `require("dots.http")` circular
+
+- **Qué debe pasar**: gopher-lua detecta require circular y da error. No tenemos que implementar nada especial.
+
+#### E11: Plugin no encontrado (`require("nonexistent")`)
+
+- **Qué debe pasar**: Error claro: "Module X: plugin 'nonexistent' not found. Searched: built-in, dots/ in repo"
+- **Implementación**: Loader guarda paths buscados y los incluye en el error.
+
+#### E12: `dots adopt` con módulo Lua
+
+- **Qué pasa hoy**: Escribe en path.yaml
+- **Qué debe pasar**: Escribe en dots.lua (añade `file()` al array `files`)
+- **Implementación**: `module_writer.go` adaptado para detectar formato del módulo.
+
+#### E13: Variants en Lua
+
+- **Qué pasa hoy**: Variants se detectan por múltiples sources → mismo destination en path.yaml
+- **Qué debe pasar**: En Lua, variants se declaran igual: múltiples `file()` apuntando al mismo destino. `detect_variants()` funciona sobre `FileOp[]`.
+- **Implementación**: La misma lógica de detección pero operando sobre `[]FileOp` en vez de `[]DotFileMapping`.
+
+#### E14: Migración de path.yaml con destino `/*` (expansión implícita de directorio)
+
+- **Qué pasa hoy**: En el resolver, `/*` al final del destino indica "expandir contenidos" (equivalente a `dir():into()`)
+- **Qué debe pasar**: `dots migrate` detecta `/*` y genera `dir("source"):into("dest")` en vez de `file()`
+- **Implementación**: En `migrate.go`, al parsear entries, si destination termina en `/*` → generar `dir():into()`
+
+#### E15: `dots status` con módulos mixtos (Lua + YAML)
+
+- **Qué debe pasar**: Status muestra ambos tipos. Los módulos Lua se resuelven con su VM, los YAML con su parser.
+- **Implementación**: `ResolveModules()` bifurca según tipo de módulo.
+
+#### E16: Checker para módulos Lua
+
+- **Qué debe pasar**: El checker carga el dots.lua en el VM y captura errores de sintaxis/runtime. Además valida semánticamente (source existe? paths seguros?).
+- **Implementación**: `checker.go` adaptado con `checkLuaModule()`.
+
+#### E17: `dots init` cuando ya existe `.dots/config.yaml`
+
+- **Qué debe pasar**: Detecta el marker existente y pregunta si migrar a init.lua.
+- **Implementación**: `Init()` detecta repo type y ofrece migración.
+
+#### E18: `dots init` en repo vacío
+
+- **Qué debe pasar**: Crea `init.lua` con template general y detecta módulos existentes (con dots.lua o path.yaml).
+- **Implementación**: Template de init.lua con comentarios.
+
+#### E19: Transacciones con operaciones de directorio
+
+- **Qué pasa hoy**: `transaction.go` maneja symlink/unlink/mkdir/backup individuales
+- **Qué debe pasar**: `dir():to()` (symlink de directorio entero) se registra como un solo symlink. `dir():into()` registra N symlinks individuales.
+- **Implementación**: Cada `FileOp` genera su propia secuencia de operaciones atómicas.
+
+#### E20: idempotencia del migrador
+
+- **Qué debe pasar**: Si se migra path.yaml → dots.lua y luego se vuelve a migrar (hipotético round-trip), el dots.lua no cambia.
+- **Implementación**: El migrador debe generar Lua canónico (formateado consistentemente).
+
+#### E21: `dots edit --root` para editar `init.lua`
+
+- **Qué pasa hoy**: No existe el concepto. `dots edit` abre el módulo o su path.yaml.
+- **Qué debe pasar**: `dots edit --root` abre `init.lua` en el editor. Útil para cambiar `module_paths`, `plugins`, etc.
+- **Implementación**: En `edit.go`, flag `--root` que ignora el argumento del módulo y abre `<RepoRoot>/init.lua`.
+
+#### E22: Módulo con directorio pero sin `dots.lua` ni `path.yaml`
+
+- **Qué pasa hoy**: No es un módulo (no tiene path.yaml → ignorado).
+- **Qué debe pasar**: Se ignora igual. No es un módulo hasta que tenga `dots.lua`. `dots edit ModuloSinConfig` da error "module not found" como hoy.
+- **Implementación**: `FindModules()` filtra directorios sin dots.lua (y sin path.yaml como fallback).
+
+---
+
+## 5. Fases e Hitos
+
+### Fase 0: Runtime Lua embebido + API de files
+
+**DURACIÓN ESTIMADA**: 2 días
+**OBJETIVO**: `gopher-lua` integrado en el binario, capaz de cargar un `dots.lua` con `file()/dir()/glob()` y devolver structs Go.
+
+#### Tareas
+
+- [ ] Añadir dependencia: `go get github.com/yuin/gopher-lua`
+- [ ] Crear `internal/lua/types.go`:
+  - `ModuleConfig`, `RootConfig`, `FileOp`, `DepOp`, `FileOpType`
+- [ ] Crear `internal/lua/vm.go`:
+  - `NewLuaVM() (*lua.LState, error)`
+  - `LoadModuleConfig(path string) (*ModuleConfig, error)`
+  - `LoadRootConfig(path string) (*RootConfig, error)`
+- [ ] Implementar registro de API de files en Go (api_files.go):
+  - `file(source, dest)` → table con metatable `__index` para `:when(os)`, `:per_os(table)`
+  - `dir(source)` → objeto con `:to(dest)`, `:into(dest)`
+  - `glob(pattern)` → objeto con `:into(dest)`
+- [ ] Implementar parseModuleConfig() que convierte tabla Lua → ModuleConfig Go
+- [ ] Tests:
+  - Carga de `dots.lua` válido y verifica structs Go
+  - Error en Lua malformed
+  - `:when("linux")` filtra correctamente
+  - `:per_os({linux="...", mac="..."})` devuelve destinos correctos
+  - `dir():to()` vs `dir():into()` producen FileOpType distintos
+  - `glob()` produce FileOpGlob
+
+#### Edge-cases cubiertos en tests
+
+- [ ] E4: Lua malformed → error estructurado
+- [ ] E5: dots.lua no retorna tabla → error
+- [ ] E6: `dir()` con source inexistente (validación semántica en checker, no en parse)
+- [ ] E7: `dir():into()` vacío → sin errores
+
+#### Criterio de Aceptación
+
+- [ ] `go test ./internal/lua/...` pasa
+- [ ] VM carga dots.lua con file(), dir(), glob() y devuelve datos correctos
+
+---
+
+### Fase 1: API de dependencias + plugin loader
+
+**DURACIÓN ESTIMADA**: 2 días
+**OBJETIVO**: Registro de funciones `pkg()`, `curl()`, `git()` en el VM Lua, y loader de plugins vía `require()`.
+
+#### Tareas
+
+- [ ] Implementar `internal/lua/api_deps.go`:
+  - `pkg(name)` → objeto con `:on(table)`, `:fallback(dep)`, `:post(cmd)`, `:bin(name)`
+  - `curl(url)` → objeto con `:extract(path)`, `:to(dest)`, `:version(v)`, `:arch(table)`
+  - `git(url)` → objeto con `:to(dest)`, `:at(ref)`, `:post(cmd)`
+- [ ] Implementar `internal/lua/loader.go`:
+  - `RegisterPluginLoader(vm, builtinPlugins)`
+  - Plugins built-in: `dots.http`, `dots.archive`, `dots.git`
+  - Búsqueda: built-in → `dots/` en repo → error
+  - Plugins built-in son strings Lua empaquetados con `//go:embed`
+- [ ] Crear `internal/lua/plugins/http.lua`, `archive.lua`, `git.lua`
+- [ ] Tests:
+  - `pkg("ripgrep")` → DepOp package
+  - `pkg("fd"):on({pacman="fd"})` → managers map
+  - `curl(...):extract("binary"):to("~/.local/bin/x")` → DepOp completo
+  - `git(...):to("~/plugins/p10k"):at("v1.19.0")` → DepOp git con ref
+  - `require("dots.http")` carga plugin built-in
+  - E10: require circular → error
+  - E11: require inexistente → error con paths
+
+#### Criterio de Aceptación
+
+- [ ] `go test ./internal/lua/...` pasa
+- [ ] Todos los métodos encadenables funcionan
+- [ ] Plugin loader resuelve built-in y filesystem
+
+---
+
+### Fase 2: Config raíz (`init.lua`) + loader de módulos
 
 **DURACIÓN ESTIMADA**: 1 día
-**OBJETIVO**: Proyecto Go compilable, paquete core types, YAML parser funcionando.
-**ENTREGABLE**: `go build ./cmd/dots` produce binario, `dots --help` funciona, YAML parser pasa tests.
+**OBJETIVO**: `dots` detecta `init.lua` como marker, carga módulos, y coexiste con YAML.
 
 #### Tareas
 
-- [ ] Inicializar módulo Go: `go mod init github.com/cantoarch/dots`
-- [ ] Crear estructura de directorios: `cmd/dots/`, `internal/`
-- [ ] Implementar `internal/system/system.go`: `DetectOS()`, `IsSafePath()`, `ExpandPath()`
-- [ ] Implementar `internal/config/config.go`: `DotsConfig`, marker detection (`.dots/config.yaml`, `dots.toml`)
-- [ ] Implementar `internal/yaml/parser.go`: `ParsePathYAML()`, `ParseDependencies()`, `DetectVariants()`, `FilterByVariant()`
-- [ ] Implementar `internal/yaml/schema.go`: validación (v2 → v3, campos requeridos)
-- [ ] Implementar `internal/template/template.go`: URL template rendering
-- [ ] Implementar `cmd/dots/main.go` + `internal/cli/root.go` con Cobra
-- [ ] Añadir comandos vacíos para los 9 subcomandos (esqueletos)
-- [ ] Tests: `TestDetectOS`, `TestIsSafePath`, `TestParsePathYAML`, `TestDetectVariants`
+- [ ] Modificar `internal/config/config.go`:
+  - `IsDotfilesRepo()` detecta también `init.lua`
+  - Nuevo tipo `RepoType`: `RepoTypeYAML`, `RepoTypeLua`, `RepoTypeLegacy`
+  - `IsLuaRepo(path) bool` — busca `init.lua`
+  - Adaptar `Load()` para devolver tipo de repo
+- [ ] **Añadir field `ModulePaths` al struct `RootConfig`**: string o `[]string` opcional. Se lee directamente de la tabla Lua retornada por `init.lua`. No se necesita función global ni variable preludio.
+- [ ] Implementar `internal/lua/loader_modules.go`:
+  - `FindModules(repoRoot string, initCfg *RootConfig) ([]ModuleDir, error)` — escanea módulos
+  - Por defecto: `filepath.Walk` buscando `dots.lua` en la raíz del repo (skip .git, .dots, node_modules)
+  - Si `initCfg.ModulePaths` tiene rutas: busca SOLO ahí, no en la raíz
+  - Si módulo tiene path.yaml y NO dots.lua → YAML mode (coexistencia)
+  - Si módulo tiene ambos → prioridad dots.lua con warning
+- [ ] Modificar `internal/config/config.go:GetModuleDirs()`:
+  - Si repo es Lua, usa `FindModules()` en vez de scan de path.yaml
+  - Si repo es YAML, comportamiento actual
+- [ ] Tests:
+  - E1: Directorio vacío se ignora
+  - E2: Ambos dots.lua + path.yaml → prioridad Lua con warning
+  - E3: Módulos anidados se detectan recursivamente
+  - Repo con init.lua se detecta como Lua
+  - Repo sin init.lua pero con `.dots/config.yaml` sigue funcionando
 
 #### Criterio de Aceptación
 
-- [ ] `go build ./cmd/dots` produce binario
-- [ ] `./dots --help` se imprime instantáneamente
-- [ ] YAML parser lee path.yaml correctamente
-- [ ] `go test ./internal/...` pasa
+- [ ] `go test ./...` pasa
+- [ ] Repo con `init.lua` funciona como dotfiles repo
+- [ ] Módulos Lua y YAML coexisten en `dots status`
 
 ---
 
-### Fase 1: Core Engine — resolver + transaction + service
+### Fase 3a: Resolver + comandos de solo lectura (status, list)
 
 **DURACIÓN ESTIMADA**: 1.5 días
-**OBJETIVO**: Resolver de symlinks, transaction log, y service layer.
-**ENTREGABLE**: `dots status` funcional con output básico.
+**OBJETIVO**: El resolver soporta módulos Lua y YAML. `dots status` y `dots list` funcionan con ambos.
 
 #### Tareas
 
-- [ ] Implementar `internal/resolver/resolver.go`:
-  - `ResolveModules()` — escanea módulos, resuelve estado de symlinks
-  - `GetActiveVariant()` — detecta variante activa
-  - `ExpandPath()` — expande ~ y rutas
-- [ ] Implementar `internal/resolver/service.go`: `DotsService` con `RefreshModules()`, `RefreshBackups()`
-- [ ] Implementar `internal/transaction/transaction.go`: `TransactionLog` con `Symlink()`, `Backup()`, `Mkdir()`, `Unlink()`, `Commit()`, `Rollback()`
-- [ ] Implementar `internal/ui/output.go` con Lipgloss: `PrintHeader()`, `PrintSuccess()`, `PrintError()`, `PrintWarning()`, `PrintInfo()`
-- [ ] Implementar comando `status` completo (default, table, JSON output)
-- [ ] Tests unitarios para resolver (mock filesystem)
-- [ ] Tests unitarios para transaction log
+- [ ] Adaptar `internal/resolver/resolver.go`:
+  - `ResolveModules()` maneja `FileOp` (Lua) además de `DotFileMapping` (YAML)
+  - `GetModuleVariantInfo()` adaptado para `[]FileOp`
+  - `GetActiveVariant()` adaptado para módulos Lua
+  - `resolveModuleMappings()` bifurca según tipo de módulo
+  - Las funciones de abajo (`resolveSingleState`, `shortPath`) se reutilizan sin cambios
+- [ ] Modificar `internal/config/config.go:GetModuleDirs()`:
+  - Bifurca internamente según `RepoType`: si es Lua, llama a `FindModules()`; si es YAML, mantiene el scan de path.yaml
+  - Así el TUI selector y el checker no necesitan saber el formato — es transparente
+- [ ] Adaptar `internal/cli/status.go` y `list.go`:
+  - Usan `ModuleConfig` de Lua (resuelto vía el resolver adaptado)
+  - No necesitan cambios estructurales — solo funcionan con los nuevos tipos de datos
+- [ ] Tests:
+  - E13: Variant detection sobre `[]FileOp`
+  - E15: Módulos mixtos Lua + YAML en status
+  - `dots status` con módulo Lua (file, dir:to, dir:into, glob)
+  - `dots status` con módulo YAML (coexistencia)
 
 #### Criterio de Aceptación
 
-- [ ] `dots status` muestra árbol de módulos con colores
-- [ ] `dots status --format json` output válido
-- [ ] `dots status --state linked` filtra correctamente
-- [ ] Transaction log hace rollback en error
+- [ ] `go test ./...` pasa
+- [ ] `dots status` funciona con módulos Lua y YAML simultáneamente
+- [ ] `dots list` funciona con módulos Lua
+- [ ] Variants se detectan correctamente en módulos Lua
+- [ ] `GetModuleDirs()` funciona transparentemente para ambos formatos
 
 ---
 
-### Fase 2: Comandos link + unlink + list
+### Fase 3b: Comandos de mutación (link, install)
 
 **DURACIÓN ESTIMADA**: 1.5 días
-**OBJETIVO**: Operaciones principales de symlinks.
-**ENTREGABLE**: `dots link`, `dots unlink`, `dots list` funcionales.
+**OBJETIVO**: `dots link` y `dots install` funcionan con módulos Lua.
+
+**⚠️ Prerrequisito**: Fase 1 debe estar completa (plugins built-in http, archive, git funcionales, no solo el loader).
 
 #### Tareas
 
-- [ ] Implementar comando `link`:
-  - `--module`, `--type`, `--dry-run`, `--force`, `--interactive`, `--variant`
-  - Trees con estado por módulo
-  - Manejo de conflictos y `.orig` backups
-  - Variant auto-swap
-  - Transaction rollback en error
-- [ ] Implementar `internal/ui/selector.go` con Bubbletea: selección interactiva de módulos
-- [ ] Implementar comando `unlink`: simétrico a link
-- [ ] Implementar comando `list`: `--linked`, `--unlinked`, `--broken`, `--variant`, `--backups`
-- [ ] Tests: integración mock para link/unlink
+- [ ] Adaptar `internal/cli/link.go`:
+  - `runLink()` usa el resolver adaptado (transparente)
+  - Soporta `FileOpDirTo`: symlink del directorio entero (source → destination)
+  - Soporta `FileOpDirInto`: por cada archivo dentro del source, crea symlink individual en destination
+  - Soporta `FileOpGlob`: expande glob y crea symlinks individuales
+  - Variant selection y auto-swap funcionan con módulos Lua
+- [ ] Adaptar `internal/cli/install.go`:
+  - Usa `DepOp` de Lua para resolver dependencias
+  - Plugins built-in (http, archive, git) ejecutan la instalación
+  - La deduplicación por `name` funciona igual que hoy
+- [ ] Tests:
+  - E6: `dir():to()` con source inexistente → error
+  - E7: `dir():into()` vacío → sin error
+  - E8: `glob()` sin matches → sin error
+  - E9: destinos duplicados entre módulos → se comporta como hoy
+  - E19: Transacciones con dir():to() y dir():into()
 
 #### Criterio de Aceptación
 
-- [ ] `dots link -m Zsh -m Nvim` enlaza módulos específicos
-- [ ] `dots link -i` abre selector interactivo
-- [ ] `dots link --dry-run` no hace cambios
-- [ ] `dots link --force` sobrescribe conflictos
-- [ ] `dots unlink -m Zsh` remueve symlinks
-- [ ] `dots list --linked` lista módulos enlazados
+- [ ] `go test ./...` pasa
+- [ ] `dots link` funciona con módulos Lua (file, dir:to, dir:into, glob)
+- [ ] `dots install` con dependencias Lua
+- [ ] Variants funcionan con módulos Lua
+- [ ] Comandos de mutación y solo lectura coexisten sin duplicación
 
 ---
 
-### Fase 3: Comandos init + adopt + edit
-
-**DURACIÓN ESTIMADA**: 1 día
-**OBJETIVO**: Gestión del repositorio de dotfiles.
-**ENTREGABLE**: `dots init`, `dots adopt`, `dots edit` funcionales.
-
-#### Tareas
-
-- [ ] Implementar `internal/writer/module_writer.go`: `LoadModuleData()`, `IsDestinationDeclared()`, `AppendFileEntry()`
-- [ ] Implementar comando `init`:
-  - Detección de shell (Zsh, Bash, Fish)
-  - Creación de `.dots/config.yaml`
-  - Migración desde legacy `dots.toml`
-  - Prompt para añadir `DOTS_REPO` al shell config
-- [ ] Implementar comando `adopt`:
-  - Mueve archivo al repo y registra en path.yaml
-  - Soporte para variants
-  - `--dry-run`, `--name`
-- [ ] Implementar comando `edit`: abre módulo en `$EDITOR`
-- [ ] Implementar `internal/ui/confirm.go` con survey (yes/no prompts)
-
-#### Criterio de Aceptación
-
-- [ ] `dots init` crea `.dots/config.yaml`
-- [ ] `dots adopt ~/.zshrc` mueve archivo y registra
-- [ ] `dots adopt ~/.zshrc` con variant existente ofrece crear variante
-- [ ] `dots edit Zsh` abre el directorio del módulo
-
----
-
-### Fase 4: Comando install + package managers
+### Fase 4: Comandos restantes (init, adopt, edit, backup) + checker
 
 **DURACIÓN ESTIMADA**: 1.5 días
-**OBJETIVO**: Instalación de dependencias.
-**ENTREGABLE**: `dots install` funcional con package managers, git, y binarios.
+**OBJETIVO**: Todos los comandos funcionan con dots.lua. Checker adaptado.
 
 #### Tareas
 
-- [ ] Implementar `internal/manager/manager.go`:
-  - `GetPackageManager()` detecta pacman/apt/brew/pkg
-  - `PackageManager` struct con `InstallCommand()`, `NeedsSudo`
-- [ ] Implementar instalación de paquetes del sistema (`type: package`)
-- [ ] Implementar instalación de bins remotos (`type: binary`):
-  - Descarga HTTP con `net/http`
-  - Extracción tar.gz/zip
-  - Template rendering de URL
-- [ ] Implementar clonado git (`type: git`):
-  - `os/exec` con `git clone`
-  - Checkout de ref
-- [ ] Implementar post-install hooks
-- [ ] Implementar fallback mechanism (package → binary)
-- [ ] Implementar comando `install` con `--module`, `--type`, `--dry-run`
-- [ ] Tests: mock HTTP server, mock package manager
+- [ ] Adaptar `internal/cli/init.go`:
+  - `runInit()` crea `init.lua` con template
+  - E17: Si existe `.dots/config.yaml`, ofrece migrar
+  - E18: En repo vacío, crea init.lua con template
+  - Detecta módulos existentes (path.yaml y dots.lua) y los incluye en init.lua
+- [ ] Adaptar `internal/cli/adopt.go`:
+  - E12: Detecta si el módulo es Lua o YAML
+  - Si es Lua: escribe `file()` en dots.lua
+  - Si es YAML: comportamiento actual
+- [ ] Adaptar `internal/cli/edit.go`:
+  - `--config` abre `dots.lua` en vez de `path.yaml` para módulos Lua
+  - E21: `--root` abre `<RepoRoot>/init.lua` en el editor (ignora el argumento del módulo)
+  - E22: Módulo sin dots.lua ni path.yaml → error "module not found"
+- [ ] Adaptar `internal/checker/checker.go`:
+  - E16: `checkLuaModule()` — carga dots.lua en VM, captura errores
+  - Validación semántica: source existe? destinations seguras? deps válidas?
+  - Deprecation warning para path.yaml
+- [ ] Tests:
+  - `dots init` crea init.lua correcto
+  - `dots adopt` escribe en dots.lua
+  - Checker reporta errores de Lua
+  - YAML muestra deprecation warning
 
 #### Criterio de Aceptación
 
-- [ ] `dots install` instala dependencias de todos los módulos
-- [ ] `dots install -m Zsh` solo de Zsh
-- [ ] `dots install --dry-run` muestra comandos sin ejecutar
-- [ ] Binarios se descargan y extraen correctamente
-- [ ] Fallback package → binary funciona
+- [ ] `go test ./...` pasa
+- [ ] `dots init` crea init.lua
+- [ ] `dots adopt` modifica dots.lua
+- [ ] Checker valida módulos Lua y YAML
+- [ ] YAML muestra deprecation warning
 
 ---
 
-### Fase 5: Comando backup + version updates
+### Fase 5: Comando `migrate` (YAML → Lua) + limpieza
 
-**DURACIÓN ESTIMADA**: 1 día
-**OBJETIVO**: Git backup, sync con remote, y notificación de actualizaciones.
-**ENTREGABLE**: `dots backup run`, `backup list`, `backup diff`, y notificación de versión.
+**DURACIÓN ESTIMADA**: 2 días
+**OBJETIVO**: Tooling para migrar path.yaml → dots.lua automáticamente.
 
 #### Tareas
 
-- [ ] Implementar operaciones git con `os/exec`:
-  - `git add .`, `git commit`, `git push`
-  - `git fetch`, `git pull --autostash --rebase`
-  - Detección de upstream, conflictos
-- [ ] Implementar resolución interactiva de conflictos en rebase
-- [ ] Implementar comando `backup run` con `--push/--no-push`, `--no-sync`, `--message`
-- [ ] Implementar comando `backup list` (`-n` limit)
-- [ ] Implementar comando `backup diff` (ref argument)
-- [ ] Implementar `internal/update/update.go`:
-  - HTTP request a GitHub API (tags endpoint)
-  - Caché en `~/.cache/dots/update.json`
-  - Check asíncrono en goroutine
-  - `NotifyIfNeeded()` en exit
-  - Versión en `--version` flag
-- [ ] Tests: mock git commands, mock HTTP
+- [ ] Implementar migración en `internal/lua/migrate.go`:
+  - `MigrateModule(modPath string) error` — lee path.yaml, genera dots.lua
+  - `MigrateRootConfig(repoRoot string) error` — migra `.dots/config.yaml` a `init.lua`
+  - Mapeo completo de fields (ver tabla en 5.4)
+  - E14: `/*` en destination → `dir():into()`
+  - E20: Output canónico, idempotente
+- [ ] Integrar en `internal/cli/migrate.go`:
+  - `dots migrate --to-lua [modules...]`
+  - `--dry-run` preview
+  - `--all` todos los módulos
+- [ ] Limpieza de código YAML:
+  - Eliminar `internal/yaml/`, `internal/template/`
+  - Eliminar `gopkg.in/yaml.v3` de go.mod
+- [ ] Tests:
+  - E13: Migración con variants
+  - E14: Migración con `/*` destination
+  - E20: Idempotencia del output
+  - Todas las variantes sintácticas de path.yaml
 
 #### Criterio de Aceptación
 
-- [ ] `dots backup run` hace commit + push
-- [ ] `dots backup run --no-push` solo commit
-- [ ] `dots backup list` muestra historial
-- [ ] `dots backup diff HEAD~3` muestra diff
-- [ ] Notificación de versión funciona
+- [ ] `go test ./...` pasa
+- [ ] `dots migrate --to-lua --all` migra todos los módulos
+- [ ] Módulo migrado funciona con `dots link`
+- [ ] YAML parser eliminado del binario
 
 ---
 
-### Fase 6: Comando migrate (v2 → v3) + docs
+### Fase 6: Testing integral + documentación
+
+**DURACIÓN ESTIMADA**: 1.5 días
+**OBJETIVO**: Cobertura de tests, edge cases, documentación.
+
+#### Tareas
+
+- [ ] Tests de integración:
+  - Todos los edge-cases E1-E20
+  - Módulos mixtos Lua + YAML (E15)
+  - Transacciones con operaciones de directorio (E19)
+  - Cross-module dedup de dependencias
+- [ ] Documentación:
+  - `docs/dots-lua-reference.md`
+  - `docs/init-lua-reference.md`
+  - `docs/migration-guide.md`
+  - `docs/plugin-system.md`
+  - Actualizar README.md y AGENTS.md
+- [ ] Benchmarks: Lua vs YAML startup time
+
+#### Criterio de Aceptación
+
+- [ ] `go test ./...` pasa al 100%
+- [ ] Cobertura >80% en `internal/lua/`
+- [ ] Documentación completa
+
+---
+
+### Fase 7: Release v1.0.0
 
 **DURACIÓN ESTIMADA**: 0.5 días
-**OBJETIVO**: Migración de schema path.yaml y documentación.
-**ENTREGABLE**: `dots migrate`, README, y todo funcional.
+**OBJETIVO**: Release con el nuevo sistema Lua.
 
 #### Tareas
 
-- [ ] Implementar comando `migrate`:
-  - Escanea path.yaml files
-  - Migra field names v2 → v3
-  - Migra `destination-linux/mac` → `per-os`
-  - `--dry-run`, `--yes`
-- [ ] Integración final: todos los comandos conectados
-- [ ] Actualizar README con nueva instalación
-- [ ] Crear `install.sh` simplificado (curl + chmod)
-- [ ] CI/CD: GitHub Actions para Go build + test
-
-#### Criterio de Aceptación
-
-- [ ] `dots migrate --dry-run` preview cambios
-- [ ] `dots migrate -y` aplica migración
-- [ ] `go test ./...` pasa al 100%
+- [ ] Bump version a "1.0.0"
+- [ ] Release notes
+- [ ] Tag + GitHub release
 
 ---
 
-### Fase 7: Testing + Polishing
+## 6. Especificaciones Técnicas Detalladas
 
-**DURACIÓN ESTIMADA**: 1 día
-**OBJETIVO**: Cobertura de tests, edge cases, rendimiento.
-**ENTREGABLE**: Suite de tests completa, benchmark comparativo.
-
-#### Tareas
-
-- [ ] Tests unitarios para todos los paquetes internos
-- [ ] Tests de integración (mock filesystem + git)
-- [ ] Benchmarks comparativos Python vs Go
-- [ ] Edge cases: TOCTOU races, permisos, symlinks rotos
-- [ ] Cross-compile test: `GOOS=linux`, `GOOS=darwin`, `GOOS=windows`
-- [ ] Verificar `dots --help` instantáneo
-
-#### Criterio de Aceptación
-
-- [ ] Cobertura >80% en paquetes core
-- [ ] Benchmarks muestran <10ms startup
-- [ ] Cross-compile exitoso para 3 plataformas
-
----
-
-## 5. Especificaciones Técnicas Detalladas
-
-### 5.1 Instalación / Configuración de entorno
-
-```bash
-# Inicializar proyecto Go
-mkdir -p cmd/dots internal/{cli,config,resolver,yaml,transaction,system,template,writer,update,ui,manager}
-cd dots
-go mod init github.com/cantoarch/dots
-
-# Dependencias principales
-go get github.com/spf13/cobra
-go get gopkg.in/yaml.v3
-go get github.com/charmbracelet/lipgloss
-go get github.com/charmbracelet/bubbletea
-go get github.com/charmbracelet/bubbles
-go get github.com/AlecAivazis/survey/v2
-
-# Dependencias de test
-go get github.com/stretchr/testify
-```
-
-### 5.2 Estructura final de archivos
+### 6.1 Estructura de archivos nuevos
 
 ```
-cmd/
-└── dots/
-    └── main.go
 internal/
-├── cli/
-│   ├── root.go            # Comando raíz + flags globales
-│   ├── link.go            # dots link
-│   ├── status.go          # dots status
-│   ├── list_module.go     # dots list
-│   ├── init.go            # dots init
-│   ├── adopt.go           # dots adopt
-│   ├── install.go         # dots install
-│   ├── unlink.go          # dots unlink
-│   ├── edit.go            # dots edit
-│   ├── backup.go          # dots backup {run,list,diff}
-│   └── migrate.go         # dots migrate
-├── config/
-│   └── config.go          # DotsConfig, marker detection
-├── resolver/
-│   ├── resolver.go        # ResolveModules, LinkStatus, variants
-│   └── service.go         # DotsService
-├── yaml/
-│   ├── parser.go          # ParsePathYAML, ParseDependencies, VariantInfo
-│   └── schema.go          # Validación v3
-├── transaction/
-│   └── transaction.go     # TransactionLog, LinkAction
-├── system/
-│   └── system.go          # DetectOS, IsSafePath, ExpandPath
-├── template/
-│   └── template.go        # URL template rendering
-├── writer/
-│   └── module_writer.go   # AppendFileEntry, LoadModuleData
-├── update/
-│   └── update.go          # Version check, cache, notify
-├── ui/
-│   ├── output.go          # Lipgloss styles, Print helpers
-│   ├── theme.go           # Colors, theme constants
-│   └── selector.go        # Bubbletea TUI selector
-└── manager/
-    └── manager.go         # PackageManager detection
+└── lua/
+    ├── vm.go              # NewLuaVM, LoadModuleConfig, LoadRootConfig
+    ├── types.go           # ModuleConfig, RootConfig, FileOp, DepOp structs
+    ├── api_files.go       # file(), dir(), glob() — funciones Go registradas en Lua
+    ├── api_deps.go        # pkg(), curl(), git() — funciones Go registradas en Lua
+    ├── api_helpers.go     # :when(), :to(), :into(), :per_os(), :on(), etc.
+    ├── loader.go          # require() — plugin loader (built-in + filesystem)
+    ├── loader_modules.go  # FindModules() — escanea módulos con dots.lua
+    ├── migrate.go         # path.yaml → dots.lua converter (Fase 5)
+    └── plugins/
+        ├── http.lua       # Plugin HTTP built-in
+        ├── archive.lua    # Plugin tar/zip built-in
+        └── git.lua        # Plugin git clone built-in
 ```
 
-### 5.3 Snippets de Código Críticos
+### 6.2 Migraciones de datos
 
-#### Entry point (cmd/dots/main.go)
+#### path.yaml → dots.lua (mapeo completo)
 
-```go
-package main
-
-import "github.com/cantoarch/dots/internal/cli"
-
-func main() {
-    cli.Execute()
-}
-```
-
-#### Root Cobra command (internal/cli/root.go)
-
-```go
-package cli
-
-import (
-    "fmt"
-    "os"
-    "github.com/spf13/cobra"
-)
-
-var rootCmd = &cobra.Command{
-    Use:   "dots",
-    Short: "dots — dotfile manager",
-    Long:  "Declarative, symlink-based dotfile manager for Linux, macOS, and Windows.",
-    PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-        // Check for updates in background goroutine
-        go checkForUpdates()
-        return nil
-    },
-    RunE: func(cmd *cobra.Command, args []string) error {
-        return cmd.Help()
-    },
-}
-
-func Execute() {
-    if err := rootCmd.Execute(); err != nil {
-        fmt.Fprintln(os.Stderr, err)
-        os.Exit(1)
-    }
-    notifyIfNeeded()
-}
-```
-
-#### YAML Parser (internal/yaml/parser.go)
-
-```go
-package yaml
-
-import (
-    "os"
-    "gopkg.in/yaml.v3"
-)
-
-type DotFileMapping struct {
-    Source      string
-    Destination string
-}
-
-func ParsePathYAML(path string, currentOS string) ([]DotFileMapping, error) {
-    data, err := os.ReadFile(path)
-    if err != nil {
-        if os.IsNotExist(err) {
-            return nil, nil
-        }
-        return nil, err
-    }
-
-    var raw map[string]any
-    if err := yaml.Unmarshal(data, &raw); err != nil {
-        return nil, err
-    }
-
-    filesRaw, ok := raw["files"].([]any)
-    if !ok {
-        return nil, nil
-    }
-
-    var mappings []DotFileMapping
-    for _, item := range filesRaw {
-        f, ok := item.(map[string]any)
-        if !ok {
-            continue
-        }
-
-        source, _ := f["source"].(string)
-        if source == "" {
-            continue
-        }
-
-        // OS filtering
-        if osList, ok := f["os"].([]any); ok {
-            found := false
-            for _, o := range osList {
-                if o.(string) == currentOS {
-                    found = true
-                    break
-                }
-            }
-            if !found {
-                continue
-            }
-        }
-
-        // per-os resolution
-        var dest string
-        if perOS, ok := f["per-os"].(map[string]any); ok {
-            if d, ok := perOS[currentOS].(string); ok {
-                dest = d
-            }
-        }
-        if dest == "" {
-            dest, _ = f["destination"].(string)
-        }
-        if dest == "" {
-            continue
-        }
-
-        mappings = append(mappings, DotFileMapping{
-            Source:      source,
-            Destination: dest,
-        })
-    }
-
-    return mappings, nil
-}
-```
-
-#### Transaction log (internal/transaction/transaction.go)
-
-```go
-package transaction
-
-import (
-    "os"
-    "path/filepath"
-)
-
-type ActionType int
-
-const (
-    ActionSymlink ActionType = iota
-    ActionBackup
-    ActionMkdir
-    ActionUnlink
-)
-
-type LinkAction struct {
-    Type       ActionType
-    Path       string
-    Target     string
-    BackupPath string
-}
-
-type TransactionLog struct {
-    actions   []LinkAction
-    committed bool
-}
-
-func (t *TransactionLog) Symlink(path, target string) {
-    os.Symlink(target, path)
-    t.actions = append(t.actions, LinkAction{
-        Type:   ActionSymlink,
-        Path:   path,
-        Target: target,
-    })
-}
-
-func (t *TransactionLog) Backup(path, backupPath string) {
-    if _, err := os.Lstat(path); err != nil {
-        return // Already gone, TOCTOU safe
-    }
-    os.Rename(path, backupPath)
-    t.actions = append(t.actions, LinkAction{
-        Type:       ActionBackup,
-        Path:       path,
-        BackupPath: backupPath,
-    })
-}
-
-func (t *TransactionLog) Commit() {
-    t.committed = true
-}
-
-func (t *TransactionLog) Rollback() {
-    if t.committed {
-        return
-    }
-    for i := len(t.actions) - 1; i >= 0; i-- {
-        act := t.actions[i]
-        switch act.Type {
-        case ActionSymlink:
-            os.Remove(act.Path)
-        case ActionBackup:
-            os.Rename(act.BackupPath, act.Path)
-        case ActionUnlink:
-            os.Symlink(act.Target, act.Path)
-        }
-    }
-}
-```
-
-#### Lipgloss output helper (internal/ui/output.go)
-
-```go
-package ui
-
-import (
-    "fmt"
-    "github.com/charmbracelet/lipgloss"
-)
-
-var (
-    HeaderStyle = lipgloss.NewStyle().
-            Bold(true).
-            Foreground(lipgloss.Color("39")) // Cyan
-
-    SuccessStyle = lipgloss.NewStyle().
-            Foreground(lipgloss.Color("76")) // Green
-
-    ErrorStyle = lipgloss.NewStyle().
-            Foreground(lipgloss.Color("196")) // Red
-
-    WarningStyle = lipgloss.NewStyle().
-            Foreground(lipgloss.Color("214")) // Yellow
-
-    DimStyle = lipgloss.NewStyle().
-            Foreground(lipgloss.Color("243")) // Grey
-
-    DividerStyle = lipgloss.NewStyle().
-            Foreground(lipgloss.Color("236")) // Dark grey
-)
-
-func PrintHeader(msg string) {
-    fmt.Println(HeaderStyle.Render("─── " + msg + " ───"))
-}
-
-func PrintSuccess(msg string) {
-    fmt.Println(SuccessStyle.Render("✔ " + msg))
-}
-
-func PrintError(msg string) {
-    fmt.Println(ErrorStyle.Render("✘ " + msg))
-}
-
-func PrintWarning(msg string) {
-    fmt.Println(WarningStyle.Render("⚠ " + msg))
-}
-
-func PrintInfo(msg string) {
-    fmt.Println("ℹ " + msg)
-}
-```
+| YAML (path.yaml)                                                                 | Lua (dots.lua)                                            |
+| -------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `type: minimal`                                                                  | `type = "minimal"`                                        |
+| `files: [{source: x, destination: y}]`                                           | `files = { file("x", "y") }`                              |
+| `files: [{source: x, destination: y, os: [linux]}]`                              | `files = { file("x", "y"):when("linux") }`                |
+| `files: [{source: x, destination: y, per-os: {linux: a, mac: b}}]`               | `files = { file("x", "y"):per_os({linux="a", mac="b"}) }` |
+| `files: [{source: dir, destination: "~/.config/x/*"}]` (expansión de directorio) | `files = { dir("dir"):into("~/.config/x") }`              |
+| Directorio como source                                                           | `dir("x"):to("dest")` o `dir("x"):into("dest")`           |
+| `dependencies: [git]`                                                            | `dependencies = { pkg "git" }`                            |
+| `dependencies: [{name: x, type: package, managers: {pacman: y}}]`                | `dependencies = { pkg("x"):on({pacman="y"}) }`            |
+| `dependencies: [{name: x, type: binary, url: u, dest: d, extract: e}]`           | `dependencies = { curl("u"):extract("e"):to("d") }`       |
+| `dependencies: [{name: x, type: git, url: u, dest: d, ref: r}]`                  | `dependencies = { git("u"):to("d"):at("r") }`             |
+| `fallback: {type: binary, ...}`                                                  | `:fallback(curl("..."))`                                  |
+| `bin: batcat`                                                                    | `pkg("bat"):bin("batcat"):on({apt="bat"})`                |
+| Variants (múltiples sources → mismo dest)                                        | Múltiples `file()` → mismo destino (se mantiene igual)    |
 
 ---
 
-## 6. Testing y Validación
+## 7. Testing
 
-| Tipo de test          | Cobertura                                                   | Herramienta           | Criterio                        |
-| --------------------- | ----------------------------------------------------------- | --------------------- | ------------------------------- |
-| **Unit tests**        | Core: config, yaml, transaction, resolver, template, system | `go test` + testify   | >80% cobertura en paquetes core |
-| **Integration tests** | Link/unlink cycle con mock filesystem                       | `go test` + temp dirs | Happy path + edge cases         |
-| **Smoke tests**       | Todos los comandos                                          | Script shell          | Exit code 0, output esperado    |
-| **Benchmark**         | Startup time vs Python                                      | `hyperfine` (externo) | <10ms vs ~600ms                 |
-
----
-
-## 7. Plan de Despliegue
-
-```
-PRE-DEPLOY:
-- [ ] Último commit en la versión Python (`dev` branch)
-- [ ] `git tag v0.9.0-python` para referencia histórica
-- [ ] Instalar Go 1.22+ en CI
-
-DEPLOY:
-- [ ] Go build para linux/amd64, linux/arm64, darwin/amd64, darwin/arm64
-- [ ] Publicar binarios en GitHub Releases
-- [ ] Actualizar install.sh para: `curl -L ... | tar xz && chmod +x dots`
-- [ ] Actualizar README
-
-POST-DEPLOY:
-- [ ] Smoke test en Linux
-- [ ] Smoke test en macOS
-- [ ] Verificar dots list < 10ms
-```
+| Tipo                       | Cobertura                                          | Edge-cases                                |
+| -------------------------- | -------------------------------------------------- | ----------------------------------------- |
+| **Unit tests**             | lua/vm.go, lua/api_files, lua/api_deps, lua/loader | E4, E5, E10, E11                          |
+| **Integration tests**      | Carga + ejecución link/install                     | E1, E2, E3, E6, E7, E8, E9, E12, E15, E19 |
+| **Migration tests**        | path.yaml → dots.lua                               | E13, E14, E20                             |
+| **Coexistence tests**      | Lua + YAML mismo repo                              | E15                                       |
+| **Checker tests**          | Validación Lua y YAML                              | E16                                       |
+| **Smoke tests**            | Todos los comandos                                 | E17, E18                                  |
+| **Module discovery tests** | `module_paths`, auto-detect, múltiples rutas       | E22                                       |
 
 ---
 
 ## 8. Plan de Rollback
 
-1. **Detección**: Error en comando crítico (link, backup) que impida gestión de dotfiles
-2. **Decisión**: Si falla más de un comando, revertir a versión Python
-3. **Pasos**:
-   - `pipx install dots==0.9.0-python` (última versión Python)
-   - Reportar bug con output del comando Go
-4. **Tiempo estimado**: 5 minutos
+1. **Detección**: Error en comando crítico con módulos Lua
+2. **Acción**: `git revert HEAD` en dev → publicar hotfix v0.11.1
+3. **Tiempo**: ~10 minutos
 
 ---
 
 ## 9. Riesgos y Mitigaciones
 
-| Riesgo                                                        | Probabilidad | Impacto | Mitigación                                  |
-| ------------------------------------------------------------- | ------------ | ------- | ------------------------------------------- |
-| **Edge cases en symlinks** (TOCTOU, permisos, NTFS junctions) | Media        | Alto    | Tests exhaustivos + misma lógica que Python |
-| **Diferencia en YAML parsing** (orden de keys, comentarios)   | Baja         | Medio   | Tests con path.yaml reales del usuario      |
-| **Bubbletea selector no idéntico a InquirerPy**               | Media        | Bajo    | Iterar sobre feedback del usuario           |
-| **go-git vs os/exec edge cases**                              | Media        | Medio   | Usar os/exec (delegar a git CLI)            |
-| **Cross-compile Windows**                                     | Media        | Bajo    | CI con Windows, o soporte "best-effort"     |
+| Riesgo                                         | Prob  | Impacto | Mitigación                              |
+| ---------------------------------------------- | ----- | ------- | --------------------------------------- |
+| gopher-lua metatables para encadenamiento      | Media | Alto    | Prototipar API en Fase 0                |
+| Coexistencia YAML+Lua introduce bugs           | Alta  | Medio   | Tests de integración con ambos formatos |
+| path.yaml complejos (variants, fallbacks, /\*) | Alta  | Medio   | Migrador debe cubrir todos los casos    |
+| Plugins built-in no son flexibles              | Media | Bajo    | Son Lua, el usuario puede overridearlos |
+| `dir():to()` con source inexistente            | Media | Bajo    | Validación en checker + link time       |
 
 ---
 
 ## 10. Criterios de Éxito Globales
 
-- [ ] `dots --help` se imprime en <10ms (vs ~630ms hoy)
-- [ ] `dots list` se ejecuta en <10ms (vs ~570ms hoy)
-- [ ] Todos los comandos y flags existentes funcionan idéntico
+- [ ] `dots` funciona con repositorio basado en `init.lua` + `dots.lua`
+- [ ] Todos los comandos existentes funcionan idéntico con el nuevo formato
+- [ ] `path.yaml` → `dots.lua` migración automática funcional con `--dry-run`
+- [ ] Operaciones de directorio (`dir():to()`, `dir():into()`) funcionan
+- [ ] Plugins vía `require()` cargan correctamente
+- [ ] Edge-cases E1-E20 cubiertos en tests
 - [ ] `go test ./...` pasa al 100%
-- [ ] Instalación vía un solo comando sin Python
-- [ ] Path.yaml files existentes no requieren cambios
-
----
-
-## 11. Recursos y Referencias
-
-- **Código actual**: `src/` (Python) — toda la lógica de negocio está aquí
-- **Tests actuales**: `tests/` — ~2,200 LOC de tests para guiar la migración
-- **Path.yaml spec**: `docs/path-yaml-reference.md`
-- **Skills relacionadas**: `gentleman-bubbletea` (Bubbletea TUI patterns para Go)
-- **Charm Libraries Docs**: <https://github.com/charmbracelet>
-- **Cobra CLI Docs**: <https://github.com/spf13/cobra>
-
----
-
-## 12. Primeros pasos al aprobar
-
-1. Ejecutar `go mod init github.com/Wilberucx/dots` y crear estructura de directorios
-2. Implementar `internal/system/system.go` y `internal/config/config.go` (Fase 0)
-3. Implementar `internal/yaml/parser.go` (el parser de path.yaml es la pieza más crítica — todo depende de él)
+- [ ] Coexistencia con YAML durante migración

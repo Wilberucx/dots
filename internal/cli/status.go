@@ -11,7 +11,6 @@ import (
 	"github.com/Wilberucx/dots/internal/config"
 	"github.com/Wilberucx/dots/internal/resolver"
 	"github.com/Wilberucx/dots/internal/ui"
-	"github.com/Wilberucx/dots/internal/yaml"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -78,6 +77,8 @@ func runStatus(cmd *cobra.Command) error {
 		}
 	}
 
+	noHints, _ := cmd.Flags().GetBool("no-hints")
+
 	switch format {
 	case "table":
 		renderTable(allModules, stateSet, cfg, showBackups)
@@ -85,7 +86,7 @@ func runStatus(cmd *cobra.Command) error {
 		return renderJSON(allModules, stateSet, cfg, showBackups)
 	default:
 		ui.PrintHeader("Dots Status")
-		renderDefault(allModules, stateSet, cfg, showBackups)
+		renderDefault(allModules, stateSet, cfg, showBackups, noHints)
 	}
 
 	return nil
@@ -103,6 +104,7 @@ func renderDefault(
 	stateFilter map[string]bool,
 	cfg *config.DotsConfig,
 	showBackups bool,
+	noHints bool,
 ) {
 	var linked, broken, missingSrc, unlinked, notLinked []moduleCategory
 
@@ -240,7 +242,7 @@ func renderDefault(
 	fmt.Println(ui.BoldStyle.Render("Summary:") + " " + strings.Join(summaryParts, " • "))
 
 	// Checker section — syntax validation + broken links + health verdict
-	result := checker.RunSyntaxCheck(cfg)
+	result := checker.RunSyntaxCheck(cfg, checker.CheckOptions{NoHints: noHints})
 	checker.CheckBrokenLinks(cfg, result)
 
 	fmt.Println()
@@ -308,15 +310,22 @@ func displayCategoryWithModules(
 	fmt.Println(catStyle.Render(fmt.Sprintf("%s (%d modules)", title, count)))
 
 	for _, item := range items {
-		yamlPath := filepath.Join(cfg.RepoRoot, item.name, "path.yaml")
-		mappings, _ := yaml.ParsePathYAML(yamlPath, cfg.CurrentOS)
-		variantInfo := yaml.DetectVariants(mappings)
+		var hasVariants bool
+		var variantNames []string
+		var activeVariant string
 
-		if variantInfo.HasVariants {
+		vInfo, err := resolver.GetModuleVariantInfo(cfg, item.name)
+		if err == nil && vInfo != nil && vInfo.HasVariants {
+			hasVariants = true
+			variantNames = vInfo.Variants
 			active, _ := resolver.GetActiveVariant(cfg, item.name)
+			activeVariant = active
+		}
+
+		if hasVariants {
 			fmt.Printf("  %s\n", entryStyle.Render(item.name))
-			for _, v := range variantInfo.Variants {
-				if v == active {
+			for _, v := range variantNames {
+				if v == activeVariant {
 					fmt.Printf("    %s %s %s\n", entryStyle.Render("●"), entryStyle.Render(v), ui.DimStyle.Render("← active"))
 				} else {
 					fmt.Printf("    %s %s\n", ui.DimStyle.Render("○"), entryStyle.Render(v))

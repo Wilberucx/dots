@@ -7,6 +7,7 @@ import (
 
 	"github.com/Wilberucx/dots/internal/checker"
 	"github.com/Wilberucx/dots/internal/config"
+	luacfg "github.com/Wilberucx/dots/internal/lua"
 	"github.com/Wilberucx/dots/internal/ui"
 	"github.com/spf13/cobra"
 )
@@ -25,9 +26,12 @@ dependencies, backups, and cross-platform configuration.`,
 		// Check for updates in background goroutine
 		go checkForUpdates()
 
+		// Check for --no-hints flag (persistent, available on all commands)
+		noHints, _ := cmd.Flags().GetBool("no-hints")
+
 		// Run syntax checker for mutating commands and read-only commands
 		if cfg, err := loadConfig(); err == nil {
-			result := checker.RunSyntaxCheck(cfg)
+			result := checker.RunSyntaxCheck(cfg, checker.CheckOptions{NoHints: noHints})
 
 			switch cmd.Name() {
 			case "link", "unlink", "install", "adopt":
@@ -60,6 +64,7 @@ var repoPath string
 var cachedConfig *config.DotsConfig
 
 // loadConfig loads or returns the cached DotsConfig, respecting --path flag.
+// For Lua repos, it also loads init.lua and discovers modules.
 func loadConfig() (*config.DotsConfig, error) {
 	if cachedConfig != nil {
 		return cachedConfig, nil
@@ -77,12 +82,55 @@ func loadConfig() (*config.DotsConfig, error) {
 	cfg, err := config.Load()
 	if err == nil {
 		cachedConfig = cfg
+		// For Lua repos, load init.lua and discover modules
+		if cfg.IsLuaRepo {
+			initCfg, err := loadLuaInitConfig(cfg.RepoRoot)
+			if err != nil {
+				// Non-fatal: repo still works without init.lua
+				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
+			} else if initCfg != nil {
+				internalCfg := &config.RootConfig{
+					Name:        initCfg.Name,
+					ModulePaths: initCfg.ModulePaths,
+					Plugins:     initCfg.Plugins,
+				}
+				cfg.SetInitConfig(internalCfg)
+
+				// Discover Lua/YAML modules
+				luaModules, err := discoverLuaModules(cfg.RepoRoot, initCfg)
+				if err == nil && len(luaModules) > 0 {
+					// Convert to config.ModuleDir slice
+					modDirs := make([]config.ModuleDir, len(luaModules))
+					for i, m := range luaModules {
+						modDirs[i] = config.ModuleDir{
+							Name: m.Name,
+							Path: m.Path,
+							Type: int(m.Type),
+						}
+					}
+					cfg.SetCachedModuleDirs(modDirs)
+				}
+			}
+		}
 	}
 	return cfg, err
 }
 
+// loadLuaInitConfig loads init.lua and returns the parsed config.
+func loadLuaInitConfig(repoRoot string) (*luacfg.RootConfig, error) {
+	vm := luacfg.NewLuaVM()
+	defer vm.Close()
+	return vm.LoadRootConfig(filepath.Join(repoRoot, "init.lua"))
+}
+
+// discoverLuaModules discovers modules using the Lua module discovery system.
+func discoverLuaModules(repoRoot string, initCfg *luacfg.RootConfig) ([]luacfg.ModuleDir, error) {
+	return luacfg.FindModules(repoRoot, initCfg)
+}
+
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&repoPath, "path", "p", "", "Path to dotfiles repository (overrides auto-detection)")
+	rootCmd.PersistentFlags().Bool("no-hints", false, "Suppress migration hints from the syntax checker")
 
 	// Register subcommands
 	rootCmd.AddCommand(initCmd)
@@ -214,13 +262,13 @@ func init() {
 // editCmd represents the `dots edit` command.
 var editCmd = &cobra.Command{
 	Use:   "edit [module]",
-	Short: "Open a module folder or its path.yaml in $EDITOR",
-	Long:  "Open a module folder or its path.yaml in your $EDITOR.",
+	Short: "Open a module folder or its config file in $EDITOR",
+	Long:  "Open a module folder or its config file (dots.lua or path.yaml) in your $EDITOR.",
 	Args:  cobra.ExactArgs(1),
 }
 
 func init() {
-	editCmd.Flags().BoolP("config", "c", false, "Edit the path.yaml configuration file")
+	editCmd.Flags().BoolP("config", "C", false, "Edit the module's config file (dots.lua or path.yaml)")
 }
 
 // installCmd represents the `dots install` command.

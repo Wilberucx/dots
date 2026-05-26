@@ -2,6 +2,8 @@
 
 dotfile manager — declarative, symlink-based, yours.
 
+> **Versión en español**: [README.es.md](README.es.md)
+
 ## Install
 
 ### Stable (recommended)
@@ -42,18 +44,18 @@ That's it. Two commands and your dotfiles are linked.
 
 ## Commands
 
-| Command             | Description                                  |
-| ------------------- | -------------------------------------------- |
-| `dots init`         | Initialize repo — creates `.dots/config.yaml` |
-| `dots link`         | Create symlinks for all modules              |
-| `dots unlink`       | Remove symlinks                              |
-| `dots status`       | Show link state grouped by status            |
-| `dots list`         | List modules or backups with filters         |
-| `dots edit`         | Open module folder or path.yaml in $EDITOR   |
-| `dots adopt <path>` | Import an existing config into the repo      |
-| `dots install`      | Install dependencies from `path.yaml` files  |
-| `dots migrate`      | Upgrade path.yaml from v2 to v3 schema       |
-| `dots backup`       | Git commit and optional push                 |
+| Command             | Description                                        |
+| ------------------- | -------------------------------------------------- |
+| `dots init`         | Initialize repo — creates `init.lua` or `.dots/config.yaml` |
+| `dots link`         | Create symlinks for all modules                    |
+| `dots unlink`       | Remove symlinks                                    |
+| `dots status`       | Show link state grouped by status                  |
+| `dots list`         | List modules or backups with filters               |
+| `dots edit`         | Open module folder or config file in $EDITOR       |
+| `dots adopt <path>` | Import an existing config into the repo            |
+| `dots install`      | Install dependencies from config files             |
+| `dots migrate`      | Migrate config between schema versions             |
+| `dots backup`       | Git commit and optional push                       |
 
 ## Quick examples
 
@@ -88,11 +90,7 @@ dots list --variant
 
 # Edit a module
 dots edit Zsh
-dots edit Nvim --config   # open path.yaml directly
-
-# Migrate to schema v3
-dots migrate
-dots migrate --dry-run
+dots edit Nvim --config   # open config file directly
 ```
 
 ---
@@ -125,11 +123,18 @@ dots migrate --dry-run
 
 ## Documentation
 
+### Lua (recommended)
+
+- [Lua syntax reference](docs/lua-syntax.md) — `init.lua` / `dots.lua` configuration
+- [Plugin system](docs/lua-syntax.md#7-plugin-system) — extending dots with Lua scripts
+
+### Legacy YAML
+
 - [path.yaml reference](docs/path-yaml-reference.md) — module structure, dependency types
 - [Schema v3](docs/schema-v3.md) — current schema specification
 - [Dependencies](docs/dependencies.md) — dependency types (git, binary, package)
 
-
+---
 
 ## Git Workflow
 

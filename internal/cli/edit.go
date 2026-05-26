@@ -31,11 +31,16 @@ func runEdit(cmd *cobra.Command, args []string) error {
 
 	target := modulePath
 	if boolFlag(cmd, "config") {
+		luaPath := filepath.Join(modulePath, "dots.lua")
 		yamlPath := filepath.Join(modulePath, "path.yaml")
-		if _, err := os.Stat(yamlPath); os.IsNotExist(err) {
-			return fmt.Errorf("module '%s' does not have a path.yaml file", module)
+
+		if _, err := os.Stat(luaPath); err == nil {
+			target = luaPath
+		} else if _, err := os.Stat(yamlPath); err == nil {
+			target = yamlPath
+		} else {
+			return fmt.Errorf("module '%s' has no config file (dots.lua or path.yaml)", module)
 		}
-		target = yamlPath
 	}
 
 	editor := os.Getenv("EDITOR")

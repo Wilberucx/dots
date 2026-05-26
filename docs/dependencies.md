@@ -1,152 +1,187 @@
 # Dependencies System
 
-This document explains how the dependency system works in `dots` and how the `install` command processes them. For the schema reference, see [path-yaml-reference.md](./path-yaml-reference.md).
+This document explains how the dependency system works in `dots` and how the `install` command processes them.
+
+For the legacy YAML schema reference, see [path-yaml-reference.md](./path-yaml-reference.md).
 
 ---
 
 ## Dependency Types Overview
 
-There are three dependency types:
+There are three dependency types, each with a Lua constructor function:
 
-| Type | Use Case | Installs Via |
-|------|----------|--------------|
-| `package` | System packages (git, curl, fzf) | pacman, apt, brew |
-| `git` | Plugins/themes from repos | git clone |
-| `binary` | Precompiled releases (starship, eza) | Download + extract |
-
-The type field defaults to `package` if omitted.
+| Function | Type | Use Case |
+|----------|------|----------|
+| `pkg()` | System package | Git, curl, fzf — installed via pacman/apt/brew |
+| `git()` | Git repository | Plugins, themes — cloned from a git URL |
+| `curl()` | Binary download | Precompiled releases (starship, eza) — downloaded + extracted |
 
 ---
 
-## `type: package`
+## 1. `pkg(name)` — System Packages
 
 For packages available in system package managers.
 
-### String Shorthand
+### Simple Declaration
 
-When a package has the same name across all package managers, use the string shorthand:
+When a package has the same name across all package managers:
 
-```yaml
-dependencies:
-  - git
-  - curl
-  - zsh
+```lua
+dependencies = {
+  pkg "git",
+  pkg "curl",
+  pkg "zsh",
+}
 ```
 
-This installs `git`, `curl`, and `zsh` via whatever package manager is detected.
+This installs `git`, `curl`, and `zsh` via whatever package manager is detected (pacman → apt → brew).
 
-### `package-managers` Field
+### Per-Manager Names (`:on({...})`)
 
-Some packages have different names per PM. **ripgrep** is the canonical example:
+Some packages have different names per PM. **ripgrep** is the canonical example: same binary name everywhere, but the package name `fd` is `fd-find` on Debian/Ubuntu.
 
-| Manager | Package Name |
-|---------|--------------|
-| pacman | `ripgrep` |
-| apt | `ripgrep` |
-| brew | `ripgrep` |
-
-But `rg` (the binary) is the same everywhere. Use `managers` to map:
-
-```yaml
-- name: rg
-  type: package
-  managers:
-    pacman: ripgrep
-    apt: ripgrep
-    brew: ripgrep
+```lua
+pkg("fd"):on({
+  pacman = "fd",
+  apt    = "fd-find",
+  brew   = "fd",
+})
 ```
 
-The `name` field (`rg`) is the deduplication key — used to check if already installed via `shutil.which()`. The package manager receives the mapped name (`ripgrep`).
+The argument to `pkg()` is the **deduplication key** — it's used to check if already installed via `shutil.which()` and to avoid installing the same dependency twice. The package manager receives the mapped name.
+
+### Binary Name (`:bin()`)
+
+When the binary is named differently from the package:
+
+```lua
+pkg("nodejs"):bin("node")
+```
+
+### Post-Install (`:post()`)
+
+Command to run after installing the package:
+
+```lua
+pkg("neovim"):post("pip install pynvim")
+```
+
+### Fallback (`:fallback()`)
+
+If the package manager is not available or the package isn't found, provide a fallback. The argument must be another dependency object (usually `curl()` to download a binary):
+
+```lua
+pkg("starship"):on({ pacman = "starship", brew = "starship" })
+  :fallback(curl("https://github.com/starship/starship/releases/download/v{{version}}/starship-{{arch}}-unknown-linux-musl.tar.gz")
+    :extract("starship")
+    :to("~/.local/bin/starship")
+    :version("1.19.0")),
+```
 
 ### Behavior Flow
 
 ```
-1. Is package-managers defined?
-   ├─ No: use name directly
+1. Is :on({...}) defined?
+   ├─ No: use pkg name directly
    └─ Yes: look up current PM
        ├─ Found: use mapped name
-       └─ Not found: check fallback → skip with warning
-2. Is binary already in PATH (shutil.which)?
+       └─ Not found: check fallback
+           ├─ Has fallback: use fallback dep
+           └─ No fallback: skip with warning
+2. Is binary already in PATH?
    ├─ Yes: skip silently
    └─ No: run PM install command
 ```
 
 ### Why This Design?
 
-`package-managers` exists because distros rename upstream software. `ripgrep` → `rg` on Debian, `fd` → `fd-find` on Ubuntu. The deduplication key (`name`) is what matters for tracking — the mapped name is only used at install time.
+`pkg():on()` exists because distros rename upstream software. `ripgrep` → `rg` on Debian, `fd` → `fd-find` on Ubuntu. The deduplication key (the `pkg()` argument) is what matters for tracking — the mapped name is only used at install time.
 
 ---
 
-## `type: git`
+## 2. `git(url)` — Git Repositories
 
 Clones a Git repository to a local path. Use for plugins, themes, and tools that need the full repo history or require specific git refs.
 
-### Fields
-
-| Field | Required | Purpose |
-|-------|----------|---------|
-| `url` | Yes | Git URL (https or ssh) |
-| `dest` | Yes | Destination path (`~` expanded) |
-| `ref` | No | Tag, branch, or commit hash |
-| `post-install` | No | Shell command after clone |
-
 ### Example: Zsh Plugin
 
-```yaml
-- name: powerlevel10k
-  type: git
-  url: https://github.com/romkatv/powerlevel10k.git
-  dest: ~/.local/share/zsh/plugins/powerlevel10k
-  ref: v1.19.0
-  post-install: ~/.fzf/install --all
+```lua
+git("https://github.com/romkatv/powerlevel10k.git")
+  :to("~/.local/share/zsh/plugins/powerlevel10k")
+  :at("v1.19.0")
+  :post("~/.fzf/install --all"),
 ```
 
-**Why `ref` matters:** Without it, you get whatever the default branch is at clone time — a moving target. Pinning `ref` ensures reproducible installs.
+### Chainable Methods
 
-**`post_install` runs after clone + checkout.** The `~/.fzf/install` example sets up fzf's shell integrations.
+| Method | Required | Purpose |
+|--------|----------|---------|
+| `:to(dest)` | Yes | Destination path (`~` expanded) |
+| `:at(ref)` | No | Tag, branch, or commit hash to check out |
+| `:post(cmd)` | No | Shell command to run after clone |
+| `:bin(name)` | No | Binary name (for identification) |
+
+**Why `:at()` matters:** Without it, you get whatever the default branch is at clone time — a moving target. Pinning `:at("v1.19.0")` ensures reproducible installs.
+
+**`:post()` runs after clone + checkout.** The `~/.fzf/install` example sets up fzf's shell integrations.
 
 ### Behavior
 
 ```
 target exists? → skip silently
 clone source to target
-  └─ ref provided? → git checkout <ref>
+  └─ :at() provided? → git checkout <ref>
 ```
 
 ---
 
-## `type: binary`
+## 3. `curl(url)` — Binary Downloads
 
 Downloads a precompiled binary release (tarball or raw binary). Use when upstream doesn't provide a package or you want a specific version.
 
+### Example: eza
+
+```lua
+curl("https://github.com/eza-community/eza/releases/download/v{{version}}/eza_{{arch}}-unknown-linux-musl.tar.gz")
+  :extract("eza")
+  :to("~/.local/bin/eza")
+  :version("0.18.21")
+  :arch({ x86_64 = "x86_64", aarch64 = "aarch64" }),
+```
+
+### Chainable Methods
+
+| Method | Required | Purpose |
+|--------|----------|---------|
+| `:to(dest)` | Yes | Final path for the extracted binary |
+| `:extract(member)` | Depends | Archive member to extract (tar.gz/zip) |
+| `:version(v)` | No | Template variable `{{version}}` in URL |
+| `:arch({...})` | No | Architecture mapping for `{{arch}}` in URL |
+| `:bin(name)` | No | Binary name (for identification) |
+| `:post(cmd)` | No | Post-installation command |
+
 ### Template Variables
 
-The `source` URL supports two template variables:
+The URL supports two template variables:
 
 | Variable | Replaced With |
 |----------|---------------|
-| `{{version}}` | The `version` field value |
-| `{{arch}}` | Detected system architecture |
+| `{{version}}` | The `:version()` value |
+| `{{arch}}` | Mapped via `:arch()`; detected from `uname -m` |
 
-Architecture detection:
+Architecture detection (`uname -m` → `x86_64`, `aarch64`, `armv7l`, etc.) uses the detected value as the key in the `:arch()` map to produce the URL segment.
 
-```
-uname -m → x86_64, aarch64, armv7l, etc.
-```
+### The `:arch()` Map
 
-### `arch` Field
+Some projects use different architecture strings in their URLs. eza uses `x86_64` and `aarch64` (matching our detection). But some projects use `amd64` instead of `x86_64`:
 
-Some projects use different arch strings in their URLs. eza uses `x86_64` and `aarch64` (matching our detection). But starship uses `x86_64` and `aarch64` too.
-
-A project that differs: some use `amd64` instead of `x86_64`. Use `arch` to translate:
-
-```yaml
-arch:
-  x86_64: amd64      # detection → URL segment
-  aarch64: arm64
+```lua
+curl("https://example.com/tool-{{arch}}.tar.gz")
+  :arch({ x86_64 = "amd64", aarch64 = "arm64" }),
+  -- detects x86_64 → URL gets "amd64"
 ```
 
-### `extract` Field
+### The `:extract()` Field
 
 Tarballs from GitHub releases often contain multiple files:
 
@@ -157,83 +192,59 @@ starship-{{arch}}-unknown-linux-musl.tar.gz
 └── README.md
 ```
 
-Without `extract`, tarfile extracts **all members** to the target's parent directory — polluting `$HOME/.local/bin/` with LICENSE files.
+Without `:extract()`, tarfile extracts **all members** to the target's parent directory — polluting `$HOME/.local/bin/` with LICENSE files.
 
-With `extract: starship`, only the `starship` member is extracted to `dest`.
-
-### Example: eza
-
-```yaml
-- name: eza
-  type: binary
-  url: https://github.com/eza-community/eza/releases/download/v{{version}}/eza_{{arch}}-unknown-linux-musl.tar.gz
-  dest: ~/.local/bin/eza
-  version: "0.18.21"
-  extract: eza
-  arch:
-    x86_64: x86_64
-    aarch64: aarch64
-```
-
-**Why a static arch?** Consistency. If eza ever changed their URL format to `eza_x86_64` instead of `eza_x86_64`, you'd only change the map, not the URL template.
+With `:extract("starship")`, only the `starship` member is extracted to the path specified by `:to()`.
 
 ### Example: starship (with fallback)
 
-```yaml
-- name: starship
-  type: package
-  managers:
-    pacman: starship
-    brew: starship
-  fallback:
-    type: binary
-    url: https://github.com/starship/starship/releases/download/v{{version}}/starship-{{arch}}-unknown-linux-musl.tar.gz
-    dest: ~/.local/bin/starship
-    version: "1.19.0"
-    extract: starship
+```lua
+pkg("starship"):on({ pacman = "starship", brew = "starship" })
+  :fallback(curl("https://github.com/starship/starship/releases/download/v{{version}}/starship-{{arch}}-unknown-linux-musl.tar.gz")
+    :to("~/.local/bin/starship")
+    :version("1.19.0")
+    :extract("starship")),
 ```
 
 ---
 
-## The `fallback` Field
+## 4. The `:fallback()` System
 
 ### When It Activates
 
-`fallback` triggers when:
+`:fallback()` triggers when:
 
-1. A `package` dependency uses `managers`
+1. A `pkg()` dependency uses `:on({...})` for per-manager names
 2. The current PM is **not** in that dict
-3. A `fallback` is defined
+3. A `:fallback()` is defined
 
 ### Why It Exists
 
 Consider Ubuntu/Debian users who want `starship`. The official `starship` package might be outdated or unavailable. Rather than forcing all users to use a binary, you can:
 
-- Define `package-managers` for pacman and brew (who have up-to-date packages)
-- Provide a `fallback` binary for apt users
+- Define `:on({pacman = "starship", brew = "starship"})` for distros with up-to-date packages
+- Provide a `:fallback(curl(...))` binary for apt users
 
 This gives per-PM installation strategies without duplicating dependency definitions.
 
 ### Supported Fallback Types
 
-| Fallback Type | Handler |
-|---------------|---------|
-| `binary` | `install_binary_dep()` |
-| `git` | `install_git_dep()` |
-| Other | **skipped with warning** |
+| Fallback Function | Handler |
+|-------------------|---------|
+| `curl()` | Download + extract binary |
+| `git()` | Git clone + checkout |
 
 ### Binary vs Git Fallback
 
 **Binary fallback** is most common — it's how you handle "PM doesn't have it, download instead."
 
 **Git fallback** is rare but useful for:
-
 - A plugin that has a special install method (e.g., vim plugin that needs `git clone` into `~/.vim/pack/`)
 - A tool with a git-based installation script
 
 ---
 
-## `install` Command
+## 5. `install` Command
 
 ### Command Signature
 
@@ -254,7 +265,7 @@ dots install [OPTIONS]
 ```
 1. Detect package manager (pacman → apt → brew)
 2. Load modules filtered by --module/--type flags
-3. Parse dependencies from each path.yaml
+3. Parse dependencies from each module's config (dots.lua or path.yaml)
 4. Deduplicate by name (first occurrence wins)
 5. For each dependency:
    a. Dispatch by type to appropriate handler
@@ -264,16 +275,14 @@ dots install [OPTIONS]
 
 ### Deduplication Logic
 
-Dependencies are deduplicated by `name`. **First definition wins:**
+Dependencies are deduplicated by `name` (the first argument to `pkg()`, `curl()`, or `git()`). **First definition wins:**
 
-```yaml
-# Module A
-dependencies:
-  - starship  # added here
+```lua
+-- Module A
+dependencies = { pkg "starship" }  -- added here
 
-# Module B  
-dependencies:
-  - starship  # SKIPPED — already seen
+-- Module B
+dependencies = { pkg "starship" }  -- SKIPPED — already seen
 ```
 
 This prevents the same dependency from being installed twice when multiple modules declare it.
@@ -282,18 +291,17 @@ This prevents the same dependency from being installed twice when multiple modul
 
 **"No supported package manager found"**
 
-```bash
+```
 Error: No supported package manager found (pacman, apt, brew).
 ```
 
 `dots` only supports pacman (Arch), apt (Debian/Ubuntu), and brew (macOS/Linux). If you see this, either:
-
 - You're on an unsupported distro (contribute a plugin!)
 - The PM detection failed
 
 **`post_install` failures don't block installation**
 
-If `post_install` fails (returns non-zero), the dependency is still marked as installed. `post_install` runs via `shell=True` — errors are silently ignored unless you use `--dry-run`.
+If `:post()` fails (returns non-zero), the dependency is still marked as installed. Errors are silently ignored unless you use `--dry-run`.
 
 ### Dry Run Output
 
@@ -305,77 +313,73 @@ $ dots install --dry-run
 
 ---
 
-## Conflict Resolution
+## 6. Methods Summary
 
-Conflict resolution applies to **`dots link`**, not `dots install`. The install command only fetches and installs dependencies.
-
-### Link States
-
-When `dots link` encounters a destination path:
-
-| State | Meaning |
-|-------|---------|
-| `linked` | Symlink points to correct source — skip |
-| `conflict` | Symlink points elsewhere — replace |
-| `pending` | Regular file exists — backup + link |
-| `missing` | Nothing exists — create link |
-| `unsafe` | Target outside `$HOME` — blocked |
-
-### Conflict Resolution Table
-
-| Situation | Behavior |
-|-----------|----------|
-| File exists, not a symlink | Creates `.bak`, then creates symlink |
-| Symlink exists, points elsewhere | **Replaces** with correct symlink |
-| Symlink already correct | **Skips** — already linked |
-| `.bak` already exists | **Blocks** — manual intervention required |
-
-### The `.bak` Strategy
-
-**One `.bak` per file. No timestamps.**
-
-Why no timestamps? Imagine `zshrc.bak.2024-01-15_14-30-22` — now you have N backups from N runs. The intention is **friction**: if `.bak` already exists, you have to consciously decide what to do with it.
-
-If you really want to proceed:
-
-```bash
-rm ~/.zshrc.bak
-dots link
-```
-
-### Example Flow
-
-```bash
-$ dots link
-⚠️  File exists at ~/.zshrc — creating .bak
-✅ Linked: module/zsh/.zshrc → ~/.zshrc
-```
-
-Next run, if you haven't resolved the `.bak`:
-
-```bash
-⚠️  Backup already exists at ~/.zshrc.bak — remove manually to proceed
-```
+| Function | Available Methods |
+|----------|-------------------|
+| `pkg()` | `:on({...})`, `:bin()`, `:post()`, `:fallback()` |
+| `curl()` | `:extract()`, `:to()`, `:version()`, `:arch({...})`, `:bin()`, `:post()` |
+| `git()` | `:to()`, `:at()`, `:bin()`, `:post()` |
 
 ---
 
-## Field Reference
+## 7. YAML Legacy Reference
 
-| Field | Types | Description |
-|-------|-------|-------------|
-| `name` | all | Unique identifier; used for deduplication |
-| `type` | all | `package` (default), `git`, `binary` |
-| `url` | git, binary | URL or repo |
-| `dest` | git, binary | Destination path |
-| `version` | binary | Template variable for URL |
-| `ref` | git | tag/branch/commit |
-| `arch` | binary | Arch string translation |
-| `managers` | package | PM → package name mapping |
-| `extract` | binary | Archive member to extract |
-| `fallback` | package | Inline dep when PM unavailable |
-| `post-install` | all | Shell command after install |
-| `bin` | package | Executable name if different from `name` |
+> **Note**: This section documents the legacy YAML format for backward compatibility.
+> New configurations should use the Lua syntax from sections 1-3.
+
+### YAML to Lua Quick Map
+
+```lua
+-- YAML: dependencies: ["ripgrep"]
+-- Lua:
+pkg "ripgrep"
+
+-- YAML: type: package with managers
+--   name: fd
+--   type: package
+--   managers: { pacman: fd, apt: fd-find }
+--   bin: fd
+-- Lua:
+pkg("fd"):on({ pacman = "fd", apt = "fd-find" }):bin("fd")
+
+-- YAML: type: binary
+--   name: eza
+--   type: binary
+--   url: https://.../eza_{{arch}}-linux.tar.gz
+--   dest: ~/.local/bin/eza
+--   version: "0.18.21"
+--   extract: eza
+-- Lua:
+curl("https://.../eza_{{arch}}-linux.tar.gz"):extract("eza"):to("~/.local/bin/eza"):version("0.18.21")
+
+-- YAML: type: git
+--   name: p10k
+--   type: git
+--   url: https://github.com/romkatv/powerlevel10k.git
+--   dest: ~/p10k
+--   ref: v1.19.0
+-- Lua:
+git("https://github.com/romkatv/powerlevel10k.git"):to("~/p10k"):at("v1.19.0")
+```
+
+### Legacy Field Reference
+
+| Field | YAML Types | Lua Equivalent |
+|-------|------------|----------------|
+| `name` | all | First arg to `pkg()`/`curl()`/`git()` |
+| `type` | all | Constructor: `pkg`/`curl`/`git` |
+| `url` | git, binary | First arg to `curl()`/`git()` |
+| `dest` | git, binary | `:to(dest)` |
+| `version` | binary | `:version(v)` |
+| `ref` | git | `:at(ref)` |
+| `arch` | binary | `:arch({...})` |
+| `managers` | package | `:on({...})` |
+| `extract` | binary | `:extract(member)` |
+| `fallback` | package | `:fallback(...)` |
+| `post-install` | all | `:post(cmd)` |
+| `bin` | package | `:bin(name)` |
 
 ### Deprecated: `type: system`
 
-`type: system` is an alias for `type: package` (legacy, kept for backwards compatibility). New configs should use `type: package`.
+`type: system` is an alias for `type: package` (legacy, kept for backwards compatibility). In Lua, always use `pkg()`.

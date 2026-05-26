@@ -1,6 +1,6 @@
 # Comando `adopt`
 
-Importa un archivo de configuración existente al repositorio de dots y lo registra en `path.yaml`.
+Importa un archivo de configuración existente al repositorio de dots y lo registra en la configuración del módulo (`dots.lua` o `path.yaml` legacy).
 
 ## 1. Qué es `adopt`
 
@@ -30,28 +30,40 @@ dots adopt ~/.zshrc --name Zsh
 dots adopt ~/.config/alacritty/
 ```
 
-**Output esperado:**
+**Output esperado (módulo Lua nuevo):**
 ```
 Adopting Configuration
 ✓ Moved zshrc → Zsh/
-✓ Created Zsh/path.yaml
+✓ Created Zsh/dots.lua
 ℹ Run dots link -m Zsh to create the symlink.
 ```
+
+> **Nota**: Si el módulo usa `path.yaml` legacy, el output dirá `Created Zsh/path.yaml` y `Updated Zsh/path.yaml`.
 
 Si el módulo ya existía, el output será:
 ```
 Adopting Configuration
 ✓ Moved zshrc → Zsh/
-✓ Updated Zsh/path.yaml
+✓ Updated Zsh/dots.lua
 ℹ Run dots link -m Zsh to create the symlink.
 ```
 
-**`path.yaml` resultante:**
-```yaml
-files:
-  - source: zshrc
-    destination: ~/.zshrc
+**`dots.lua` resultante:**
+```lua
+return {
+  type = "minimal",
+  files = {
+    file("zshrc", "~/.zshrc"),
+  },
+}
 ```
+
+> Si el módulo usa `path.yaml` legacy, el archivo generado será:
+> ```yaml
+> files:
+>   - source: zshrc
+>     destination: ~/.zshrc
+> ```
 
 ## 3. Qué hace internamente
 
@@ -59,15 +71,17 @@ Cada vez que ejecutás `adopt`, el comando realiza estos pasos en orden:
 
 1. **Validación de seguridad**: Verifica que el archivo esté dentro de `$HOME`. Si está fuera, pide confirmación explícita.
 
-2. **Determinación del módulo**: Si no especificás `--name`, pide el nombre interactivamente (default: `path.name` capitalizado — solo el nombre del archivo, no la ruta completa). Por ejemplo, si hacés `dots adopt ~/.config/alacritty/alacritty.yml`, el default sería `Alacritty.yml`.
+2. **Detección de symlinks existentes**: Si el archivo ya es un symlink apuntando al repo, no lo mueve — solo agrega una entrada a la configuración del módulo.
 
-3. **Detección del destino**: Convierte la ruta absoluta en una ruta relativa a `~` (ej: `/home/user/.zshrc` → `~/.zshrc`).
+3. **Determinación del módulo**: Si no especificás `--name`, pide el nombre interactivamente (default: `path.name` capitalizado — solo el nombre del archivo, no la ruta completa). Por ejemplo, si hacés `dots adopt ~/.config/alacritty/alacritty.yml`, el default sería `Alacritty.yml`.
 
-4. **Movimiento del archivo**: Mueve el archivo desde su ubicación original al directorio del módulo en el repositorio.
+4. **Detección del destino**: Convierte la ruta absoluta en una ruta relativa a `~` (ej: `/home/user/.zshrc` → `~/.zshrc`).
 
-5. **Registro en `path.yaml`**: Agrega una entrada `source` / `destination` al archivo YAML del módulo.
+5. **Movimiento del archivo**: Mueve el archivo desde su ubicación original al directorio del módulo en el repositorio.
 
-6. **Transacción segura**: Si algo falla durante el proceso, se hace rollback (el archivo vuelve a su lugar original).
+6. **Registro en `dots.lua`** (o `path.yaml` legacy): Agrega una entrada `file()` al archivo Lua del módulo.
+
+7. **Transacción segura**: Si algo falla durante el proceso, se hace rollback (el archivo vuelve a su lugar original).
 
 ## 4. `--dry-run` para previsualizar
 
@@ -82,7 +96,7 @@ dots adopt ~/.zshrc --name Zsh --dry-run
 Adopting Configuration
 ℹ [DRY] Would create directory: /home/user/dots/Zsh
 ℹ [DRY] Would move /home/user/.zshrc → /home/user/dots/Zsh/zshrc
-ℹ [DRY] Would create Zsh/path.yaml with destination=~/.zshrc
+ℹ [DRY] Would create Zsh/dots.lua with file("zshrc", "~/.zshrc")
 ```
 
 `--dry-run` no toca nada. Solo te muestra exactamente qué haría el comando.
@@ -93,7 +107,7 @@ Este es el comportamiento "inteligente" de `adopt`.
 
 ### 5.1 Detecta conflicto
 
-Cuando ejecutás `adopt` y el módulo ya existe **y** ese módulo ya declara el mismo destino en su `path.yaml`:
+Cuando ejecutás `adopt` y el módulo ya existe **y** ese módulo ya declara el mismo destino en su `dots.lua` (o `path.yaml` legacy):
 
 ```bash
 # Supongamos que el módulo Zsh ya declara ~/.zshrc
@@ -102,7 +116,7 @@ dots adopt ~/.zshrc --name Zsh
 
 **dots detecta:**
 - El módulo `Zsh` existe
-- `~/.zshrc` ya está declarado como destination en `Zsh/path.yaml`
+- `~/.zshrc` ya está declarado como destination en `Zsh/dots.lua`
 
 ### 5.2 Ofrece crear variant
 
@@ -133,7 +147,7 @@ Adopting Configuration
 ℹ Module Zsh already declares ~/.zshrc as a destination.
 ℹ [DRY] Would create: Zsh/work/
 ℹ [DRY] Would move /home/user/.zshrc → /home/user/dots/Zsh/work/zshrc
-ℹ [DRY] Would add variant entry to Zsh/path.yaml: source=work/zshrc, destination=~/.zshrc
+ℹ [DRY] Would add variant entry to Zsh/dots.lua: file("work/zshrc", "~/.zshrc"):variant("work")
 ```
 
 **Estructura resultante:**
@@ -144,21 +158,25 @@ Zsh/
     └── zshrc          ← nuevo variant "work"
 ```
 
-**`path.yaml` actualizado:**
-```yaml
-files:
-  - source: zshrc
-    destination: ~/.zshrc
-  - source: work/zshrc   # ← variant creado por adopt
-    destination: ~/.zshrc
+**`dots.lua` actualizado:**
+```lua
+return {
+  type = "minimal",
+  files = {
+    file("zshrc", "~/.zshrc"),
+    file("work/zshrc", "~/.zshrc"):variant("work"),
+  },
+}
 ```
 
 **Output final:**
 ```
 ✓ Moved zshrc → Zsh/work/
-ℹ Added variant 'work' to Zsh/path.yaml
-ℹ Run dots link -m Zsh --variant work/zshrc to activate this variant.
+ℹ Added variant 'work' to Zsh/dots.lua
+ℹ Run dots link -m Zsh --variant work to activate this variant.
 ```
+
+> **Nota**: Con `path.yaml` legacy, la variante se agrega como un segundo entry `source` con el mismo `destination` (variante implícita).
 
 ## 6. Ejemplo completo del flujo
 
@@ -181,22 +199,26 @@ $ dots adopt ~/.zshrc --name Zsh
 ```
 Adopting Configuration
 ✓ Moved zshrc → Zsh/
-✓ Created Zsh/path.yaml
+✓ Created Zsh/dots.lua
 ℹ Run dots link -m Zsh to create the symlink.
 ```
 
-**`Zsh/path.yaml`:**
-```yaml
-files:
-  - source: zshrc
-    destination: ~/.zshrc
+**`dots.lua`:**
+```lua
+return {
+  type = "minimal",
+  files = {
+    file("zshrc", "~/.zshrc"),
+  },
+}
 ```
 
 **Estructura del repositorio:**
 ```
 dots/
 └── Zsh/
-    └── zshrc
+    ├── zshrc
+    └── dots.lua
 ```
 
 ### Paso 3: Link para activar
@@ -228,23 +250,26 @@ Adopting Configuration
 **Output final:**
 ```
 ✓ Moved work_zshrc → Zsh/work/
-ℹ Added variant 'work' to Zsh/path.yaml
-ℹ Run dots link -m Zsh --variant work/zshrc to activate this variant.
+ℹ Added variant 'work' to Zsh/dots.lua
+ℹ Run dots link -m Zsh --variant work to activate this variant.
 ```
 
-**`Zsh/path.yaml` actualizado:**
-```yaml
-files:
-  - source: zshrc
-    destination: ~/.zshrc
-  - source: work/zshrc
-    destination: ~/.zshrc
+**`Zsh/dots.lua` actualizado:**
+```lua
+return {
+  type = "minimal",
+  files = {
+    file("zshrc", "~/.zshrc"),
+    file("work/zshrc", "~/.zshrc"):variant("work"),
+  },
+}
 ```
 
 **Estructura del repositorio:**
 ```
 dots/
 └── Zsh/
+    ├── dots.lua
     ├── zshrc
     └── work/
         └── zshrc
@@ -289,7 +314,7 @@ $ dots adopt ~/.config/htop/htoprc --name Htop
 ```
 Adopting Configuration
 ✓ Moved htoprc → Htop/
-✓ Created Htop/path.yaml
+✓ Created Htop/dots.lua
 ℹ Run dots link -m Htop to create the symlink.
 ```
 
@@ -337,12 +362,18 @@ Error: /home/user/dots/Zsh/work/zshrc already exists in repo.
 
 No se sobrescriben archivos existentes. Tenés que usar otro nombre de variant.
 
-### Edge 6: `path.yaml` está malformado
+### Edge 6: `dots.lua` o `path.yaml` malformado
 
-Si el `path.yaml` del módulo tiene errores de sintaxis YAML:
+Si el archivo de configuración del módulo tiene errores, `adopt` trata de cargarlo. Si falla, usa una estructura vacía `{"files": []}` y sobrescribe el archivo. **Recomendación**: mantené backups de tu configuración de módulo si tiene contenido complejo.
 
-```bash
-$ dots adopt ~/.zshrc --name BrokenModule
-```
+## 8. Compatibilidad con módulos legacy
 
-`adopt` trata de cargar el YAML. Si falla, usa una estructura vacía `{"files": []}` y sobrescribe el archivo. **Recomendación**: mantené backups de `path.yaml` si tiene contenido complejo.
+`adopt` detecta automáticamente si el módulo usa `dots.lua` (Lua) o `path.yaml` (YAML legacy):
+
+| Config del módulo | Output de adopt |
+|---|---|
+| `dots.lua` | Agrega `file("source", "~/.dest")` al array `files` |
+| `path.yaml` (legacy) | Agrega `source` / `destination` al YAML |
+| Ninguno (módulo nuevo) | Crea `dots.lua` (recomendado) |
+
+Para migrar un módulo legacy a Lua, usá `dots migrate -m <module>`.
