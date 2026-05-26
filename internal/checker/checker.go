@@ -1,4 +1,4 @@
-// Package checker validates path.yaml schema and reports issues like an LSP.
+// Package checker validates path.yaml and dots.lua schemas, reporting issues like an LSP.
 // It scans all modules in the dotfiles repository and produces diagnostic
 // messages for any syntax or semantic problems.
 package checker
@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Wilberucx/dots/internal/config"
+	luacfg "github.com/Wilberucx/dots/internal/lua"
 	"github.com/Wilberucx/dots/internal/resolver"
 	"github.com/Wilberucx/dots/internal/ui"
 	"github.com/Wilberucx/dots/internal/yaml"
@@ -29,7 +30,7 @@ const (
 // Issue represents a single diagnostic finding.
 type Issue struct {
 	Module   string   // Module name (e.g. "Nvim")
-	File     string   // Path to path.yaml relative to repo root
+	File     string   // Path to config file relative to repo root
 	Severity Severity
 	Message  string
 	Field    string   // Optional: the problematic field name
@@ -60,8 +61,20 @@ func (r *Result) HasWarnings() bool {
 	return false
 }
 
-// RunSyntaxCheck scans all modules and validates their path.yaml files.
-func RunSyntaxCheck(cfg *config.DotsConfig) *Result {
+// CheckOptions controls optional behavior of the syntax checker.
+type CheckOptions struct {
+	// NoHints suppresses informational hints (e.g. migration suggestions).
+	NoHints bool
+}
+
+// RunSyntaxCheck scans all modules and validates their config files (dots.lua or path.yaml).
+// Pass CheckOptions{NoHints: true} to suppress migration hints.
+func RunSyntaxCheck(cfg *config.DotsConfig, opts ...CheckOptions) *Result {
+	options := CheckOptions{}
+	if len(opts) > 0 {
+		options = opts[0]
+	}
+
 	result := &Result{}
 
 	modDirs, err := cfg.GetModuleDirs(nil, nil)
@@ -73,13 +86,108 @@ func RunSyntaxCheck(cfg *config.DotsConfig) *Result {
 		return result
 	}
 
+	var hasYAMLModules bool
+
 	for _, mod := range modDirs {
+		// Check Lua modules
+		luaPath := filepath.Join(mod.Path, "dots.lua")
+		if mod.Type == int(luacfg.ModuleTypeLua) {
+			relPath := filepath.Join(mod.Name, "dots.lua")
+			checkLuaModule(mod.Name, relPath, luaPath, cfg, result)
+			continue
+		}
+
+		// Check YAML modules
 		yamlPath := filepath.Join(mod.Path, "path.yaml")
 		relPath := filepath.Join(mod.Name, "path.yaml")
 		checkPathYAML(mod.Name, relPath, yamlPath, cfg, result)
+		hasYAMLModules = true
+
+		// Hint: suggest migration from YAML to Lua
+		if !options.NoHints {
+			result.Issues = append(result.Issues, Issue{
+				Module:   mod.Name,
+				File:     relPath,
+				Severity: SeverityHint,
+				Message:  "module uses legacy YAML format — consider migrating to dots.lua (see: https://github.com/Wilberucx/dots/docs/lua-syntax.md)",
+			})
+		}
+	}
+
+	// Advisory: no init.lua detected
+	if !options.NoHints && !cfg.IsLuaRepo && hasYAMLModules {
+		result.Issues = append(result.Issues, Issue{
+			Severity: SeverityHint,
+			Message:  "no init.lua found in repo root — create one to enable Lua configuration (see: https://github.com/Wilberucx/dots/docs/lua-syntax.md)",
+		})
 	}
 
 	return result
+}
+
+// checkLuaModule validates a single dots.lua file for syntax errors and source existence.
+func checkLuaModule(moduleName, relPath, luaPath string, cfg *config.DotsConfig, result *Result) {
+	if _, err := os.Stat(luaPath); os.IsNotExist(err) {
+		result.Issues = append(result.Issues, Issue{
+			Module:   moduleName,
+			File:     relPath,
+			Severity: SeverityError,
+			Message:  "dots.lua not found in module directory",
+		})
+		return
+	}
+
+	// Syntax check using the Lua VM
+	err := luacfg.CheckSyntax(luaPath)
+	if err != nil {
+		result.Issues = append(result.Issues, Issue{
+			Module:   moduleName,
+			File:     relPath,
+			Severity: SeverityError,
+			Message:  fmt.Sprintf("syntax/load error: %v", err),
+		})
+		return
+	}
+
+	// Validate source file existence (reuse the already-parsed config by loading it again)
+	checkLuaSourceExistence(moduleName, relPath, luaPath, cfg, result)
+}
+
+// checkLuaSourceExistence validates that source files referenced in a Lua config exist.
+// Takes an optional pre-loaded config to avoid loading the same file twice.
+func checkLuaSourceExistence(moduleName, relPath, luaPath string, cfg *config.DotsConfig, result *Result, existingCfg ...*luacfg.ModuleConfig) {
+	var moduleCfg *luacfg.ModuleConfig
+
+	if len(existingCfg) > 0 && existingCfg[0] != nil {
+		// Reuse already-loaded config to avoid creating another LState
+		moduleCfg = existingCfg[0]
+	} else {
+		vm := luacfg.NewLuaVM()
+		defer vm.Close()
+
+		var err error
+		moduleCfg, err = vm.LoadModuleConfig(luaPath)
+		if err != nil || moduleCfg == nil {
+			return
+		}
+	}
+
+	for _, f := range moduleCfg.Files {
+		// Skip glob patterns
+		if f.Type == luacfg.FileOpGlob || strings.ContainsAny(f.Source, "*?[") {
+			continue
+		}
+
+		sourcePath := filepath.Join(cfg.RepoRoot, moduleName, strings.TrimLeft(f.Source, "/"))
+		if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+			result.Issues = append(result.Issues, Issue{
+				Module:   moduleName,
+				File:     relPath,
+				Severity: SeverityWarning,
+				Message:  fmt.Sprintf("file %q: source path not found in module directory", f.Source),
+			})
+		}
+	}
 }
 
 // CheckBrokenLinks resolves all modules and appends any conflicts/unsafe paths to the issues result.
@@ -87,7 +195,13 @@ func CheckBrokenLinks(cfg *config.DotsConfig, result *Result) {
 	allModules, err := resolver.ResolveModules(cfg, nil, nil, "")
 	if err == nil {
 		for modName, statuses := range allModules {
-			relPath := filepath.Join(modName, "path.yaml")
+			configFile := "path.yaml"
+			// Check if it's a Lua module
+			luaPath := filepath.Join(cfg.RepoRoot, modName, "dots.lua")
+			if _, err := os.Stat(luaPath); err == nil {
+				configFile = "dots.lua"
+			}
+			relPath := filepath.Join(modName, configFile)
 			for _, st := range statuses {
 				if st.State == resolver.StateConflict {
 					result.Issues = append(result.Issues, Issue{

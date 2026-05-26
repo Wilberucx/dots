@@ -8,6 +8,7 @@ import (
 )
 
 // completionCmd generates shell completion scripts for bash, zsh, fish, and powershell.
+// Hidden from general help — this is for shell integration, not human consumption.
 var completionCmd = &cobra.Command{
 	Use:   "completion [bash|zsh|fish|powershell]",
 	Short: "Generate shell completion script",
@@ -15,25 +16,22 @@ var completionCmd = &cobra.Command{
 
 To load completions in your current shell session:
 
-  Bash:
-    source <(dots completion bash)
+    Bash:       source <(dots completion bash)
+    Zsh:        source <(dots completion zsh)
+    Fish:       dots completion fish | source
+    PowerShell: dots completion powershell | Out-String | Invoke-Expression
 
-  Zsh:
-    source <(dots completion zsh)
-
-  Fish:
-    dots completion fish | source
-
-  PowerShell:
-    dots completion powershell | Out-String | Invoke-Expression
-
-To persist completions, add the appropriate line above to your shell's
-configuration file (e.g., ~/.bashrc, ~/.zshrc, ~/.config/fish/config.fish).`,
+To persist completions, add the line above to your shell's configuration file
+(e.g., ~/.bashrc, ~/.zshrc, ~/.config/fish/config.fish).`,
 
 	DisableFlagsInUseLine: true,
+	Hidden:                true,
 	ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
-	Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+	Args:                  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return cmd.Help()
+		}
 		switch args[0] {
 		case "bash":
 			return cmd.Root().GenBashCompletion(os.Stdout)
@@ -44,7 +42,7 @@ configuration file (e.g., ~/.bashrc, ~/.zshrc, ~/.config/fish/config.fish).`,
 		case "powershell":
 			return cmd.Root().GenPowerShellCompletion(os.Stdout)
 		default:
-			return fmt.Errorf("unsupported shell: %s", args[0])
+			return fmt.Errorf("unsupported shell: %s\n\nSupported shells: bash, zsh, fish, powershell", args[0])
 		}
 	},
 }

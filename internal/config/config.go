@@ -26,10 +26,36 @@ type DotsConfig struct {
 	CurrentOS string
 	HomeDir   string
 	CLIDir    string
+	// Lua repo fields (only set for init.lua repos)
+	IsLuaRepo       bool
+	InitCfg         *RootConfig
+	// Cached module dirs (set externally for Lua repos)
+	cachedModuleDirs []ModuleDir
+}
+
+// RootConfig mirrors lua.RootConfig for external use.
+type RootConfig struct {
+	Name        string
+	ModulePaths []string
+	Plugins     []string
+}
+
+// SetCachedModuleDirs sets the cached module directories (used by Lua repos).
+func (c *DotsConfig) SetCachedModuleDirs(dirs []ModuleDir) {
+	c.cachedModuleDirs = dirs
+}
+
+// GetCachedModuleDirs returns the cached module directories.
+func (c *DotsConfig) GetCachedModuleDirs() []ModuleDir {
+	return c.cachedModuleDirs
 }
 
 // IsDotfilesRepo checks if a path is a dotfiles repository.
 func IsDotfilesRepo(path string) bool {
+	// New Lua format: init.lua
+	if _, err := os.Stat(filepath.Join(path, "init.lua")); err == nil {
+		return true
+	}
 	// New format: .dots/config.yaml
 	if _, err := os.Stat(filepath.Join(path, MarkerDir, MarkerConfig)); err == nil {
 		return true
@@ -87,7 +113,7 @@ func Load() (*DotsConfig, error) {
 
 	return nil, fmt.Errorf(
 		"could not find a dotfiles repository.\n"+
-			"No '%s/%s' or '%s' found in current directory tree or common locations.\n\n"+
+			"No 'init.lua', '%s/%s' or '%s' found in current directory tree or common locations.\n\n"+
 			"To fix this, you have 3 options:\n"+
 			"  1. dots --path ~/your-dotfiles <command> — specify path directly\n"+
 			"  2. export DOTS_REPO=~/your-dotfiles — set environment variable\n"+
@@ -97,16 +123,77 @@ func Load() (*DotsConfig, error) {
 }
 
 func create(repoRoot string) *DotsConfig {
-	return &DotsConfig{
+	cfg := &DotsConfig{
 		RepoRoot:  repoRoot,
 		CurrentOS: system.DetectOS(),
 		HomeDir:   system.HomeDir(),
 		CLIDir:    filepath.Join(repoRoot, "cli"),
 	}
+
+	// Detect Lua repo and load init.lua if present
+	if _, err := os.Stat(filepath.Join(repoRoot, "init.lua")); err == nil {
+		cfg.IsLuaRepo = true
+		rootCfg, err := loadLuaRootConfig(repoRoot)
+		if err == nil && rootCfg != nil {
+			cfg.InitCfg = rootCfg
+		}
+	}
+
+	return cfg
+}
+
+// loadLuaRootConfig is a placeholder that exists to signal the loading pattern.
+// Actual init.lua loading happens in cli/root.go → loadLuaInitConfig() to avoid
+// circular imports between config and lua packages.
+func loadLuaRootConfig(repoRoot string) (*RootConfig, error) {
+	return nil, nil
+}
+
+// SetInitConfig sets the RootConfig after loading (called from CLI layer).
+func (c *DotsConfig) SetInitConfig(cfg *RootConfig) {
+	c.InitCfg = cfg
 }
 
 // GetModuleDirs returns sorted module directories, optionally filtered by name or type.
 func (c *DotsConfig) GetModuleDirs(modules, types []string) ([]ModuleDir, error) {
+	// For Lua repos, use the Lua module discovery system
+	if c.IsLuaRepo {
+		return c.getLuaModuleDirs(modules, types)
+	}
+
+	// Original YAML-based discovery
+	return c.getYAMLModuleDirs(modules, types)
+}
+
+// getLuaModuleDirs returns cached Lua module dirs, optionally filtered.
+func (c *DotsConfig) getLuaModuleDirs(modules, types []string) ([]ModuleDir, error) {
+	allDirs := c.cachedModuleDirs
+	if allDirs == nil {
+		return nil, nil
+	}
+
+	if len(modules) > 0 {
+		dirMap := make(map[string]ModuleDir)
+		for _, d := range allDirs {
+			dirMap[d.Name] = d
+		}
+		var filtered []ModuleDir
+		for _, name := range modules {
+			if d, ok := dirMap[name]; ok {
+				filtered = append(filtered, d)
+			}
+		}
+		allDirs = filtered
+	}
+
+	// Type filtering is not applicable for Lua repos (types are in Lua config)
+	_ = types
+
+	return allDirs, nil
+}
+
+// getYAMLModuleDirs discovers modules using path.yaml (original behavior).
+func (c *DotsConfig) getYAMLModuleDirs(modules, types []string) ([]ModuleDir, error) {
 	entries, err := os.ReadDir(c.RepoRoot)
 	if err != nil {
 		return nil, err
@@ -166,9 +253,11 @@ func (c *DotsConfig) GetModuleDirs(modules, types []string) ([]ModuleDir, error)
 }
 
 // ModuleDir represents a module directory in the dotfiles repo.
+// Type indicates the config format: 0 = YAML (legacy), 1 = Lua.
 type ModuleDir struct {
 	Name string
 	Path string
+	Type int // 0 = YAML (path.yaml), 1 = Lua (dots.lua)
 }
 
 // ParseModuleMeta reads type metadata from a path.yaml file.

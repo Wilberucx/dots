@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Wilberucx/dots/internal/config"
+	luacfg "github.com/Wilberucx/dots/internal/lua"
 	"github.com/Wilberucx/dots/internal/plugins"
 	"github.com/Wilberucx/dots/internal/system"
 	"github.com/Wilberucx/dots/internal/template"
@@ -66,6 +67,7 @@ func runInstall(cmd *cobra.Command) error {
 }
 
 // loadDependencies scans modules and collects unique dependencies.
+// Supports both YAML (path.yaml) and Lua (dots.lua) modules.
 func loadDependencies(cfg *config.DotsConfig, modules, types []string) []yaml.Dependency {
 	modDirs, err := cfg.GetModuleDirs(modules, types)
 	if err != nil {
@@ -76,6 +78,21 @@ func loadDependencies(cfg *config.DotsConfig, modules, types []string) []yaml.De
 	seen := make(map[string]bool)
 
 	for _, mod := range modDirs {
+		// Lua module: load dependencies from Lua config
+		if mod.Type == int(luacfg.ModuleTypeLua) {
+			deps, err := loadLuaDependencies(mod.Path)
+			if err == nil && deps != nil {
+				for _, d := range deps {
+					if !seen[d.Name] {
+						allDeps = append(allDeps, d)
+						seen[d.Name] = true
+					}
+				}
+			}
+			continue
+		}
+
+		// YAML module: load dependencies from path.yaml
 		yamlPath := filepath.Join(mod.Path, "path.yaml")
 		deps, err := yaml.ParseDependencies(yamlPath)
 		if err != nil || deps == nil {
@@ -90,6 +107,57 @@ func loadDependencies(cfg *config.DotsConfig, modules, types []string) []yaml.De
 	}
 
 	return allDeps
+}
+
+// loadLuaDependencies loads dependencies from a Lua module's dots.lua file.
+func loadLuaDependencies(modPath string) ([]yaml.Dependency, error) {
+	luaPath := filepath.Join(modPath, "dots.lua")
+	if _, err := os.Stat(luaPath); os.IsNotExist(err) {
+		return nil, nil
+	}
+
+	vm := luacfg.NewLuaVM()
+	defer vm.Close()
+
+	moduleCfg, err := vm.LoadModuleConfig(luaPath)
+	if err != nil || moduleCfg == nil {
+		return nil, err
+	}
+
+	var deps []yaml.Dependency
+	for _, dep := range moduleCfg.Dependencies {
+		yamlDep := yaml.Dependency{
+			Name:        dep.Name,
+			Type:        dep.Type,
+			URL:         dep.URL,
+			Dest:        dep.Destination,
+			Version:     dep.Version,
+			Ref:         dep.Ref,
+			Extract:     dep.Extract,
+			PostInstall: dep.PostInstall,
+			Bin:         dep.Bin,
+			Managers:    dep.Managers,
+			Arch:        dep.Arch,
+		}
+		if dep.Fallback != nil {
+			yamlDep.Fallback = &yaml.Dependency{
+				Name:        dep.Fallback.Name,
+				Type:        dep.Fallback.Type,
+				URL:         dep.Fallback.URL,
+				Dest:        dep.Fallback.Destination,
+				Version:     dep.Fallback.Version,
+				Ref:         dep.Fallback.Ref,
+				Extract:     dep.Fallback.Extract,
+				PostInstall: dep.Fallback.PostInstall,
+				Bin:         dep.Fallback.Bin,
+				Managers:    dep.Fallback.Managers,
+				Arch:        dep.Fallback.Arch,
+			}
+		}
+		deps = append(deps, yamlDep)
+	}
+
+	return deps, nil
 }
 
 // installDep dispatches to the correct installer based on dep.Type.
