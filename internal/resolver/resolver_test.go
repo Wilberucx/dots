@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Wilberucx/dots/internal/config"
+	luacfg "github.com/Wilberucx/dots/internal/lua"
 	"github.com/Wilberucx/dots/internal/yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -65,6 +66,469 @@ func createSymlink(t *testing.T, target, linkPath string) {
 	err = os.Symlink(target, linkPath)
 	require.NoError(t, err)
 }
+
+// createLuaModule creates a module directory with dots.lua content and source files.
+func createLuaModule(t *testing.T, cfg *config.DotsConfig, name, luaContent string, sourceFiles map[string]string) {
+	t.Helper()
+	modDir := filepath.Join(cfg.RepoRoot, name)
+	err := os.MkdirAll(modDir, 0755)
+	require.NoError(t, err)
+
+	err = os.WriteFile(filepath.Join(modDir, "dots.lua"), []byte(luaContent), 0644)
+	require.NoError(t, err)
+
+	for srcPath, content := range sourceFiles {
+		fullPath := filepath.Join(modDir, srcPath)
+		err := os.MkdirAll(filepath.Dir(fullPath), 0755)
+		require.NoError(t, err)
+		err = os.WriteFile(fullPath, []byte(content), 0644)
+		require.NoError(t, err)
+	}
+}
+
+// ─── luaFileIsLinked unit tests ─────────────────────────────────────────────
+
+func TestLuaFileIsLinked_FileOpFile_Linked(t *testing.T) {
+	srcDir := t.TempDir()
+	destDir := t.TempDir()
+
+	err := os.WriteFile(filepath.Join(srcDir, ".zshrc"), []byte("export FOO=bar"), 0644)
+	require.NoError(t, err)
+	createSymlink(t, filepath.Join(srcDir, ".zshrc"), filepath.Join(destDir, ".zshrc"))
+
+	f := luacfg.FileOp{
+		Type:        luacfg.FileOpFile,
+		Source:      ".zshrc",
+		Destination: filepath.Join(destDir, ".zshrc"),
+	}
+
+	assert.True(t, luaFileIsLinked(f, srcDir, "linux"))
+}
+
+func TestLuaFileIsLinked_FileOpFile_NotLinked(t *testing.T) {
+	srcDir := t.TempDir()
+
+	err := os.WriteFile(filepath.Join(srcDir, ".zshrc"), []byte("export FOO=bar"), 0644)
+	require.NoError(t, err)
+
+	f := luacfg.FileOp{
+		Type:        luacfg.FileOpFile,
+		Source:      ".zshrc",
+		Destination: "/nonexistent/path/.zshrc",
+	}
+
+	assert.False(t, luaFileIsLinked(f, srcDir, "linux"))
+}
+
+func TestLuaFileIsLinked_DirTo_Linked(t *testing.T) {
+	srcDir := t.TempDir()
+	destDir := t.TempDir()
+
+	err := os.MkdirAll(filepath.Join(srcDir, "config"), 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(srcDir, "config", "file.toml"), []byte("setting=true"), 0644)
+	require.NoError(t, err)
+
+	// dir():to(): dest itself is a symlink to the source directory
+	createSymlink(t, filepath.Join(srcDir, "config"), filepath.Join(destDir, "config"))
+
+	f := luacfg.FileOp{
+		Type:        luacfg.FileOpDirTo,
+		Source:      "config",
+		Destination: filepath.Join(destDir, "config"),
+	}
+
+	assert.True(t, luaFileIsLinked(f, srcDir, "linux"))
+}
+
+func TestLuaFileIsLinked_DirTo_NotLinked(t *testing.T) {
+	srcDir := t.TempDir()
+	destDir := t.TempDir()
+
+	err := os.MkdirAll(filepath.Join(srcDir, "config"), 0755)
+	require.NoError(t, err)
+
+	// Create real directory at dest, not a symlink
+	err = os.MkdirAll(filepath.Join(destDir, "config"), 0755)
+	require.NoError(t, err)
+
+	f := luacfg.FileOp{
+		Type:        luacfg.FileOpDirTo,
+		Source:      "config",
+		Destination: filepath.Join(destDir, "config"),
+	}
+
+	assert.False(t, luaFileIsLinked(f, srcDir, "linux"))
+}
+
+func TestLuaFileIsLinked_DirInto_AllLinked(t *testing.T) {
+	srcDir := t.TempDir()
+	destDir := t.TempDir()
+
+	err := os.MkdirAll(filepath.Join(srcDir, "arch"), 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(srcDir, "arch", ".zshrc"), []byte("export FOO=bar"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(srcDir, "arch", ".zshenv"), []byte("export PATH=$PATH"), 0644)
+	require.NoError(t, err)
+
+	// All children correctly symlinked
+	createSymlink(t, filepath.Join(srcDir, "arch", ".zshrc"), filepath.Join(destDir, ".zshrc"))
+	createSymlink(t, filepath.Join(srcDir, "arch", ".zshenv"), filepath.Join(destDir, ".zshenv"))
+
+	f := luacfg.FileOp{
+		Type:        luacfg.FileOpDirInto,
+		Source:      "arch",
+		Destination: destDir,
+	}
+
+	assert.True(t, luaFileIsLinked(f, srcDir, "linux"))
+}
+
+func TestLuaFileIsLinked_DirInto_PartialLinked(t *testing.T) {
+	srcDir := t.TempDir()
+	destDir := t.TempDir()
+
+	err := os.MkdirAll(filepath.Join(srcDir, "arch"), 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(srcDir, "arch", ".zshrc"), []byte("export FOO=bar"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(srcDir, "arch", ".zshenv"), []byte("export PATH=$PATH"), 0644)
+	require.NoError(t, err)
+
+	// Only ONE child symlinked
+	createSymlink(t, filepath.Join(srcDir, "arch", ".zshrc"), filepath.Join(destDir, ".zshrc"))
+
+	f := luacfg.FileOp{
+		Type:        luacfg.FileOpDirInto,
+		Source:      "arch",
+		Destination: destDir,
+	}
+
+	assert.False(t, luaFileIsLinked(f, srcDir, "linux"))
+}
+
+func TestLuaFileIsLinked_DirInto_NoneLinked(t *testing.T) {
+	srcDir := t.TempDir()
+	destDir := t.TempDir()
+
+	err := os.MkdirAll(filepath.Join(srcDir, "arch"), 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(srcDir, "arch", ".zshrc"), []byte("export FOO=bar"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(srcDir, "arch", ".zshenv"), []byte("export PATH=$PATH"), 0644)
+	require.NoError(t, err)
+
+	f := luacfg.FileOp{
+		Type:        luacfg.FileOpDirInto,
+		Source:      "arch",
+		Destination: destDir,
+	}
+
+	assert.False(t, luaFileIsLinked(f, srcDir, "linux"))
+}
+
+func TestLuaFileIsLinked_DirInto_EmptyDir(t *testing.T) {
+	srcDir := t.TempDir()
+	destDir := t.TempDir()
+
+	err := os.MkdirAll(filepath.Join(srcDir, "arch"), 0755)
+	require.NoError(t, err)
+
+	f := luacfg.FileOp{
+		Type:        luacfg.FileOpDirInto,
+		Source:      "arch",
+		Destination: destDir,
+	}
+
+	// Empty directory is trivially linked
+	assert.True(t, luaFileIsLinked(f, srcDir, "linux"))
+}
+
+func TestLuaFileIsLinked_DirInto_SourceNotDir(t *testing.T) {
+	srcDir := t.TempDir()
+
+	// Source is a file, not a directory
+	err := os.WriteFile(filepath.Join(srcDir, "arch"), []byte("not a dir"), 0644)
+	require.NoError(t, err)
+
+	f := luacfg.FileOp{
+		Type:        luacfg.FileOpDirInto,
+		Source:      "arch",
+		Destination: t.TempDir(),
+	}
+
+	assert.False(t, luaFileIsLinked(f, srcDir, "linux"))
+}
+
+func TestLuaFileIsLinked_Glob_AllLinked(t *testing.T) {
+	srcDir := t.TempDir()
+	destDir := t.TempDir()
+
+	err := os.WriteFile(filepath.Join(srcDir, "alacritty.toml"), []byte("[general]"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(srcDir, "kitty.toml"), []byte("[font]"), 0644)
+	require.NoError(t, err)
+
+	createSymlink(t, filepath.Join(srcDir, "alacritty.toml"), filepath.Join(destDir, "alacritty.toml"))
+	createSymlink(t, filepath.Join(srcDir, "kitty.toml"), filepath.Join(destDir, "kitty.toml"))
+
+	f := luacfg.FileOp{
+		Type:        luacfg.FileOpGlob,
+		Pattern:     "*.toml",
+		Destination: destDir,
+	}
+
+	assert.True(t, luaFileIsLinked(f, srcDir, "linux"))
+}
+
+func TestLuaFileIsLinked_Glob_PartialLinked(t *testing.T) {
+	srcDir := t.TempDir()
+	destDir := t.TempDir()
+
+	err := os.WriteFile(filepath.Join(srcDir, "alacritty.toml"), []byte("[general]"), 0644)
+	require.NoError(t, err)
+	err = os.WriteFile(filepath.Join(srcDir, "kitty.toml"), []byte("[font]"), 0644)
+	require.NoError(t, err)
+
+	createSymlink(t, filepath.Join(srcDir, "alacritty.toml"), filepath.Join(destDir, "alacritty.toml"))
+
+	f := luacfg.FileOp{
+		Type:        luacfg.FileOpGlob,
+		Pattern:     "*.toml",
+		Destination: destDir,
+	}
+
+	assert.False(t, luaFileIsLinked(f, srcDir, "linux"))
+}
+
+func TestLuaFileIsLinked_Glob_NoMatches(t *testing.T) {
+	srcDir := t.TempDir()
+
+	f := luacfg.FileOp{
+		Type:        luacfg.FileOpGlob,
+		Pattern:     "*.toml",
+		Destination: t.TempDir(),
+	}
+
+	assert.False(t, luaFileIsLinked(f, srcDir, "linux"))
+}
+
+// ─── Integration: GetActiveVariant with DirInto variants ────────────────────
+
+func TestGetActiveVariant_LuaDirIntoVariant_AllLinked(t *testing.T) {
+	cfg := setupTestRepo(t)
+	cfg.IsLuaRepo = true
+
+	createLuaModule(t, cfg, "Zsh", `return {
+  type = "minimal",
+  files = {
+    dir("arch"):into("~"):variant("arch"),
+    dir("termux"):into("~"):variant("termux"),
+  },
+}`, map[string]string{
+		"arch/.zshrc":   "export FOO=bar",
+		"arch/.zshenv":  "export PATH=$PATH",
+		"termux/.zshrc": "export TERMUX=true",
+	})
+
+	cfg.SetCachedModuleDirs([]config.ModuleDir{
+		{Name: "Zsh", Path: filepath.Join(cfg.RepoRoot, "Zsh"), Type: 1},
+	})
+
+	// Create all symlinks for "arch" variant
+	createSymlink(t, filepath.Join(cfg.RepoRoot, "Zsh", "arch", ".zshrc"), filepath.Join(cfg.HomeDir, ".zshrc"))
+	createSymlink(t, filepath.Join(cfg.RepoRoot, "Zsh", "arch", ".zshenv"), filepath.Join(cfg.HomeDir, ".zshenv"))
+
+	active, err := GetActiveVariant(cfg, "Zsh")
+	require.NoError(t, err)
+	assert.Equal(t, "arch", active)
+}
+
+func TestGetActiveVariant_LuaDirIntoVariant_PartialLinked(t *testing.T) {
+	cfg := setupTestRepo(t)
+	cfg.IsLuaRepo = true
+
+	createLuaModule(t, cfg, "Zsh", `return {
+  type = "minimal",
+  files = {
+    dir("arch"):into("~"):variant("arch"),
+    dir("termux"):into("~"):variant("termux"),
+  },
+}`, map[string]string{
+		"arch/.zshrc":   "export FOO=bar",
+		"arch/.zshenv":  "export PATH=$PATH",
+		"termux/.zshrc": "export TERMUX=true",
+	})
+
+	cfg.SetCachedModuleDirs([]config.ModuleDir{
+		{Name: "Zsh", Path: filepath.Join(cfg.RepoRoot, "Zsh"), Type: 1},
+	})
+
+	// Only ONE file linked for "arch"
+	createSymlink(t, filepath.Join(cfg.RepoRoot, "Zsh", "arch", ".zshrc"), filepath.Join(cfg.HomeDir, ".zshrc"))
+
+	active, err := GetActiveVariant(cfg, "Zsh")
+	require.NoError(t, err)
+	assert.Empty(t, active)
+}
+
+func TestGetActiveVariant_LuaDirIntoVariant_NoLinks(t *testing.T) {
+	cfg := setupTestRepo(t)
+	cfg.IsLuaRepo = true
+
+	createLuaModule(t, cfg, "Zsh", `return {
+  type = "minimal",
+  files = {
+    dir("arch"):into("~"):variant("arch"),
+    dir("termux"):into("~"):variant("termux"),
+  },
+}`, map[string]string{
+		"arch/.zshrc":   "export FOO=bar",
+		"arch/.zshenv":  "export PATH=$PATH",
+		"termux/.zshrc": "export TERMUX=true",
+	})
+
+	cfg.SetCachedModuleDirs([]config.ModuleDir{
+		{Name: "Zsh", Path: filepath.Join(cfg.RepoRoot, "Zsh"), Type: 1},
+	})
+
+	active, err := GetActiveVariant(cfg, "Zsh")
+	require.NoError(t, err)
+	assert.Empty(t, active)
+}
+
+func TestGetActiveVariant_LuaDirToVariant_AllLinked(t *testing.T) {
+	cfg := setupTestRepo(t)
+	cfg.IsLuaRepo = true
+
+	createLuaModule(t, cfg, "Alacritty", `return {
+  files = {
+    dir("personal"):to("~/.config/alacritty"):variant("personal"),
+    dir("work"):to("~/.config/alacritty"):variant("work"),
+  },
+}`, map[string]string{
+		"personal/alacritty.toml": "colorscheme = \"catppuccin\"",
+		"work/alacritty.toml":     "colorscheme = \"solarized\"",
+	})
+
+	cfg.SetCachedModuleDirs([]config.ModuleDir{
+		{Name: "Alacritty", Path: filepath.Join(cfg.RepoRoot, "Alacritty"), Type: 1},
+	})
+
+	// Symlink the entire directory for "personal"
+	createSymlink(t, filepath.Join(cfg.RepoRoot, "Alacritty", "personal"), filepath.Join(cfg.HomeDir, ".config", "alacritty"))
+
+	active, err := GetActiveVariant(cfg, "Alacritty")
+	require.NoError(t, err)
+	assert.Equal(t, "personal", active)
+}
+
+func TestGetActiveVariant_LuaGlobVariant_AllLinked(t *testing.T) {
+	cfg := setupTestRepo(t)
+	cfg.IsLuaRepo = true
+
+	createLuaModule(t, cfg, "Configs", `return {
+  files = {
+    glob("*.toml"):into("~/.config/"):variant("work"),
+  },
+}`, map[string]string{
+		"alacritty.toml": "[general]",
+		"kitty.toml":     "[font]",
+	})
+
+	cfg.SetCachedModuleDirs([]config.ModuleDir{
+		{Name: "Configs", Path: filepath.Join(cfg.RepoRoot, "Configs"), Type: 1},
+	})
+
+	// Create all symlinks for the glob matches
+	createSymlink(t, filepath.Join(cfg.RepoRoot, "Configs", "alacritty.toml"), filepath.Join(cfg.HomeDir, ".config", "alacritty.toml"))
+	createSymlink(t, filepath.Join(cfg.RepoRoot, "Configs", "kitty.toml"), filepath.Join(cfg.HomeDir, ".config", "kitty.toml"))
+
+	active, err := GetActiveVariant(cfg, "Configs")
+	require.NoError(t, err)
+	assert.Equal(t, "work", active)
+}
+
+// ─── Integration: ResolveModules with DirInto variants ──────────────────────
+
+func TestResolveModules_LuaDirIntoVariant_AllLinked_Default(t *testing.T) {
+	cfg := setupTestRepo(t)
+	cfg.IsLuaRepo = true
+
+	createLuaModule(t, cfg, "Zsh", `return {
+  type = "minimal",
+  files = {
+    dir("arch"):into("~"):variant("arch"),
+    dir("termux"):into("~"):variant("termux"),
+  },
+}`, map[string]string{
+		"arch/.zshrc":   "export FOO=bar",
+		"arch/.zshenv":  "export PATH=$PATH",
+		"termux/.zshrc": "export TERMUX=true",
+	})
+
+	cfg.SetCachedModuleDirs([]config.ModuleDir{
+		{Name: "Zsh", Path: filepath.Join(cfg.RepoRoot, "Zsh"), Type: 1},
+	})
+
+	// Create all symlinks for "arch" (the default variant = last declared)
+	createSymlink(t, filepath.Join(cfg.RepoRoot, "Zsh", "arch", ".zshrc"), filepath.Join(cfg.HomeDir, ".zshrc"))
+	createSymlink(t, filepath.Join(cfg.RepoRoot, "Zsh", "arch", ".zshenv"), filepath.Join(cfg.HomeDir, ".zshenv"))
+
+	results, err := ResolveModules(cfg, nil, nil, "")
+	require.NoError(t, err)
+	require.Contains(t, results, "Zsh")
+	require.Len(t, results["Zsh"], 2)
+
+	for _, st := range results["Zsh"] {
+		assert.Equal(t, StateLinked, st.State)
+	}
+
+	// Verify active variant is detected
+	active, err := GetActiveVariant(cfg, "Zsh")
+	require.NoError(t, err)
+	assert.Equal(t, "arch", active)
+}
+
+func TestResolveModules_LuaDirIntoVariant_NoneLinked_ShowsVariants(t *testing.T) {
+	cfg := setupTestRepo(t)
+	cfg.IsLuaRepo = true
+
+	createLuaModule(t, cfg, "Zsh", `return {
+  type = "minimal",
+  files = {
+    dir("arch"):into("~"):variant("arch"),
+    dir("termux"):into("~"):variant("termux"),
+  },
+}`, map[string]string{
+		"arch/.zshrc":    "export FOO=bar",
+		"arch/.zshenv":   "export PATH=$PATH",
+		"termux/.zshrc":  "export TERMUX=true",
+		"termux/.zshenv": "export TERMUX_PATH=$PATH",
+	})
+
+	cfg.SetCachedModuleDirs([]config.ModuleDir{
+		{Name: "Zsh", Path: filepath.Join(cfg.RepoRoot, "Zsh"), Type: 1},
+	})
+
+	// No symlinks created — none linked
+	results, err := ResolveModules(cfg, nil, nil, "")
+	require.NoError(t, err)
+	require.Contains(t, results, "Zsh")
+	// Should resolve with default variant "termux" (last declared) and show pending
+	require.Len(t, results["Zsh"], 2)
+	for _, st := range results["Zsh"] {
+		assert.Equal(t, StatePending, st.State)
+	}
+
+	// No active variant detected (none linked)
+	active, err := GetActiveVariant(cfg, "Zsh")
+	require.NoError(t, err)
+	assert.Empty(t, active)
+}
+
+// ─── OLD TESTS (below) ──────────────────────────────────────────────────────
 
 func TestExpandPath(t *testing.T) {
 	// Test with absolute path

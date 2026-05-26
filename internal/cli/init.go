@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/Wilberucx/dots/internal/config"
+	luacfg "github.com/Wilberucx/dots/internal/lua"
 	"github.com/Wilberucx/dots/internal/ui"
 	"github.com/Wilberucx/dots/internal/writer"
 	"github.com/spf13/cobra"
@@ -35,9 +36,14 @@ func runInit() error {
 	markerDir := filepath.Join(cwd, config.MarkerDir)
 	markerPath := filepath.Join(markerDir, config.MarkerConfig)
 	legacyPath := filepath.Join(cwd, config.LegacyMarker)
+	initLuaPath := filepath.Join(cwd, "init.lua")
 
 	// Check if already initialized
 	if config.IsDotfilesRepo(cwd) {
+		if _, err := os.Stat(initLuaPath); err == nil {
+			ui.PrintWarning(fmt.Sprintf("Dotfiles already initialized with init.lua in %s", cwd))
+			return nil
+		}
 		if _, err := os.Stat(markerPath); err == nil {
 			ui.PrintWarning(fmt.Sprintf("Dotfiles already initialized in %s", cwd))
 			return nil
@@ -47,17 +53,30 @@ func runInit() error {
 		return migrateFromLegacy(cwd, markerDir, markerPath, legacyPath)
 	}
 
-	// Create .dots directory and config.yaml
-	if err := os.MkdirAll(markerDir, 0755); err != nil {
-		return fmt.Errorf("creating marker directory: %w", err)
-	}
+	// Ask user which format to use
+	useLua := ui.RunConfirm("Use Lua format (init.lua + dots.lua) instead of YAML?", true)
 
-	if err := writer.WriteConfigYAML(markerPath, markerContent); err != nil {
-		return fmt.Errorf("creating marker file: %w", err)
-	}
+	if useLua {
+		// Create init.lua
+		content := luacfg.InitLuaTemplate(filepath.Base(cwd))
+		if err := luacfg.WriteInitLua(cwd, content); err != nil {
+			return fmt.Errorf("creating init.lua: %w", err)
+		}
+		ui.PrintSuccess(fmt.Sprintf("Successfully initialized dotfiles repository in %s", cwd))
+		ui.PrintInfo("Created 'init.lua'.")
+	} else {
+		// Create .dots directory and config.yaml (legacy format)
+		if err := os.MkdirAll(markerDir, 0755); err != nil {
+			return fmt.Errorf("creating marker directory: %w", err)
+		}
 
-	ui.PrintSuccess(fmt.Sprintf("Successfully initialized dotfiles repository in %s", cwd))
-	ui.PrintInfo(fmt.Sprintf("Created '%s/%s'.", config.MarkerDir, config.MarkerConfig))
+		if err := writer.WriteConfigYAML(markerPath, markerContent); err != nil {
+			return fmt.Errorf("creating marker file: %w", err)
+		}
+
+		ui.PrintSuccess(fmt.Sprintf("Successfully initialized dotfiles repository in %s", cwd))
+		ui.PrintInfo(fmt.Sprintf("Created '%s/%s'.", config.MarkerDir, config.MarkerConfig))
+	}
 
 	// DOTS_REPO prompt
 	_, shellConfig := writer.DetectShell()

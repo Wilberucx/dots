@@ -10,7 +10,6 @@ import (
 	"github.com/Wilberucx/dots/internal/resolver"
 	"github.com/Wilberucx/dots/internal/transaction"
 	"github.com/Wilberucx/dots/internal/ui"
-	"github.com/Wilberucx/dots/internal/yaml"
 	"github.com/spf13/cobra"
 )
 
@@ -204,10 +203,8 @@ func runLink(cmd *cobra.Command) error {
 		if variant != "" {
 			return variant
 		}
-		yamlPath := filepath.Join(cfg.RepoRoot, moduleName, "path.yaml")
-		mappings, _ := yaml.ParsePathYAML(yamlPath, cfg.CurrentOS)
-		vInfo := yaml.DetectVariants(mappings)
-		if vInfo.HasVariants {
+		vInfo, err := resolver.GetModuleVariantInfo(cfg, moduleName)
+		if err == nil && vInfo != nil && vInfo.HasVariants {
 			return vInfo.DefaultVariant
 		}
 		return ""

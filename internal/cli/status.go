@@ -11,7 +11,6 @@ import (
 	"github.com/Wilberucx/dots/internal/config"
 	"github.com/Wilberucx/dots/internal/resolver"
 	"github.com/Wilberucx/dots/internal/ui"
-	"github.com/Wilberucx/dots/internal/yaml"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -22,15 +21,6 @@ func init() {
 	statusCmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runStatus(cmd)
 	}
-}
-
-// stateLabels maps internal state to display labels.
-var stateLabels = map[resolver.LinkState]string{
-	resolver.StateLinked:   "linked",
-	resolver.StatePending:  "unlinked",
-	resolver.StateConflict: "broken",
-	resolver.StateMissing:  "missing",
-	resolver.StateUnsafe:   "unsafe",
 }
 
 func runStatus(cmd *cobra.Command) error {
@@ -78,6 +68,8 @@ func runStatus(cmd *cobra.Command) error {
 		}
 	}
 
+	noHints, _ := cmd.Flags().GetBool("no-hints")
+
 	switch format {
 	case "table":
 		renderTable(allModules, stateSet, cfg, showBackups)
@@ -85,7 +77,7 @@ func runStatus(cmd *cobra.Command) error {
 		return renderJSON(allModules, stateSet, cfg, showBackups)
 	default:
 		ui.PrintHeader("Dots Status")
-		renderDefault(allModules, stateSet, cfg, showBackups)
+		renderDefault(allModules, stateSet, cfg, showBackups, noHints)
 	}
 
 	return nil
@@ -103,6 +95,7 @@ func renderDefault(
 	stateFilter map[string]bool,
 	cfg *config.DotsConfig,
 	showBackups bool,
+	noHints bool,
 ) {
 	var linked, broken, missingSrc, unlinked, notLinked []moduleCategory
 
@@ -240,7 +233,7 @@ func renderDefault(
 	fmt.Println(ui.BoldStyle.Render("Summary:") + " " + strings.Join(summaryParts, " • "))
 
 	// Checker section — syntax validation + broken links + health verdict
-	result := checker.RunSyntaxCheck(cfg)
+	result := checker.RunSyntaxCheck(cfg, checker.CheckOptions{NoHints: noHints})
 	checker.CheckBrokenLinks(cfg, result)
 
 	fmt.Println()
@@ -308,15 +301,22 @@ func displayCategoryWithModules(
 	fmt.Println(catStyle.Render(fmt.Sprintf("%s (%d modules)", title, count)))
 
 	for _, item := range items {
-		yamlPath := filepath.Join(cfg.RepoRoot, item.name, "path.yaml")
-		mappings, _ := yaml.ParsePathYAML(yamlPath, cfg.CurrentOS)
-		variantInfo := yaml.DetectVariants(mappings)
+		var hasVariants bool
+		var variantNames []string
+		var activeVariant string
 
-		if variantInfo.HasVariants {
+		vInfo, err := resolver.GetModuleVariantInfo(cfg, item.name)
+		if err == nil && vInfo != nil && vInfo.HasVariants {
+			hasVariants = true
+			variantNames = vInfo.Variants
 			active, _ := resolver.GetActiveVariant(cfg, item.name)
+			activeVariant = active
+		}
+
+		if hasVariants {
 			fmt.Printf("  %s\n", entryStyle.Render(item.name))
-			for _, v := range variantInfo.Variants {
-				if v == active {
+			for _, v := range variantNames {
+				if v == activeVariant {
 					fmt.Printf("    %s %s %s\n", entryStyle.Render("●"), entryStyle.Render(v), ui.DimStyle.Render("← active"))
 				} else {
 					fmt.Printf("    %s %s\n", ui.DimStyle.Render("○"), entryStyle.Render(v))
@@ -331,6 +331,23 @@ func displayCategoryWithModules(
 
 // ─── Table output ───────────────────────────────────────────────────────────
 
+func stateSymbol(state resolver.LinkState) string {
+	switch state {
+	case resolver.StateLinked:
+		return "✔ linked"
+	case resolver.StateConflict:
+		return "✖ conflict"
+	case resolver.StateUnsafe:
+		return "⚠ unsafe"
+	case resolver.StatePending:
+		return "○ unlinked"
+	case resolver.StateMissing:
+		return "… missing"
+	default:
+		return string(state)
+	}
+}
+
 func renderTable(
 	allModules map[string][]resolver.LinkStatus,
 	stateFilter map[string]bool,
@@ -341,7 +358,7 @@ func renderTable(
 		{Title: "Module", Width: 20},
 		{Title: "Source", Width: 24},
 		{Title: "Destination", Width: 36},
-		{Title: "State", Width: 10},
+		{Title: "State", Width: 12},
 		{Title: "Backup", Width: 16},
 	}
 
@@ -368,11 +385,6 @@ func renderTable(
 				continue
 			}
 
-			label := stateLabels[st.State]
-			if label == "" {
-				label = string(st.State)
-			}
-
 			modCell := ""
 			if firstRow {
 				modCell = moduleName
@@ -384,11 +396,22 @@ func renderTable(
 				backupCell = "⚠ " + filepath.Base(st.BackupPath)
 			}
 
+			// Use config values when available, fall back to resolved paths
+			srcCell := st.ConfigSource
+			if srcCell == "" {
+				srcCell = filepath.Base(st.Source)
+			}
+
+			destCell := st.ConfigDest
+			if destCell == "" {
+				destCell = shortDisplayPath(st.Destination, cfg.HomeDir)
+			}
+
 			rows = append(rows, table.Row{
 				modCell,
-				filepath.Base(st.Source),
-				shortDisplayPath(st.Destination, cfg.HomeDir),
-				label,
+				srcCell,
+				destCell,
+				stateSymbol(st.State),
 				backupCell,
 			})
 			total++
