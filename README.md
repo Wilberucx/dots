@@ -30,6 +30,18 @@ go build -o /tmp/dots ./cmd/dots/
 /tmp/dots --help
 ```
 
+## Mental Model
+
+```
+modules declare files  →  dots builds a plan  →  dots applies the plan
+```
+
+1. Each **module** (a directory in your repo) declares files to symlink
+2. `dots` **resolves** those declarations into a **Plan** (what gets created, backed up, or skipped)
+3. `dots link` **applies** the plan transactionally with rollback on failure
+
+Everything flows from this model. `dots status` shows the current state, `dots plan` shows what would happen, and `dots link` executes it.
+
 ## Setup
 
 ```bash
@@ -120,6 +132,15 @@ dots edit Nvim --config   # open config file directly
 | `.orig` file already exists      | Blocks — manual intervention required |
 
 ---
+
+## Design Principles
+
+- **Single binary** — zero runtime dependencies, installable via curl | bash
+- **Symlink-based** — dotfiles stay in your repo, symlinked to their destinations
+- **Dry-run first** — every mutating command supports `--dry-run` to preview before executing
+- **No hidden writes** — no writes outside requested commands; all changes are explicit and transactional
+- **Lua primary, YAML legacy** — new configs use `dots.lua`; `path.yaml` is supported but deprecated
+- **Plan abstraction** — the resolver produces a Plan that is shared across commands for consistency
 
 ## Documentation
 

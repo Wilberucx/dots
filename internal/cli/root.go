@@ -35,13 +35,13 @@ dependencies, backups, and cross-platform configuration.`,
 
 			switch cmd.Name() {
 			case "link", "unlink", "install", "adopt":
+				// Show issues and block on errors for mutating commands
 				checker.PrintResult(result)
 				if result.HasErrors() {
 					return fmt.Errorf("syntax check failed — fix the errors above and retry")
 				}
-			case "list":
-				// Show issues for conscious review without blocking
-				checker.PrintResult(result)
+			default:
+				// Read-only commands: checker runs silently — doctor catches issues
 			}
 		}
 
@@ -280,6 +280,7 @@ var installCmd = &cobra.Command{
 
 func init() {
 	installCmd.Flags().Bool("dry-run", false, "Show commands without executing")
+	installCmd.Flags().Bool("yes", false, "Skip confirmation prompt")
 	installCmd.Flags().StringSliceP("module", "m", nil, "Install deps only for specific modules (repeatable)")
 	installCmd.Flags().StringSliceP("type", "t", nil, "Install deps only for modules of this type (repeatable)")
 }

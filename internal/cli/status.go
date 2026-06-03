@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Wilberucx/dots/internal/checker"
 	"github.com/Wilberucx/dots/internal/config"
 	"github.com/Wilberucx/dots/internal/resolver"
 	"github.com/Wilberucx/dots/internal/ui"
@@ -17,7 +16,6 @@ import (
 )
 
 func init() {
-	// Override the skeleton RunE with the real implementation
 	statusCmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runStatus(cmd)
 	}
@@ -45,12 +43,10 @@ func runStatus(cmd *cobra.Command) error {
 		return nil
 	}
 
-	// Build state filter set with user-facing name mapping
 	var stateSet map[string]bool
 	if len(stateFilterFlags) > 0 {
 		stateSet = make(map[string]bool)
 		for _, s := range stateFilterFlags {
-			// Map user-facing state names to internal ones
 			switch s {
 			case "unlinked":
 				stateSet["pending"] = true
@@ -68,8 +64,6 @@ func runStatus(cmd *cobra.Command) error {
 		}
 	}
 
-	noHints, _ := cmd.Flags().GetBool("no-hints")
-
 	switch format {
 	case "table":
 		renderTable(allModules, stateSet, cfg, showBackups)
@@ -77,7 +71,7 @@ func runStatus(cmd *cobra.Command) error {
 		return renderJSON(allModules, stateSet, cfg, showBackups)
 	default:
 		ui.PrintHeader("Dots Status")
-		renderDefault(allModules, stateSet, cfg, showBackups, noHints)
+		renderDefault(allModules, stateSet, cfg, showBackups)
 	}
 
 	return nil
@@ -95,7 +89,6 @@ func renderDefault(
 	stateFilter map[string]bool,
 	cfg *config.DotsConfig,
 	showBackups bool,
-	noHints bool,
 ) {
 	var linked, broken, missingSrc, unlinked, notLinked []moduleCategory
 
@@ -104,7 +97,6 @@ func renderDefault(
 	for _, moduleName := range sortedNames {
 		statuses := allModules[moduleName]
 
-		// Filter by --backups flag
 		if showBackups {
 			hasBackup := false
 			for _, st := range statuses {
@@ -203,14 +195,12 @@ func renderDefault(
 		}
 	}
 
-	// Display results
 	displayCategoryWithModules("✔ Linked", len(linked), linked, allModules, cfg, ui.SuccessStyle)
 	displayCategoryWithModules("ℹ Unlinked", len(unlinked), unlinked, allModules, cfg, ui.DimStyle)
 	displayCategoryWithModules("✖ Broken", len(broken), broken, allModules, cfg, ui.ErrorStyle)
 	displayCategoryWithModules("⚠ Missing Source", len(missingSrc), missingSrc, allModules, cfg, ui.WarningStyle)
 	displayCategoryWithModules("• Empty", len(notLinked), notLinked, allModules, cfg, ui.DimStyle)
 
-	// Summary
 	ui.PrintDivider(0)
 
 	var summaryParts []string
@@ -232,50 +222,8 @@ func renderDefault(
 
 	fmt.Println(ui.BoldStyle.Render("Summary:") + " " + strings.Join(summaryParts, " • "))
 
-	// Checker section — syntax validation + broken links + health verdict
-	result := checker.RunSyntaxCheck(cfg, checker.CheckOptions{NoHints: noHints})
-	checker.CheckBrokenLinks(cfg, result)
-
 	fmt.Println()
-	ui.PrintDivider(0)
-	fmt.Println(ui.BoldStyle.Render("Checker:"))
-
-	if len(result.Issues) > 0 {
-		checker.PrintResult(result)
-		fmt.Println()
-	}
-
-	printHealthVerdict(result)
-}
-
-// printHealthVerdict prints the dotfiles health status based on checker results.
-func printHealthVerdict(result *checker.Result) {
-	errCount := 0
-	warnCount := 0
-	for _, issue := range result.Issues {
-		switch issue.Severity {
-		case checker.SeverityError:
-			errCount++
-		case checker.SeverityWarning:
-			warnCount++
-		}
-	}
-
-	var verdict string
-	var style lipgloss.Style
-
-	if errCount > 0 {
-		verdict = fmt.Sprintf("Unhealthy — %d error(s), %d warning(s)", errCount, warnCount)
-		style = ui.ErrorStyle
-	} else if warnCount > 0 {
-		verdict = fmt.Sprintf("Needs Attention — %d warning(s)", warnCount)
-		style = ui.WarningStyle
-	} else {
-		verdict = "Healthy — no issues found"
-		style = ui.SuccessStyle
-	}
-
-	fmt.Printf("%s %s\n", ui.BoldStyle.Render("Dotfiles Health:"), style.Render(verdict))
+	ui.PrintInfo("Run 'dots doctor' for deep diagnostics (syntax check, broken links, YAML hints).")
 }
 
 func displayCategoryWithModules(
@@ -396,7 +344,6 @@ func renderTable(
 				backupCell = "⚠ " + filepath.Base(st.BackupPath)
 			}
 
-			// Use config values when available, fall back to resolved paths
 			srcCell := st.ConfigSource
 			if srcCell == "" {
 				srcCell = filepath.Base(st.Source)
@@ -520,7 +467,6 @@ func renderJSON(
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-// shortDisplayPath replaces homeDir with ~ for display.
 func shortDisplayPath(path, homeDir string) string {
 	if strings.HasPrefix(path, homeDir) {
 		return "~" + strings.TrimPrefix(path, homeDir)
@@ -528,7 +474,6 @@ func shortDisplayPath(path, homeDir string) string {
 	return path
 }
 
-// sortedModuleNames returns sorted keys from the allModules map.
 func sortedModuleNames(allModules map[string][]resolver.LinkStatus) []string {
 	names := make([]string, 0, len(allModules))
 	for name := range allModules {

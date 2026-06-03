@@ -31,6 +31,7 @@ func runInstall(cmd *cobra.Command) error {
 	ui.PrintHeader("Installing Dependencies")
 
 	dryRun := boolFlag(cmd, "dry-run")
+	yes := boolFlag(cmd, "yes")
 	modules := stringSliceFlag(cmd, "module")
 	types := stringSliceFlag(cmd, "type")
 
@@ -55,6 +56,47 @@ func runInstall(cmd *cobra.Command) error {
 	if len(allDeps) == 0 {
 		ui.PrintInfo("No dependencies found.")
 		return nil
+	}
+
+	// Show summary of what will be installed
+	fmt.Println()
+	ui.PrintInfo(fmt.Sprintf("The following %d dependencies will be installed:", len(allDeps)))
+	for _, dep := range allDeps {
+		var depType string
+		switch dep.Type {
+		case "package":
+			depType = "pkg"
+			if dep.Managers != nil {
+				depType = fmt.Sprintf("pkg/%s", manager.Name())
+			}
+		case "git":
+			depType = "git"
+		case "binary":
+			depType = "curl"
+		}
+		fmt.Printf("  • %s (%s)\n", dep.Name, depType)
+	}
+	fmt.Println()
+
+	// Show detailed commands for each dependency.
+	// Post-install commands are shown inline when the effective dep is not skipped.
+	for _, dep := range allDeps {
+		displayDepCommands(dep, manager)
+	}
+	fmt.Println()
+
+	// Show dry-run header — no commands are actually run
+	if dryRun {
+		ui.PrintWarning("Dry-run: no commands will be executed.")
+		return nil
+	}
+
+	// Confirm before proceeding
+	if !yes {
+		if !ui.RunConfirm("Proceed with installation?", true) {
+			ui.PrintInfo("Installation cancelled.")
+			return nil
+		}
 	}
 
 	// Install each dependency
@@ -161,36 +203,131 @@ func loadLuaDependencies(modPath string) ([]yaml.Dependency, error) {
 }
 
 // installDep dispatches to the correct installer based on dep.Type.
+// It uses resolveInstallDecision to centralise skip/fallback logic so that
+// the dry‑run preview (displayDepCommands) and actual execution always agree.
 func installDep(dep yaml.Dependency, manager plugins.PackageManager, dryRun bool) {
-	switch dep.Type {
-	case "git":
-		installGitDep(dep, dryRun)
-	case "binary":
-		installBinaryDep(dep, dryRun)
-	case "package":
-		installPackageDep(dep, manager, dryRun)
-	default:
-		ui.PrintWarning(fmt.Sprintf("  [skip] %s: unknown type '%s'", dep.Name, dep.Type))
+	decision := resolveInstallDecision(dep, manager)
+
+	if decision.SkipReason != "" {
+		ui.PrintWarning(fmt.Sprintf("  [skip] %s: %s", dep.Name, decision.SkipReason))
+		return
 	}
 
-	runPostInstall(dep, dryRun)
+	if decision.UsesFallback {
+		ui.PrintInfo(fmt.Sprintf("  [%s] %s not available — using fallback (%s)", manager.Name(), dep.Name, decision.Dep.Type))
+		installDep(decision.Dep, manager, dryRun)
+		return
+	}
+
+	// Only run post-install for effective deps that are not skipped
+	defer runPostInstall(decision.Dep, dryRun)
+
+	switch decision.Dep.Type {
+	case "git":
+		installGitDep(decision.Dep, dryRun)
+	case "binary":
+		installBinaryDep(decision.Dep, dryRun)
+	case "package":
+		installPackageDep(decision.Dep, decision.PackageName, manager, dryRun)
+	default:
+		ui.PrintWarning(fmt.Sprintf("  [skip] %s: unknown type '%s'", dep.Name, decision.Dep.Type))
+	}
 }
 
-// ─── Git dependencies ────────────────────────────────────────────────────────
+// ─── Dependency decision ─────────────────────────────────────────────────────
 
+// installDecision captures the resolved decision for a dependency.
+// It is the single source of truth shared between preview and execution.
+type installDecision struct {
+	Dep          yaml.Dependency // the effective dep (original or fallback)
+	PackageName  string          // resolved package name for "package" type
+	UsesFallback bool            // true if a fallback is used instead of the original
+	SkipReason   string          // non-empty means the dep should be skipped
+}
+
+// resolveInstallDecision centralises ALL skip / fallback / resolution logic
+// for every dependency type. It is used by both the dry‑run preview
+// (displayDepCommands) and the actual execution (installDep) so they
+// always agree on what will happen.
+//
+// PackageName is only populated for package‑type deps that will actually be
+// installed (not skipped, not using a fallback). For all other cases it is
+// left empty, matching the old resolveInstallDep contract.
+func resolveInstallDecision(dep yaml.Dependency, manager plugins.PackageManager) installDecision {
+	decision := installDecision{
+		Dep: dep,
+	}
+
+	switch dep.Type {
+	case "git":
+		if dep.URL == "" || dep.Dest == "" {
+			decision.SkipReason = "missing source or target"
+			return decision
+		}
+		expandedDest := system.ExpandPath(dep.Dest)
+		if _, err := os.Stat(expandedDest); err == nil {
+			decision.SkipReason = fmt.Sprintf("already exists at %s", shortDisplayPath(expandedDest, system.HomeDir()))
+			return decision
+		}
+		return decision
+
+	case "binary":
+		if dep.URL == "" || dep.Dest == "" {
+			decision.SkipReason = "missing source or target"
+			return decision
+		}
+		expandedDest := system.ExpandPath(dep.Dest)
+		if _, err := os.Stat(expandedDest); err == nil {
+			decision.SkipReason = fmt.Sprintf("already exists at %s", shortDisplayPath(expandedDest, system.HomeDir()))
+			return decision
+		}
+		return decision
+
+	case "package":
+		// Default: package name is the dep name (overridden if managers map is used)
+		decision.PackageName = dep.Name
+
+		// Resolve manager name
+		if dep.Managers != nil {
+			name, ok := dep.Managers[manager.Name()]
+			if ok {
+				decision.PackageName = name
+			} else {
+				// Manager not listed — try fallback
+				if dep.Fallback != nil {
+					decision.UsesFallback = true
+					decision.Dep = *dep.Fallback
+					decision.PackageName = "" // fallback is not a package dep
+					return decision
+				}
+				decision.PackageName = "" // skip — no package to install
+				decision.SkipReason = fmt.Sprintf("not available for %s", manager.Name())
+				return decision
+			}
+		}
+
+		// Check if binary already installed
+		binaryName := dep.Bin
+		if binaryName == "" {
+			binaryName = dep.Name
+		}
+		if _, err := exec.LookPath(binaryName); err == nil {
+			decision.SkipReason = "already installed"
+			return decision
+		}
+
+		return decision
+
+	default:
+		decision.SkipReason = fmt.Sprintf("unknown type '%s'", dep.Type)
+		return decision
+	}
+} // ─── Git dependencies ────────────────────────────────────────────────────────
+
+// installGitDep clones a git repository. Caller must ensure dep.URL and dep.Dest
+// are non‑empty and that Dest does not already exist (handled by resolveInstallDecision).
 func installGitDep(dep yaml.Dependency, dryRun bool) {
-	if dep.URL == "" || dep.Dest == "" {
-		ui.PrintWarning(fmt.Sprintf("Skipping git dependency '%s': missing source or target.", dep.Name))
-		return
-	}
-
 	expandedDest := system.ExpandPath(dep.Dest)
-
-	if _, err := os.Stat(expandedDest); err == nil {
-		ui.PrintInfo(fmt.Sprintf("  [skip] %s already exists at %s", dep.Name, shortDisplayPath(expandedDest, system.HomeDir())))
-		return
-	}
-
 	ui.PrintInfo(fmt.Sprintf("  [git] Cloning %s to %s...", dep.Name, shortDisplayPath(expandedDest, system.HomeDir())))
 
 	if dryRun {
@@ -221,36 +358,10 @@ func installGitDep(dep yaml.Dependency, dryRun bool) {
 
 // ─── Package dependencies ────────────────────────────────────────────────────
 
-func installPackageDep(dep yaml.Dependency, manager plugins.PackageManager, dryRun bool) {
-	var pkgName string
-
-	if dep.Managers != nil {
-		name, ok := dep.Managers[manager.Name()]
-		if !ok {
-			// Manager not listed — try fallback
-			if dep.Fallback != nil {
-				ui.PrintInfo(fmt.Sprintf("  [%s] %s not available — using fallback (%s)", manager.Name(), dep.Name, dep.Fallback.Type))
-				installDep(*dep.Fallback, manager, dryRun)
-				return
-			}
-			ui.PrintWarning(fmt.Sprintf("  [skip] %s: not available for %s", dep.Name, manager.Name()))
-			return
-		}
-		pkgName = name
-	} else {
-		pkgName = dep.Name
-	}
-
-	binaryName := dep.Bin
-	if binaryName == "" {
-		binaryName = dep.Name
-	}
-
-	if _, err := exec.LookPath(binaryName); err == nil {
-		ui.PrintInfo(fmt.Sprintf("  [skip] %s already installed", dep.Name))
-		return
-	}
-
+// installPackageDep runs the package manager install command.
+// Caller must ensure the dep is not skipped and managers are resolved
+// (handled by resolveInstallDecision).
+func installPackageDep(dep yaml.Dependency, pkgName string, manager plugins.PackageManager, dryRun bool) {
 	cmd := manager.InstallCommand([]string{pkgName})
 	if manager.NeedsSudo() {
 		cmd = append([]string{"sudo"}, cmd...)
@@ -276,19 +387,10 @@ func installPackageDep(dep yaml.Dependency, manager plugins.PackageManager, dryR
 
 // ─── Binary dependencies ─────────────────────────────────────────────────────
 
+// installBinaryDep downloads a binary or archive. Caller must ensure dep.URL
+// and dep.Dest are non‑empty and that Dest does not already exist
+// (handled by resolveInstallDecision).
 func installBinaryDep(dep yaml.Dependency, dryRun bool) {
-	if dep.URL == "" || dep.Dest == "" {
-		ui.PrintWarning(fmt.Sprintf("Skipping binary dependency '%s': missing source or target.", dep.Name))
-		return
-	}
-
-	expandedDest := system.ExpandPath(dep.Dest)
-
-	if _, err := os.Stat(expandedDest); err == nil {
-		ui.PrintInfo(fmt.Sprintf("  [skip] %s already exists at %s", dep.Name, shortDisplayPath(expandedDest, system.HomeDir())))
-		return
-	}
-
 	// Build template context
 	ctx := template.BuildContext(dep.Version, dep.Arch)
 	url := template.Render(dep.URL, ctx)
@@ -296,6 +398,7 @@ func installBinaryDep(dep yaml.Dependency, dryRun bool) {
 	if dep.Extract != "" {
 		extract = template.Render(dep.Extract, ctx)
 	}
+	expandedDest := system.ExpandPath(dep.Dest)
 
 	ui.PrintInfo(fmt.Sprintf("  [bin] Downloading %s from %s...", dep.Name, url))
 
@@ -414,6 +517,70 @@ func downloadAndExtract(url, dest, extract string) error {
 	}
 
 	return nil
+}
+
+// displayDepCommands prints the exact external commands for a dependency.
+// It uses resolveInstallDecision to show the real execution path
+// (skip, fallback, or the actual commands), ensuring that the dry‑run
+// preview always matches what installDep would do.
+func displayDepCommands(dep yaml.Dependency, manager plugins.PackageManager) {
+	decision := resolveInstallDecision(dep, manager)
+
+	ui.PrintInfo(fmt.Sprintf("Dependency: %s (%s)", dep.Name, dep.Type))
+
+	if decision.SkipReason != "" {
+		// Show skip reason (same format as execution path)
+		fmt.Printf("    [skip] %s: %s\n", dep.Name, decision.SkipReason)
+		return
+	}
+
+	if decision.UsesFallback {
+		fmt.Printf("    [%s] %s not available — using fallback (%s)\n", manager.Name(), dep.Name, decision.Dep.Type)
+		// Recursively display the fallback decision
+		displayDepCommands(decision.Dep, manager)
+		return
+	}
+
+	// No skip, no fallback — show the exact commands
+	printDepBody(decision.Dep, decision.PackageName, manager)
+}
+
+// printDepBody prints the installation commands for a dependency that is
+// guaranteed not to be skipped. Used by displayDepCommands after resolution.
+func printDepBody(dep yaml.Dependency, pkgName string, manager plugins.PackageManager) {
+	switch dep.Type {
+	case "git":
+		expandedDest := system.ExpandPath(dep.Dest)
+		fmt.Printf("    git clone %s %s\n", dep.URL, expandedDest)
+		if dep.Ref != "" {
+			fmt.Printf("    git -C %s checkout %s\n", expandedDest, dep.Ref)
+		}
+
+	case "binary":
+		ctx := template.BuildContext(dep.Version, dep.Arch)
+		url := template.Render(dep.URL, ctx)
+		expandedDest := system.ExpandPath(dep.Dest)
+		fmt.Printf("    download %s\n", url)
+		fmt.Printf("      → %s\n", expandedDest)
+		if strings.HasSuffix(url, ".tar.gz") || strings.HasSuffix(url, ".tgz") || dep.Extract != "" {
+			fmt.Printf("    tar -xzf ...\n")
+		} else if strings.HasSuffix(url, ".zip") {
+			fmt.Printf("    unzip -o ... -d %s\n", filepath.Dir(expandedDest))
+		} else {
+			fmt.Printf("    chmod 755 %s\n", expandedDest)
+		}
+
+	case "package":
+		cmd := manager.InstallCommand([]string{pkgName})
+		if manager.NeedsSudo() {
+			cmd = append([]string{"sudo"}, cmd...)
+		}
+		fmt.Printf("    %s\n", strings.Join(cmd, " "))
+	}
+
+	if dep.PostInstall != "" {
+		fmt.Printf("    sh -c '%s'\n", dep.PostInstall)
+	}
 }
 
 // ─── Post-install ────────────────────────────────────────────────────────────

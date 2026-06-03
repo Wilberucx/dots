@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/Wilberucx/dots/internal/config"
+	"github.com/Wilberucx/dots/internal/plan"
 	"github.com/Wilberucx/dots/internal/resolver"
 	"github.com/Wilberucx/dots/internal/transaction"
 	"github.com/Wilberucx/dots/internal/ui"
@@ -19,14 +21,6 @@ func init() {
 	}
 }
 
-// stateCount tracks link operation statistics per module.
-type stateCount struct {
-	linked    int
-	conflicts int
-	pending   int
-	errors    int
-}
-
 // linkRow is a display row for one mapping.
 type linkRow struct {
 	icon    string
@@ -36,11 +30,18 @@ type linkRow struct {
 	variant string
 }
 
-// doTx runs a transactional operation and records any error.
-// Instead of panicking on error, we capture it and let the caller decide.
+// stateCount tracks link operation statistics per module.
+type stateCount struct {
+	linked    int
+	conflicts int
+	pending   int
+	skipped   int
+}
+
+// linkTx wraps TransactionLog with error tracking for rollback.
 type linkTx struct {
-	tx    *transaction.TransactionLog
-	fail  error
+	tx   *transaction.TransactionLog
+	fail error
 }
 
 func (l *linkTx) symlink(path, target string) {
@@ -74,7 +75,9 @@ func (l *linkTx) backup(path, backupPath string) {
 	if l.fail != nil {
 		return
 	}
-	l.tx.Backup(path, backupPath)
+	if err := l.tx.Backup(path, backupPath); err != nil {
+		l.fail = err
+	}
 }
 
 func (l *linkTx) commit() error {
@@ -125,16 +128,13 @@ func runLink(cmd *cobra.Command) error {
 		return fmt.Errorf("--variant requires --module")
 	}
 
-	// Variant auto-swap: track which modules need a swap per-module, not globally
-	variantSwapModules := make(map[string]bool)
-	if variant != "" && !force && len(selectedModules) > 0 {
-		for _, modName := range selectedModules {
-			active, _ := resolver.GetActiveVariant(cfg, modName)
-			if active != "" && active != variant {
-				variantSwapModules[modName] = true
-				ui.PrintInfo(fmt.Sprintf("Auto-swap: %s variant '%s' → '%s'", modName, active, variant))
-			}
-		}
+	// Variant auto-swap: track which modules need a swap per-module
+	variantSwapModules := buildVariantSwapMap(cfg, selectedModules, variant, force)
+
+	// Print auto-swap messages (caller's responsibility, not buildVariantSwapMap's)
+	for _, modName := range sortedSwapModules(variantSwapModules) {
+		active, _ := resolver.GetActiveVariant(cfg, modName)
+		ui.PrintInfo(fmt.Sprintf("Auto-swap: %s variant '%s' → '%s'", modName, active, variant))
 	}
 
 	// Validate variant existence
@@ -176,14 +176,14 @@ func runLink(cmd *cobra.Command) error {
 			vInfo, _ := resolver.GetModuleVariantInfo(cfg, modName)
 			if vInfo != nil && vInfo.HasVariants {
 				ui.PrintWarning(fmt.Sprintf(
-					"Module '%s' has multiple variants. Using default: '%s' (last in YAML). Use --variant to select a specific one.",
+					"Module '%s' has multiple variants. Using default: '%s'. Use --variant to select a specific one.",
 					modName, vInfo.DefaultVariant,
 				))
 			}
 		}
 	}
 
-	// ── Resolve ───────────────────────────────────────────────────────
+	// ── Resolve and build plan ────────────────────────────────────────
 	allModules, err := resolver.ResolveModules(cfg, selectedModules, types, variant)
 	if err != nil {
 		return fmt.Errorf("resolving modules: %w", err)
@@ -192,11 +192,6 @@ func runLink(cmd *cobra.Command) error {
 		ui.PrintWarning("No modules found.")
 		return nil
 	}
-
-	// ── Process each module ───────────────────────────────────────────
-	stats := &stateCount{}
-	tx := &linkTx{tx: &transaction.TransactionLog{}}
-	moduleNames := sortedModuleNames(allModules)
 
 	// Determine effective variant for display
 	getEffectiveVariant := func(moduleName string) string {
@@ -210,8 +205,20 @@ func runLink(cmd *cobra.Command) error {
 		return ""
 	}
 
-	for _, modName := range moduleNames {
-		statuses := allModules[modName]
+	// Build the plan — centralized decision logic
+	planOpts := plan.BuildOptions{
+		Force:        force,
+		VariantSwaps: variantSwapModules,
+	}
+	p := plan.BuildLinkPlan(allModules, planOpts)
+
+	// ── Process plan actions ──────────────────────────────────────────
+	stats := &stateCount{}
+	tx := &linkTx{tx: &transaction.TransactionLog{}}
+	byModule := p.ActionsByModule()
+
+	for _, modName := range sortedMapKeys(byModule) {
+		actions := byModule[modName]
 		modStats := &stateCount{}
 		var rows []linkRow
 
@@ -222,19 +229,114 @@ func runLink(cmd *cobra.Command) error {
 			variantTag = fmt.Sprintf(" [%s]", effVariant)
 		}
 
-		// Per-module force for variant swaps
-		moduleIsSwap := variantSwapModules[modName]
-		effectiveForce := force || moduleIsSwap
-
-		for _, st := range statuses {
+		for _, a := range actions {
 			if tx.fail != nil {
 				break
 			}
-			srcName := filepath.Base(st.Source)
-			shortDest := shortDisplayPath(st.Destination, cfg.HomeDir)
+			srcName := filepath.Base(a.Source)
+			shortDest := shortDisplayPath(a.Destination, cfg.HomeDir)
 
-			switch st.State {
-			case resolver.StateLinked:
+			switch a.Kind {
+			case plan.ActionCreateSymlink:
+				if dryRun {
+					rows = append(rows, linkRow{
+						icon:   ui.InfoStyle.Render(ui.IconPending),
+						src:    srcName,
+						dest:   shortDest,
+						detail: ui.DimStyle.Render("(to be created)"),
+					})
+					modStats.pending++
+				} else {
+					rows = append(rows, linkRow{
+						icon:   ui.SuccessStyle.Render(ui.IconLinked),
+						src:    srcName,
+						dest:   shortDest,
+						detail: ui.SuccessStyle.Render(fmt.Sprintf("(created)%s", variantTag)),
+					})
+					modStats.linked++
+					parentDir := filepath.Dir(a.Destination)
+					if _, err := os.Stat(parentDir); os.IsNotExist(err) {
+						tx.mkdir(parentDir)
+					}
+					tx.symlink(a.Destination, a.Source)
+				}
+
+			case plan.ActionBackupFile:
+				backupPath := a.BackupPath
+				if backupPath == "" {
+					backupPath = a.Destination + ".orig"
+				}
+				if dryRun {
+					rows = append(rows, linkRow{
+						icon:   ui.WarningStyle.Render(ui.IconConflict),
+						src:    srcName,
+						dest:   shortDest,
+						detail: ui.WarningStyle.Render("(.orig needed)"),
+					})
+					modStats.pending++
+				} else {
+					rows = append(rows, linkRow{
+						icon:   ui.SuccessStyle.Render(ui.IconLinked),
+						src:    srcName,
+						dest:   shortDest,
+						detail: ui.SuccessStyle.Render(fmt.Sprintf("(.orig saved and linked)%s", variantTag)),
+					})
+					modStats.linked++
+					parentDir := filepath.Dir(a.Destination)
+					if _, err := os.Stat(parentDir); os.IsNotExist(err) {
+						tx.mkdir(parentDir)
+					}
+					tx.backup(a.Destination, backupPath)
+					tx.symlink(a.Destination, a.Source)
+				}
+
+			case plan.ActionReplaceSymlink:
+				moduleIsSwap := variantSwapModules[modName]
+				if dryRun {
+					if moduleIsSwap {
+						active, _ := resolver.GetActiveVariant(cfg, modName)
+						rows = append(rows, linkRow{
+							icon:   ui.InfoStyle.Render(ui.IconSwap),
+							src:    srcName,
+							dest:   shortDest,
+							detail: ui.InfoStyle.Render(fmt.Sprintf("(swapped: %s → %s)", active, variant)),
+						})
+					} else {
+						rows = append(rows, linkRow{
+							icon:   ui.WarningStyle.Render(ui.IconConflict),
+							src:    srcName,
+							dest:   shortDest,
+							detail: ui.WarningStyle.Render("(to be overwritten)"),
+						})
+					}
+					modStats.pending++
+				} else {
+					if moduleIsSwap {
+						active, _ := resolver.GetActiveVariant(cfg, modName)
+						rows = append(rows, linkRow{
+							icon:   ui.InfoStyle.Render(ui.IconSwap),
+							src:    srcName,
+							dest:   shortDest,
+							detail: ui.InfoStyle.Render(fmt.Sprintf("(swapped: %s → %s)", active, variant)),
+						})
+					} else {
+						rows = append(rows, linkRow{
+							icon:   ui.SuccessStyle.Render(ui.IconLinked),
+							src:    srcName,
+							dest:   shortDest,
+							detail: ui.SuccessStyle.Render("(overwritten)"),
+						})
+					}
+					modStats.linked++
+					parentDir := filepath.Dir(a.Destination)
+					if _, err := os.Stat(parentDir); os.IsNotExist(err) {
+						tx.mkdir(parentDir)
+					}
+					tx.unlink(a.Destination)
+					tx.symlink(a.Destination, a.Source)
+				}
+
+			case plan.ActionSkipLinked:
 				rows = append(rows, linkRow{
 					icon:   ui.SuccessStyle.Render(ui.IconLinked),
 					src:    srcName,
@@ -243,129 +345,32 @@ func runLink(cmd *cobra.Command) error {
 				})
 				modStats.linked++
 
-			case resolver.StateUnsafe:
+			case plan.ActionSkipPending:
+				rows = append(rows, linkRow{
+					icon:   ui.DimStyle.Render("○"),
+					src:    srcName,
+					dest:   shortDest,
+					detail: ui.DimStyle.Render(fmt.Sprintf("(%s)", a.Detail)),
+				})
+				modStats.skipped++
+
+			case plan.ActionErrorConflict:
+				rows = append(rows, linkRow{
+					icon:   ui.ErrorStyle.Render(ui.IconConflict),
+					src:    srcName,
+					dest:   shortDest,
+					detail: ui.ErrorStyle.Render(fmt.Sprintf("(conflict: %s)", a.Detail)),
+				})
+				modStats.conflicts++
+
+			case plan.ActionErrorUnsafe:
 				rows = append(rows, linkRow{
 					icon:   ui.ErrorStyle.Render(ui.IconError),
 					src:    srcName,
 					dest:   shortDest,
-					detail: ui.ErrorStyle.Render(fmt.Sprintf("(%s)", st.Detail)),
+					detail: ui.ErrorStyle.Render(fmt.Sprintf("(%s)", a.Detail)),
 				})
 				modStats.conflicts++
-
-			case resolver.StateConflict:
-				if effectiveForce {
-					if dryRun {
-						if moduleIsSwap {
-							active, _ := resolver.GetActiveVariant(cfg, modName)
-							rows = append(rows, linkRow{
-								icon:   ui.InfoStyle.Render(ui.IconSwap),
-								src:    srcName,
-								dest:   shortDest,
-								detail: ui.InfoStyle.Render(fmt.Sprintf("(swapped: %s → %s)", active, variant)),
-							})
-						} else {
-							rows = append(rows, linkRow{
-								icon:   ui.WarningStyle.Render(ui.IconConflict),
-								src:    srcName,
-								dest:   shortDest,
-								detail: ui.WarningStyle.Render("(to be overwritten)"),
-							})
-						}
-						modStats.pending++
-					} else {
-						if moduleIsSwap {
-							active, _ := resolver.GetActiveVariant(cfg, modName)
-							rows = append(rows, linkRow{
-								icon:   ui.InfoStyle.Render(ui.IconSwap),
-								src:    srcName,
-								dest:   shortDest,
-								detail: ui.InfoStyle.Render(fmt.Sprintf("(swapped: %s → %s)", active, variant)),
-							})
-						} else {
-							rows = append(rows, linkRow{
-								icon:   ui.SuccessStyle.Render(ui.IconLinked),
-								src:    srcName,
-								dest:   shortDest,
-								detail: ui.SuccessStyle.Render("(overwritten)"),
-							})
-						}
-						modStats.linked++
-						tx.unlink(st.Destination)
-						tx.symlink(st.Destination, st.Source)
-					}
-				} else {
-					rows = append(rows, linkRow{
-						icon:   ui.ErrorStyle.Render(ui.IconConflict),
-						src:    srcName,
-						dest:   shortDest,
-						detail: ui.ErrorStyle.Render(fmt.Sprintf("(conflict: %s)", st.Detail)),
-					})
-					modStats.conflicts++
-				}
-
-			case resolver.StatePending:
-				if st.Detail == "backup needed" {
-					backupPath := st.BackupPath
-					if backupPath == "" {
-						backupPath = st.Destination + ".orig"
-					}
-					if _, err := os.Stat(backupPath); err == nil {
-						rows = append(rows, linkRow{
-							icon:   ui.WarningStyle.Render(ui.IconConflict),
-							src:    srcName,
-							dest:   shortDest,
-							detail: ui.WarningStyle.Render(fmt.Sprintf("(.orig exists at %s, run 'dots status --backups' to review)", shortDisplayPath(backupPath, cfg.HomeDir))),
-						})
-						modStats.pending++
-					} else {
-						if dryRun {
-							rows = append(rows, linkRow{
-								icon:   ui.WarningStyle.Render(ui.IconConflict),
-								src:    srcName,
-								dest:   shortDest,
-								detail: ui.WarningStyle.Render("(.orig needed)"),
-							})
-							modStats.pending++
-						} else {
-							rows = append(rows, linkRow{
-								icon:   ui.SuccessStyle.Render(ui.IconLinked),
-								src:    srcName,
-								dest:   shortDest,
-								detail: ui.SuccessStyle.Render(fmt.Sprintf("(.orig saved and linked)%s", variantTag)),
-							})
-							modStats.linked++
-							parentDir := filepath.Dir(st.Destination)
-							if _, err := os.Stat(parentDir); os.IsNotExist(err) {
-								tx.mkdir(parentDir)
-							}
-							tx.backup(st.Destination, backupPath)
-							tx.symlink(st.Destination, st.Source)
-						}
-					}
-				} else {
-					if dryRun {
-						rows = append(rows, linkRow{
-							icon:   ui.InfoStyle.Render(ui.IconPending),
-							src:    srcName,
-							dest:   shortDest,
-							detail: ui.DimStyle.Render("(to be created)"),
-						})
-						modStats.pending++
-					} else {
-						rows = append(rows, linkRow{
-							icon:   ui.SuccessStyle.Render(ui.IconLinked),
-							src:    srcName,
-							dest:   shortDest,
-							detail: ui.SuccessStyle.Render(fmt.Sprintf("(created)%s", variantTag)),
-						})
-						modStats.linked++
-						parentDir := filepath.Dir(st.Destination)
-						if _, err := os.Stat(parentDir); os.IsNotExist(err) {
-							tx.mkdir(parentDir)
-						}
-						tx.symlink(st.Destination, st.Source)
-					}
-				}
 			}
 		}
 
@@ -390,15 +395,18 @@ func runLink(cmd *cobra.Command) error {
 		if modStats.conflicts > 0 {
 			statusParts = append(statusParts, ui.ErrorStyle.Render(fmt.Sprintf("%d conflicts", modStats.conflicts)))
 		}
+		if modStats.skipped > 0 {
+			statusParts = append(statusParts, ui.DimStyle.Render(fmt.Sprintf("%d skipped", modStats.skipped)))
+		}
 		if len(statusParts) > 0 {
 			fmt.Printf("    %s\n", ui.DimStyle.Render(fmt.Sprintf("Status: %s", strings.Join(statusParts, " • "))))
 		}
 		fmt.Println()
 
-		// Update global stats
 		stats.linked += modStats.linked
 		stats.conflicts += modStats.conflicts
 		stats.pending += modStats.pending
+		stats.skipped += modStats.skipped
 	}
 
 	// ── Commit or rollback ────────────────────────────────────────────
@@ -406,7 +414,6 @@ func runLink(cmd *cobra.Command) error {
 		if err := tx.commit(); err != nil {
 			ui.PrintError(fmt.Sprintf("Error during linking: %v", err))
 			ui.PrintInfo("Rolling back changes...")
-			// tx.commit() already called rollback on fail
 			ui.PrintSuccess("Rollback complete.")
 			return fmt.Errorf("linking failed: %w", err)
 		}
@@ -424,6 +431,9 @@ func runLink(cmd *cobra.Command) error {
 	if dryRun && stats.pending > 0 {
 		summaryParts = append(summaryParts, ui.WarningStyle.Render(fmt.Sprintf("%d ℹ to link", stats.pending)))
 	}
+	if stats.skipped > 0 {
+		summaryParts = append(summaryParts, ui.DimStyle.Render(fmt.Sprintf("%d skipped", stats.skipped)))
+	}
 	fmt.Printf("%s %s\n", ui.BoldStyle.Render("Summary:"), strings.Join(summaryParts, " • "))
 
 	if dryRun {
@@ -431,6 +441,54 @@ func runLink(cmd *cobra.Command) error {
 	}
 
 	return nil
+}
+
+// sortedSwapModules returns sorted keys from a variant swap map for deterministic output.
+func sortedSwapModules(m map[string]bool) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// buildVariantSwapMap detects which selected modules need a variant swap.
+// A module needs a swap when:
+//   - --variant is specified
+//   - --force is NOT set
+//   - the module has an active variant different from the requested one
+//
+// Returns nil (no swaps) when conditions aren't met.
+// This function is PURE — it does NOT print anything. Callers are responsible
+// for rendering any UI messages.
+func buildVariantSwapMap(cfg *config.DotsConfig, selectedModules []string, variant string, force bool) map[string]bool {
+	if variant == "" || force || len(selectedModules) == 0 {
+		return nil
+	}
+
+	swapMap := make(map[string]bool)
+	for _, modName := range selectedModules {
+		active, _ := resolver.GetActiveVariant(cfg, modName)
+		if active != "" && active != variant {
+			swapMap[modName] = true
+		}
+	}
+
+	if len(swapMap) == 0 {
+		return nil
+	}
+	return swapMap
+}
+
+// sortedMapKeys returns sorted keys from a map of string to []plan.Action.
+func sortedMapKeys(m map[string][]plan.Action) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // selectModulesInteractive runs a Bubbletea TUI for interactive module selection.
