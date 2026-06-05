@@ -59,7 +59,8 @@ func TestBackup(t *testing.T) {
 	require.NoError(t, err)
 
 	log := &TransactionLog{}
-	log.Backup(original, backupPath)
+	err = log.Backup(original, backupPath)
+	require.NoError(t, err)
 
 	// Original should be moved
 	_, err = os.Stat(original)
@@ -81,7 +82,8 @@ func TestBackup_Rollback(t *testing.T) {
 	require.NoError(t, err)
 
 	log := &TransactionLog{}
-	log.Backup(original, backupPath)
+	err = log.Backup(original, backupPath)
+	require.NoError(t, err)
 
 	// Rollback
 	log.Rollback()
@@ -228,9 +230,10 @@ func TestTOCTOU_Safe(t *testing.T) {
 
 	// Backup when file doesn't exist (simulates TOCTOU race)
 	log := &TransactionLog{}
-	log.Backup(original, backupPath) // Should not panic
+	err := log.Backup(original, backupPath)
+	require.NoError(t, err) // Should not error when file doesn't exist
 
-	_, err := os.Stat(backupPath)
+	_, err = os.Stat(backupPath)
 	assert.True(t, os.IsNotExist(err))
 
 	// Unlink when file doesn't exist

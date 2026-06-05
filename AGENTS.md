@@ -30,11 +30,22 @@ We follow a strict `dev` / `main` isolation strategy:
 ## Core Architecture Guidelines
 
 - `dots` does NOT rely on hardcoded application names (e.g., "Alacritty", "Zsh").
-- The location of the user's dotfiles repository is identified exclusively by a marker file named `dots.toml`.
-- Any filesystem search algorithm must respect `dots.toml` and should not make assumptions about directory layouts.
+- The location of the user's dotfiles repository is identified by a **marker file**. The primary marker is `init.lua`. Legacy markers (`.dots/config.yaml`, `dots.toml`) are supported for backward compatibility.
+- **Lua is the recommended format** for new configurations (`init.lua` for root, `dots.lua` for modules). YAML (`path.yaml`) is **legacy** — the checker shows migration hints.
+- Any filesystem search algorithm must respect the marker file and should not make assumptions about directory layouts.
+- The resolver discovers modules, builds a **Plan**, and the CLI applies the Plan transactionally.
 - Read `internal/config/config.go` for context on configuration.
 
 **Do not deviate from these architectural rules.**
+
+## Design Principles
+
+1. **Single binary** — zero runtime dependencies, installable via curl | bash
+2. **Symlink-based** — dotfiles stay in your repo, symlinked to their destinations
+3. **Dry-run first** — every mutating command supports `--dry-run` to preview before executing
+4. **No hidden writes** — no writes outside requested commands; all changes are explicit and transactional
+5. **Lua primary, YAML legacy** — new configs use `dots.lua`; `path.yaml` is supported but deprecated
+6. **Plan abstraction** — the resolver produces a Plan, and commands consume it; `dots plan` makes it explicit
 
 ## Feature Tracking
 

@@ -1,6 +1,7 @@
 package transaction
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -69,14 +70,15 @@ func (t *TransactionLog) Symlink(path, target string) error {
 }
 
 // Backup moves a file to backup and records it. Safe for TOCTOU.
-func (t *TransactionLog) Backup(path, backupPath string) {
+// Returns an error if the rename fails, so callers can handle failures explicitly.
+func (t *TransactionLog) Backup(path, backupPath string) error {
 	// Handle TOCTOU: check if path still exists
 	if _, err := os.Lstat(path); os.IsNotExist(err) {
-		return // Already gone, nothing to do
+		return nil // Already gone, nothing to do
 	}
 
 	if err := os.Rename(path, backupPath); err != nil {
-		return // Best-effort
+		return fmt.Errorf("backup %s → %s: %w", path, backupPath, err)
 	}
 
 	t.actions = append(t.actions, LinkAction{
@@ -84,6 +86,7 @@ func (t *TransactionLog) Backup(path, backupPath string) {
 		Path:       path,
 		BackupPath: backupPath,
 	})
+	return nil
 }
 
 // Move moves src → dest. Rollback restores dest → src.
@@ -151,6 +154,7 @@ func (t *TransactionLog) Commit() {
 }
 
 // Rollback undoes all recorded operations in reverse order.
+// Errors during rollback are logged but do not stop the rollback process.
 func (t *TransactionLog) Rollback() {
 	if t.committed {
 		return
@@ -160,30 +164,35 @@ func (t *TransactionLog) Rollback() {
 		act := t.actions[i]
 		switch act.Type {
 		case ActionSymlink:
-			// Remove the symlink we created
 			if linkTarget, err := os.Readlink(act.Path); err == nil && linkTarget == act.Target {
-				os.Remove(act.Path)
+				if err := os.Remove(act.Path); err != nil {
+					fmt.Fprintf(os.Stderr, "[rollback error] removing symlink %s: %v\n", act.Path, err)
+				}
 			}
 		case ActionBackup:
-			// Restore the backup
 			if _, err := os.Stat(act.BackupPath); err == nil {
-				os.Rename(act.BackupPath, act.Path)
+				if err := os.Rename(act.BackupPath, act.Path); err != nil {
+					fmt.Fprintf(os.Stderr, "[rollback error] restoring backup %s → %s: %v\n", act.BackupPath, act.Path, err)
+				}
 			}
 		case ActionMove:
-			// Restore the move
 			if _, err := os.Stat(act.Target); err == nil {
-				os.Rename(act.Target, act.Path)
+				if err := os.Rename(act.Target, act.Path); err != nil {
+					fmt.Fprintf(os.Stderr, "[rollback error] restoring move %s → %s: %v\n", act.Target, act.Path, err)
+				}
 			}
 		case ActionMkdir:
-			// Remove directory if empty
 			if fi, err := os.Stat(act.Path); err == nil && fi.IsDir() {
-				os.Remove(act.Path) // Will only succeed if empty
+				if err := os.Remove(act.Path); err != nil {
+					fmt.Fprintf(os.Stderr, "[rollback error] removing dir %s: %v\n", act.Path, err)
+				}
 			}
 		case ActionUnlink:
-			// Restore the symlink we removed
 			if act.Target != "" {
 				if _, err := os.Lstat(act.Path); os.IsNotExist(err) {
-					os.Symlink(act.Target, act.Path)
+					if err := os.Symlink(act.Target, act.Path); err != nil {
+						fmt.Fprintf(os.Stderr, "[rollback error] restoring symlink %s → %s: %v\n", act.Path, act.Target, err)
+					}
 				}
 			}
 		}
