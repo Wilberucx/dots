@@ -199,7 +199,7 @@ func init() {
 	linkCmd.Flags().Bool("dry-run", false, "Show what would happen")
 	linkCmd.Flags().Bool("force", false, "Overwrite existing symlinks")
 	linkCmd.Flags().BoolP("interactive", "i", false, "Interactively select modules to link")
-	linkCmd.Flags().String("variant", "", "Specific variant to use")
+	linkCmd.Flags().StringP("variant", "V", "", "Specific variant to use")
 }
 
 // unlinkCmd represents the `dots unlink` command.

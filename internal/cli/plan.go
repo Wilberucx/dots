@@ -28,7 +28,7 @@ by module. Use --module to filter and --format json for machine output.`,
 
 	planCmd.Flags().StringSliceP("module", "m", nil, "Show plan only for specific modules (repeatable)")
 	planCmd.Flags().StringSliceP("type", "t", nil, "Show plan only for modules of this type (repeatable)")
-	planCmd.Flags().String("variant", "", "Show plan for a specific variant")
+	planCmd.Flags().StringP("variant", "V", "", "Show plan for a specific variant")
 	planCmd.Flags().Bool("force", false, "Show plan with --force applied (conflicts become replacements)")
 	planCmd.Flags().StringP("format", "f", "default", "Output format: default, json")
 
