@@ -178,6 +178,97 @@ func RunModuleSelector(names []string, preselectAll bool) ([]string, error) {
 	return finalModel.selected, nil
 }
 
+// ─── Single-select picker model ──────────────────────────────────────────────
+
+type pickerModel struct {
+	items    []string
+	cursor   int
+	selected string
+	done     bool
+	quitting bool
+	width    int
+	height   int
+}
+
+func (m pickerModel) Init() tea.Cmd { return nil }
+
+func (m pickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q":
+			m.quitting = true
+			m.done = true
+			return m, tea.Quit
+		case "enter":
+			m.done = true
+			m.selected = m.items[m.cursor]
+			return m, tea.Quit
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		case "down", "j":
+			if m.cursor < len(m.items)-1 {
+				m.cursor++
+			}
+		}
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+	}
+	return m, nil
+}
+
+func (m pickerModel) View() string {
+	if m.done {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString(QuestionStyle.Render("Select a module (↑↓/jk navigate · Enter confirm):"))
+	b.WriteString("\n\n")
+
+	for i, item := range m.items {
+		cursor := "  "
+		if i == m.cursor {
+			cursor = SelectedStyle.Render("▸ ")
+		}
+		line := fmt.Sprintf("%s%s", cursor, item)
+		b.WriteString(line)
+		b.WriteString("\n")
+	}
+
+	b.WriteString("\n")
+	b.WriteString(HelpStyle.Render("(↑↓/jk navigate · Enter confirm · q/Ctrl+c cancel)"))
+	return b.String()
+}
+
+// RunModulePicker runs an interactive single-select module picker TUI.
+// Returns the selected module name, or empty string if cancelled.
+func RunModulePicker(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+
+	model := pickerModel{
+		items: names,
+	}
+
+	p := tea.NewProgram(model)
+	result, err := p.Run()
+	if err != nil {
+		return ""
+	}
+
+	finalModel, ok := result.(pickerModel)
+	if !ok || finalModel.quitting {
+		return ""
+	}
+
+	return finalModel.selected
+}
+
 // RunVariantSelector shows a numbered list of variants and prompts the user to pick one.
 // Returns the selected variant name and whether the user cancelled.
 // cancelled is true when the user types q, Q, or sends EOF (Ctrl+D).

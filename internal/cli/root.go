@@ -283,7 +283,9 @@ func init() {
 var editCmd = &cobra.Command{
 	Use:   "edit [module]",
 	Short: "Open a module folder or its config file in $EDITOR",
-	Long:  "Open a module folder or its config file (dots.lua or path.yaml) in your $EDITOR.",
+	Long: `Open a module folder or its config file (dots.lua or path.yaml) in your $EDITOR.
+
+If no module is provided, an interactive selector is shown.`,
 	Args:  cobra.MaximumNArgs(1),
 }
 
