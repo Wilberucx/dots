@@ -72,6 +72,12 @@ func runUnlink(cmd *cobra.Command, args []string) error {
 		}
 		ui.PrintInfo(fmt.Sprintf("Selected %d module(s)", len(selectedModules)))
 		fmt.Println()
+	} else if !dryRun {
+		if !ui.RunConfirm("This will unlink ALL modules. Continue?", true) {
+			ui.PrintInfo("Cancelled.")
+			return nil
+		}
+		selectedModules = nil // Unlink all modules
 	} else {
 		selectedModules = nil // Unlink all modules
 	}

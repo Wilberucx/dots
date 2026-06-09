@@ -117,6 +117,12 @@ func runLink(cmd *cobra.Command, args []string) error {
 		}
 		ui.PrintInfo(fmt.Sprintf("Selected %d module(s)", len(selectedModules)))
 		fmt.Println()
+	} else if !dryRun {
+		if !ui.RunConfirm("This will link ALL modules. Continue?", true) {
+			ui.PrintInfo("Cancelled.")
+			return nil
+		}
+		selectedModules = nil // Link all modules
 	} else {
 		selectedModules = nil // Link all modules
 	}
