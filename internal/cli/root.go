@@ -369,6 +369,6 @@ func init() {
 }
 
 // Version is set at build time via -ldflags.
-var Version = "0.14.0"
+var Version = "0.14.2"
 
 // checkForUpdates and notifyIfNeeded are implemented in updates.go
