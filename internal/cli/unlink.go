@@ -13,7 +13,7 @@ import (
 
 func init() {
 	unlinkCmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runUnlink(cmd)
+		return runUnlink(cmd, args)
 	}
 }
 
@@ -48,7 +48,7 @@ func (u *unlinkTx) commit() error {
 	return nil
 }
 
-func runUnlink(cmd *cobra.Command) error {
+func runUnlink(cmd *cobra.Command, args []string) error {
 	ui.PrintHeader("Unlinking Dotfiles")
 
 	cfg, err := loadConfig()
@@ -61,9 +61,8 @@ func runUnlink(cmd *cobra.Command) error {
 	interactive := boolFlag(cmd, "interactive")
 
 	// ── Module selection ──────────────────────────────────────────────
-	var selectedModules []string
-	if len(modules) > 0 {
-		selectedModules = modules
+	selectedModules := mergeModuleArgs(modules, args)
+	if len(selectedModules) > 0 {
 		ui.PrintInfo(fmt.Sprintf("Unlinking specified modules: %s", strings.Join(selectedModules, ", ")))
 	} else if interactive {
 		selectedModules = selectModulesInteractive(cfg, false)

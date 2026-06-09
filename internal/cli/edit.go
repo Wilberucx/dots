@@ -22,7 +22,21 @@ func runEdit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	module := args[0]
+	module := ""
+	if len(args) > 0 {
+		module = args[0]
+	} else {
+		modules := stringSliceFlag(cmd, "module")
+		if len(modules) > 0 {
+			if len(modules) > 1 {
+				ui.PrintWarning("edit accepts a single module — using the first one")
+			}
+			module = modules[0]
+		}
+	}
+	if module == "" {
+		return fmt.Errorf("module name required — use positional arg or -m")
+	}
 	modulePath := filepath.Join(cfg.RepoRoot, module)
 
 	if _, err := os.Stat(modulePath); os.IsNotExist(err) {

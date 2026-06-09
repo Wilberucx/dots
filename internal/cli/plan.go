@@ -66,7 +66,7 @@ func runPlan(cmd *cobra.Command) error {
 	}
 
 	// Variant auto-swap: detect if --variant implies swapping from an active variant
-	variantSwapModules := buildVariantSwapMap(cfg, modules, variant, force)
+	variantSwapModules := buildVariantSwapMap(cfg, modules, nil, variant, force)
 
 	opts := plan.BuildOptions{
 		Force:        force,

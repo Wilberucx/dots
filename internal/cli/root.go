@@ -157,6 +157,25 @@ func Execute() {
 
 // ─── Helper for repeatable string flags ──────────────────────────────────────
 
+// mergeModuleArgs merges flag-based module names with positional args, deduplicating.
+func mergeModuleArgs(flags, args []string) []string {
+	seen := make(map[string]bool, len(flags)+len(args))
+	result := make([]string, 0, len(flags)+len(args))
+	for _, m := range flags {
+		if !seen[m] {
+			seen[m] = true
+			result = append(result, m)
+		}
+	}
+	for _, m := range args {
+		if !seen[m] {
+			seen[m] = true
+			result = append(result, m)
+		}
+	}
+	return result
+}
+
 // stringSliceFlag returns a comma-separated string slice from a cobra flag.
 func stringSliceFlag(cmd *cobra.Command, name string) []string {
 	val, _ := cmd.Flags().GetStringSlice(name)
@@ -186,11 +205,12 @@ var initCmd = &cobra.Command{
 
 // linkCmd represents the `dots link` command.
 var linkCmd = &cobra.Command{
-	Use:   "link",
+	Use:   "link [modules...]",
 	Short: "Create symlinks for dotfiles modules",
 	Long: `Create symlinks for dotfiles modules.
 
-By default, links all modules. Use --interactive to select specific modules.`,
+By default, links all modules. Pass module names as positional arguments
+or use -m to specify specific modules. Use --interactive for interactive selection.`,
 }
 
 func init() {
@@ -204,7 +224,7 @@ func init() {
 
 // unlinkCmd represents the `dots unlink` command.
 var unlinkCmd = &cobra.Command{
-	Use:   "unlink",
+	Use:   "unlink [modules...]",
 	Short: "Remove symlinks for dotfiles modules",
 	Long:  "Remove symlinks for dotfiles modules.",
 }
@@ -217,7 +237,7 @@ func init() {
 
 // statusCmd represents the `dots status` command.
 var statusCmd = &cobra.Command{
-	Use:   "status",
+	Use:   "status [modules...]",
 	Short: "Show symlink status grouped by state",
 	Long:  "Show status of all dotfiles modules grouped by state.",
 }
@@ -264,16 +284,17 @@ var editCmd = &cobra.Command{
 	Use:   "edit [module]",
 	Short: "Open a module folder or its config file in $EDITOR",
 	Long:  "Open a module folder or its config file (dots.lua or path.yaml) in your $EDITOR.",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 }
 
 func init() {
 	editCmd.Flags().BoolP("config", "C", false, "Edit the module's config file (dots.lua or path.yaml)")
+	editCmd.Flags().StringSliceP("module", "m", nil, "Module to edit (alternative to positional argument)")
 }
 
 // installCmd represents the `dots install` command.
 var installCmd = &cobra.Command{
-	Use:   "install",
+	Use:   "install [modules...]",
 	Short: "Install dependencies declared in path.yaml or dots.lua files",
 	Long:  "Install dependencies declared in path.yaml or dots.lua files across all modules.",
 }

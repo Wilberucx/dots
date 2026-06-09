@@ -23,16 +23,16 @@ import (
 
 func init() {
 	installCmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runInstall(cmd)
+		return runInstall(cmd, args)
 	}
 }
 
-func runInstall(cmd *cobra.Command) error {
+func runInstall(cmd *cobra.Command, args []string) error {
 	ui.PrintHeader("Installing Dependencies")
 
 	dryRun := boolFlag(cmd, "dry-run")
 	yes := boolFlag(cmd, "yes")
-	modules := stringSliceFlag(cmd, "module")
+	modules := mergeModuleArgs(stringSliceFlag(cmd, "module"), args)
 	types := stringSliceFlag(cmd, "type")
 
 	// Detect package manager

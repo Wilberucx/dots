@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -175,6 +176,36 @@ func RunModuleSelector(names []string, preselectAll bool) ([]string, error) {
 	}
 
 	return finalModel.selected, nil
+}
+
+// RunVariantSelector shows a numbered list of variants and prompts the user to pick one.
+// Returns the selected variant name and whether the user cancelled.
+// cancelled is true when the user types q, Q, or sends EOF (Ctrl+D).
+func RunVariantSelector(moduleName string, variants []string) (selected string, cancelled bool) {
+	fmt.Println()
+	fmt.Println(QuestionStyle.Render(fmt.Sprintf("Module %q has variants. Choose one:", moduleName)))
+	for i, v := range variants {
+		fmt.Printf("  %d) %s\n", i+1, v)
+	}
+
+	for {
+		var input string
+		fmt.Printf("%s ", HelpStyle.Render(fmt.Sprintf("Enter number (1-%d, q to cancel)", len(variants))))
+		_, err := fmt.Scanln(&input)
+		if err != nil {
+			return "", true // EOF / Ctrl+D
+		}
+		input = strings.TrimSpace(input)
+		if input == "q" || input == "Q" {
+			return "", true
+		}
+
+		choice, err := strconv.Atoi(input)
+		if err == nil && choice >= 1 && choice <= len(variants) {
+			return variants[choice-1], false
+		}
+		fmt.Printf("  %s Invalid choice.\n", ErrorStyle.Render("✗"))
+	}
 }
 
 // RunPrompt asks the user a text question with a default value.

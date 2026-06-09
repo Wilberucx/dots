@@ -17,7 +17,7 @@ import (
 
 func init() {
 	linkCmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runLink(cmd)
+		return runLink(cmd, args)
 	}
 }
 
@@ -89,7 +89,7 @@ func (l *linkTx) commit() error {
 	return nil
 }
 
-func runLink(cmd *cobra.Command) error {
+func runLink(cmd *cobra.Command, args []string) error {
 	ui.PrintHeader("Linking Dotfiles")
 
 	cfg, err := loadConfig()
@@ -105,9 +105,9 @@ func runLink(cmd *cobra.Command) error {
 	variant := stringFlag(cmd, "variant")
 
 	// ── Module selection ──────────────────────────────────────────────
-	var selectedModules []string
-	if len(modules) > 0 {
-		selectedModules = modules
+	selectedModules := mergeModuleArgs(modules, args)
+
+	if len(selectedModules) > 0 {
 		ui.PrintInfo(fmt.Sprintf("Linking specified modules: %s", strings.Join(selectedModules, ", ")))
 	} else if interactive {
 		selectedModules = selectModulesInteractive(cfg, true)
@@ -121,41 +121,24 @@ func runLink(cmd *cobra.Command) error {
 		selectedModules = nil // Link all modules
 	}
 
-	// ── Variant validation ────────────────────────────────────────────
-	if variant != "" && len(selectedModules) == 0 {
-		ui.PrintError("When using --variant, you must specify the module name.")
-		ui.PrintInfo("Example: dots link -m Nvim --variant notevim")
-		return fmt.Errorf("--variant requires --module")
-	}
+	// ── Variant validation & resolution ───────────────────────────────
+	// moduleVariants tracks per-module variant choices. nil means no per-module variants
+	// (either --variant is set globally, or we're using defaults).
+	var moduleVariants map[string]string
 
-	// Variant auto-swap: track which modules need a swap per-module
-	variantSwapModules := buildVariantSwapMap(cfg, selectedModules, variant, force)
-
-	// Print auto-swap messages (caller's responsibility, not buildVariantSwapMap's)
-	for _, modName := range sortedSwapModules(variantSwapModules) {
-		active, _ := resolver.GetActiveVariant(cfg, modName)
-		ui.PrintInfo(fmt.Sprintf("Auto-swap: %s variant '%s' → '%s'", modName, active, variant))
-	}
-
-	// Validate variant existence
-	if variant != "" && len(selectedModules) > 0 {
+	if variant != "" {
+		// Explicit --variant: validate existence per module
+		if selectedModules == nil {
+			return fmt.Errorf("--variant requires specific modules (use positional args or -m)")
+		}
+		moduleVariants = make(map[string]string)
 		for _, modName := range selectedModules {
 			vInfo, err := resolver.GetModuleVariantInfo(cfg, modName)
 			if err != nil {
 				return fmt.Errorf("checking variant info for %s: %w", modName, err)
 			}
 			if vInfo == nil || !vInfo.HasVariants {
-				modDir := filepath.Join(cfg.RepoRoot, modName)
-				entries, _ := os.ReadDir(modDir)
-				var sources []string
-				for _, e := range entries {
-					if !e.IsDir() && e.Name() != "path.yaml" {
-						sources = append(sources, e.Name())
-					} else if e.IsDir() {
-						sources = append(sources, e.Name()+"/")
-					}
-				}
-				return fmt.Errorf("module '%s' has no variants (available: %s)", modName, strings.Join(sources, ", "))
+				return fmt.Errorf("module '%s' has no variants", modName)
 			}
 			found := false
 			for _, v := range vInfo.Variants {
@@ -167,26 +150,62 @@ func runLink(cmd *cobra.Command) error {
 			if !found {
 				return fmt.Errorf("variant '%s' not found in module '%s' (available: %s)", variant, modName, strings.Join(vInfo.Variants, ", "))
 			}
+			moduleVariants[modName] = variant
+		}
+	} else if selectedModules != nil {
+		// No --variant, modules explicitly listed → prompt for each module with variants
+		for _, modName := range selectedModules {
+			vInfo, err := resolver.GetModuleVariantInfo(cfg, modName)
+			if err != nil || vInfo == nil || !vInfo.HasVariants {
+				continue
+			}
+			chosen, cancelled := ui.RunVariantSelector(modName, vInfo.Variants)
+			if cancelled {
+				ui.PrintInfo("Cancelled.")
+				return nil
+			}
+			if moduleVariants == nil {
+				moduleVariants = make(map[string]string)
+			}
+			moduleVariants[modName] = chosen
 		}
 	}
+	// If selectedModules == nil (all modules) and no --variant, use defaults silently
 
-	// Cascade warning
-	if variant == "" && len(selectedModules) > 0 {
-		for _, modName := range selectedModules {
-			vInfo, _ := resolver.GetModuleVariantInfo(cfg, modName)
-			if vInfo != nil && vInfo.HasVariants {
-				ui.PrintWarning(fmt.Sprintf(
-					"Module '%s' has multiple variants. Using default: '%s'. Use --variant to select a specific one.",
-					modName, vInfo.DefaultVariant,
-				))
-			}
+	// Variant auto-swap: detect modules with an active variant different from the chosen one
+	variantSwapModules := buildVariantSwapMap(cfg, selectedModules, moduleVariants, variant, force)
+	for _, modName := range sortedSwapModules(variantSwapModules) {
+		active, _ := resolver.GetActiveVariant(cfg, modName)
+		chosen := variant
+		if chosen == "" && moduleVariants != nil {
+			chosen = moduleVariants[modName]
 		}
+		ui.PrintInfo(fmt.Sprintf("Auto-swap: %s variant '%s' → '%s'", modName, active, chosen))
 	}
 
 	// ── Resolve and build plan ────────────────────────────────────────
-	allModules, err := resolver.ResolveModules(cfg, selectedModules, types, variant)
-	if err != nil {
-		return fmt.Errorf("resolving modules: %w", err)
+	var allModules map[string][]resolver.LinkStatus
+
+	if len(moduleVariants) > 0 {
+		// Per-module variant resolution
+		allModules = make(map[string][]resolver.LinkStatus)
+		for _, modName := range selectedModules {
+			modVariant := moduleVariants[modName] // "" if module has no variant entry
+			modResults, err := resolver.ResolveModules(cfg, []string{modName}, types, modVariant)
+			if err != nil {
+				return fmt.Errorf("resolving module %s: %w", modName, err)
+			}
+			for k, v := range modResults {
+				allModules[k] = v
+			}
+		}
+	} else {
+		// Single resolve call (no per-module variants or using defaults)
+		var err error
+		allModules, err = resolver.ResolveModules(cfg, selectedModules, types, variant)
+		if err != nil {
+			return fmt.Errorf("resolving modules: %w", err)
+		}
 	}
 	if len(allModules) == 0 {
 		ui.PrintWarning("No modules found.")
@@ -198,9 +217,8 @@ func runLink(cmd *cobra.Command) error {
 		if variant != "" {
 			return variant
 		}
-		vInfo, err := resolver.GetModuleVariantInfo(cfg, moduleName)
-		if err == nil && vInfo != nil && vInfo.HasVariants {
-			return vInfo.DefaultVariant
+		if v, ok := moduleVariants[moduleName]; ok {
+			return v
 		}
 		return ""
 	}
@@ -462,15 +480,26 @@ func sortedSwapModules(m map[string]bool) []string {
 // Returns nil (no swaps) when conditions aren't met.
 // This function is PURE — it does NOT print anything. Callers are responsible
 // for rendering any UI messages.
-func buildVariantSwapMap(cfg *config.DotsConfig, selectedModules []string, variant string, force bool) map[string]bool {
-	if variant == "" || force || len(selectedModules) == 0 {
+func buildVariantSwapMap(cfg *config.DotsConfig, selectedModules []string, moduleVariants map[string]string, variant string, force bool) map[string]bool {
+	if force || len(selectedModules) == 0 {
+		return nil
+	}
+	if variant == "" && len(moduleVariants) == 0 {
 		return nil
 	}
 
 	swapMap := make(map[string]bool)
 	for _, modName := range selectedModules {
+		modVariant := variant
+		if modVariant == "" {
+			var ok bool
+			modVariant, ok = moduleVariants[modName]
+			if !ok {
+				continue
+			}
+		}
 		active, _ := resolver.GetActiveVariant(cfg, modName)
-		if active != "" && active != variant {
+		if active != "" && active != modVariant {
 			swapMap[modName] = true
 		}
 	}

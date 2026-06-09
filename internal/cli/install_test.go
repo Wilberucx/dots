@@ -249,20 +249,20 @@ func TestResolveInstallDecision_PackageFallbackWithExistingDest(t *testing.T) {
 // ─── buildVariantSwapMap purity test ─────────────────────────────────────────
 
 func TestBuildVariantSwapMap_NilOnNoVariant(t *testing.T) {
-	// When variant is empty, should return nil
-	m := buildVariantSwapMap(nil, []string{"Zsh"}, "", false)
+	// When variant is empty and no per-module variants, should return nil
+	m := buildVariantSwapMap(nil, []string{"Zsh"}, nil, "", false)
 	assert.Nil(t, m, "no variant should return nil")
 }
 
 func TestBuildVariantSwapMap_NilOnForce(t *testing.T) {
 	// When force is true, should return nil even with variant
-	m := buildVariantSwapMap(nil, []string{"Zsh"}, "work", true)
+	m := buildVariantSwapMap(nil, []string{"Zsh"}, nil, "work", true)
 	assert.Nil(t, m, "force should return nil")
 }
 
 func TestBuildVariantSwapMap_NilOnNoModules(t *testing.T) {
 	// When no modules selected, should return nil
-	m := buildVariantSwapMap(nil, nil, "work", false)
+	m := buildVariantSwapMap(nil, nil, nil, "work", false)
 	assert.Nil(t, m, "no modules should return nil")
 }
 
@@ -270,7 +270,7 @@ func TestBuildVariantSwapMap_NoSwapNeeded(t *testing.T) {
 	// With empty config (no repo root), GetActiveVariant returns empty string,
 	// so no swap should be detected.
 	cfg := &config.DotsConfig{}
-	m := buildVariantSwapMap(cfg, []string{"Zsh"}, "work", false)
+	m := buildVariantSwapMap(cfg, []string{"Zsh"}, nil, "work", false)
 	assert.Nil(t, m, "no active variant means no swap needed")
 }
 
