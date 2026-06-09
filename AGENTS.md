@@ -21,9 +21,9 @@ We follow a strict `dev` / `main` isolation strategy:
    - Build with `go build ./...`.
 
 3. **Releasing (When asked to finish/release)**:
+   - Bump the version in `dev` first: update `Version` in `internal/cli/root.go`.
    - Make sure all development is committed in `dev`.
    - `git checkout main` -> `git merge dev`
-   - Update version in `internal/cli/root.go` (the `Version` variable) if necessary.
    - Tag the release: `git tag vX.Y.Z`
    - Trigger the GitHub Action to build and upload binaries to the release.
 
