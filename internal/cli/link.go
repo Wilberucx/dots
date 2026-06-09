@@ -167,11 +167,11 @@ func runLink(cmd *cobra.Command, args []string) error {
 			if err != nil || vInfo == nil || !vInfo.HasVariants {
 				continue
 			}
-			chosen, cancelled := ui.RunVariantSelector(modName, vInfo.Variants)
-			if cancelled {
-				ui.PrintInfo("Cancelled.")
-				return nil
-			}
+		chosen := ui.RunVariantPicker(modName, vInfo.Variants)
+		if chosen == "" {
+			ui.PrintInfo("Cancelled.")
+			return nil
+		}
 			if moduleVariants == nil {
 				moduleVariants = make(map[string]string)
 			}

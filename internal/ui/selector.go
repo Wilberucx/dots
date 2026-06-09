@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -181,6 +180,7 @@ func RunModuleSelector(names []string, preselectAll bool) ([]string, error) {
 // ─── Single-select picker model ──────────────────────────────────────────────
 
 type pickerModel struct {
+	title    string
 	items    []string
 	cursor   int
 	selected string
@@ -226,7 +226,7 @@ func (m pickerModel) View() string {
 	}
 
 	var b strings.Builder
-	b.WriteString(QuestionStyle.Render("Select a module (↑↓/jk navigate · Enter confirm):"))
+	b.WriteString(QuestionStyle.Render(m.title))
 	b.WriteString("\n\n")
 
 	for i, item := range m.items {
@@ -252,9 +252,30 @@ func RunModulePicker(names []string) string {
 	}
 
 	model := pickerModel{
+		title: "Select a module (↑↓/jk navigate · Enter confirm):",
 		items: names,
 	}
 
+	return runPicker(model)
+}
+
+// RunVariantPicker runs an interactive single-select variant picker TUI.
+// Returns the selected variant name, or empty string if cancelled.
+func RunVariantPicker(moduleName string, variants []string) string {
+	if len(variants) == 0 {
+		return ""
+	}
+
+	model := pickerModel{
+		title: fmt.Sprintf("Select a variant for %q (↑↓/jk navigate · Enter confirm):", moduleName),
+		items: variants,
+	}
+
+	return runPicker(model)
+}
+
+// runPicker runs a pickerModel and returns the selected item.
+func runPicker(model pickerModel) string {
 	p := tea.NewProgram(model)
 	result, err := p.Run()
 	if err != nil {
@@ -267,36 +288,6 @@ func RunModulePicker(names []string) string {
 	}
 
 	return finalModel.selected
-}
-
-// RunVariantSelector shows a numbered list of variants and prompts the user to pick one.
-// Returns the selected variant name and whether the user cancelled.
-// cancelled is true when the user types q, Q, or sends EOF (Ctrl+D).
-func RunVariantSelector(moduleName string, variants []string) (selected string, cancelled bool) {
-	fmt.Println()
-	fmt.Println(QuestionStyle.Render(fmt.Sprintf("Module %q has variants. Choose one:", moduleName)))
-	for i, v := range variants {
-		fmt.Printf("  %d) %s\n", i+1, v)
-	}
-
-	for {
-		var input string
-		fmt.Printf("%s ", HelpStyle.Render(fmt.Sprintf("Enter number (1-%d, q to cancel)", len(variants))))
-		_, err := fmt.Scanln(&input)
-		if err != nil {
-			return "", true // EOF / Ctrl+D
-		}
-		input = strings.TrimSpace(input)
-		if input == "q" || input == "Q" {
-			return "", true
-		}
-
-		choice, err := strconv.Atoi(input)
-		if err == nil && choice >= 1 && choice <= len(variants) {
-			return variants[choice-1], false
-		}
-		fmt.Printf("  %s Invalid choice.\n", ErrorStyle.Render("✗"))
-	}
 }
 
 // RunPrompt asks the user a text question with a default value.
