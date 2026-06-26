@@ -17,17 +17,17 @@ import (
 
 func init() {
 	statusCmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runStatus(cmd)
+		return runStatus(cmd, args)
 	}
 }
 
-func runStatus(cmd *cobra.Command) error {
+func runStatus(cmd *cobra.Command, args []string) error {
 	cfg, err := loadConfig()
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	modules := stringSliceFlag(cmd, "module")
+	modules := mergeModuleArgs(stringSliceFlag(cmd, "module"), args)
 	types := stringSliceFlag(cmd, "type")
 	stateFilterFlags := stringSliceFlag(cmd, "state")
 	format := stringFlag(cmd, "format")

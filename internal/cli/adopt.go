@@ -259,38 +259,68 @@ func adoptExistingSymlinkYAML(yamlPath, moduleDir, sourceName, destination, modu
 }
 
 // appendLuaFileEntry adds a file() entry to an existing dots.lua file.
+// If the file already has a "files = { ... }" section, the entry is inserted
+// inside that section (before its closing brace). Otherwise, a new files section
+// is created before the closing brace of the return table.
 func appendLuaFileEntry(luaPath, source, destination string) error {
-	// Read existing content
 	data, err := os.ReadFile(luaPath)
 	if err != nil {
 		return err
 	}
 
 	content := string(data)
+	entry := fmt.Sprintf("file(%q, %q),\n", source, destination)
 
-	// Insert before the closing "}" of the return statement
-	entry := fmt.Sprintf("    file(%q, %q),\n", source, destination)
-
-	// Find the last "}" that closes the return table
-	idx := lastIndexOutsideString(content, "}")
-	if idx < 0 {
+	// Find the last "}" that closes the return table (fallback position)
+	lastBrace := lastIndexOutsideString(content, "}")
+	if lastBrace < 0 {
 		return fmt.Errorf("cannot parse dots.lua: no closing brace found")
 	}
 
-	// Check if we need to create a files section first
-	hasFiles := false
-	if idxFiles := indexOutsideString(content, "files = {"); idxFiles >= 0 {
-		hasFiles = true
-	}
-
-	if !hasFiles {
-		// Need to create files section
-		filesSection := fmt.Sprintf("\n  files = {\n    file(%q, %q),\n  },\n", source, destination)
-		newContent := content[:idx] + filesSection + content[idx:]
+	// Check if the file already has a "files" section
+	filesSectionIdx := indexOutsideString(content, "files =")
+	if filesSectionIdx < 0 {
+		// No files section — create one before the closing brace
+		filesSection := fmt.Sprintf("  files = {\n    file(%q, %q),\n  },\n", source, destination)
+		before := strings.TrimRight(content[:lastBrace], " \t\r\n")
+		newContent := before + "\n" + filesSection + content[lastBrace:]
 		return os.WriteFile(luaPath, []byte(newContent), 0644)
 	}
 
-	newContent := content[:idx] + "  " + entry + content[idx:]
+	// Find the opening brace of "files = { ... }"
+	// Ensure only whitespace exists between "files =" and "{"
+	afterEquals := filesSectionIdx + len("files =")
+	openBraceIdx := strings.IndexByte(content[afterEquals:], '{')
+	if openBraceIdx < 0 {
+		return fmt.Errorf("cannot parse dots.lua: files section malformed (no opening brace)")
+	}
+	// Verify only whitespace between "files =" and "{"
+	gap := content[afterEquals : afterEquals+openBraceIdx]
+	for _, c := range gap {
+		if c != ' ' && c != '\t' && c != '\n' && c != '\r' {
+			return fmt.Errorf("cannot parse dots.lua: unexpected content between 'files =' and '{': %q", gap)
+		}
+	}
+	openBraceIdx += afterEquals
+
+	// Find the matching closing brace
+	closeBraceIdx := findMatchingBrace(content, openBraceIdx)
+	if closeBraceIdx < 0 {
+		return fmt.Errorf("cannot parse dots.lua: files section not properly closed")
+	}
+
+	// Find the indentation of the closing brace line
+	// e.g. for "  }," the indent is "  "
+	lineStart := closeBraceIdx
+	for lineStart > 0 && content[lineStart-1] != '\n' {
+		lineStart--
+	}
+	closingIndent := content[lineStart:closeBraceIdx]
+	entryIndent := closingIndent + "  "
+
+	// Replace the line containing the closing brace with the new entry
+	// followed by the closing brace (preserving its indentation)
+	newContent := content[:lineStart] + entryIndent + entry + closingIndent + content[closeBraceIdx:]
 	return os.WriteFile(luaPath, []byte(newContent), 0644)
 }
 
@@ -339,6 +369,43 @@ func lastIndexOutsideString(s, substr string) int {
 		}
 	}
 	return lastIdx
+}
+
+// findMatchingBrace finds the position of the matching closing brace for the
+// opening brace '{' at openPos. It respects string literals and nested braces.
+func findMatchingBrace(s string, openPos int) int {
+	if openPos < 0 || openPos >= len(s) || s[openPos] != '{' {
+		return -1
+	}
+
+	depth := 1
+	inString := false
+	strChar := byte(0)
+
+	for i := openPos + 1; i < len(s); i++ {
+		if inString {
+			if s[i] == strChar && (i == 0 || s[i-1] != '\\') {
+				inString = false
+			}
+			continue
+		}
+		if s[i] == '"' || s[i] == '\'' {
+			inString = true
+			strChar = s[i]
+			continue
+		}
+		if s[i] == '{' {
+			depth++
+			continue
+		}
+		if s[i] == '}' {
+			depth--
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+	return -1
 }
 
 func doAdopt(absPath, targetFile, yamlPath string, entry map[string]interface{}, tx *transaction.TransactionLog, dryRun bool, label string, onSuccess func()) error {

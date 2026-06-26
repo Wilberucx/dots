@@ -22,7 +22,33 @@ func runEdit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	module := args[0]
+	module := ""
+	if len(args) > 0 {
+		module = args[0]
+	} else {
+		modules := stringSliceFlag(cmd, "module")
+		if len(modules) > 0 {
+			if len(modules) > 1 {
+				ui.PrintWarning("edit accepts a single module — using the first one")
+			}
+			module = modules[0]
+		}
+	}
+	if module == "" {
+		mods, err := cfg.GetModuleDirs(nil, nil)
+		if err != nil || len(mods) == 0 {
+			return fmt.Errorf("no modules found")
+		}
+		names := make([]string, len(mods))
+		for i, m := range mods {
+			names[i] = m.Name
+		}
+		module = ui.RunModulePicker(names)
+		if module == "" {
+			ui.PrintInfo("No module selected.")
+			return nil
+		}
+	}
 	modulePath := filepath.Join(cfg.RepoRoot, module)
 
 	if _, err := os.Stat(modulePath); os.IsNotExist(err) {

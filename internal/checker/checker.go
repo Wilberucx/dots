@@ -211,11 +211,21 @@ func CheckBrokenLinks(cfg *config.DotsConfig, result *Result) {
 						Message:  fmt.Sprintf("broken link: destination '%s' %s", resolver.ExpandPath(st.Destination), st.Detail),
 					})
 				} else if st.State == resolver.StateUnsafe {
+					msg := fmt.Sprintf("unsafe path: destination '%s' %s", resolver.ExpandPath(st.Destination), st.Detail)
+					if st.ConfigDest == "~" {
+						switch st.OpType {
+						case "file":
+							base := filepath.Base(st.ConfigSource)
+							msg = fmt.Sprintf("file(): destination '~' is ambiguous — use an explicit path like file(%q, \"~/%s\")", st.ConfigSource, base)
+						case "dir_to":
+							msg = fmt.Sprintf("dir():to(%q) targets $HOME — use dir(...):into(\"~\") to expand directory contents rather than linking the directory itself", st.ConfigDest)
+						}
+					}
 					result.Issues = append(result.Issues, Issue{
 						Module:   modName,
 						File:     relPath,
 						Severity: SeverityError,
-						Message:  fmt.Sprintf("unsafe path: destination '%s' %s", resolver.ExpandPath(st.Destination), st.Detail),
+						Message:  msg,
 					})
 				}
 			}

@@ -26,13 +26,14 @@ const (
 
 // LinkStatus holds the resolved status of a single file mapping.
 type LinkStatus struct {
-	Source      string
-	Destination string
-	State       LinkState
-	Detail      string
-	BackupPath  string
+	Source       string
+	Destination  string
+	State        LinkState
+	Detail       string
+	BackupPath   string
 	ConfigSource string // original value from config (dots.lua / path.yaml)
 	ConfigDest   string // original value from config (dots.lua / path.yaml)
+	OpType       string // "file", "dir_to", "dir_into", "glob", "yaml"
 }
 
 // ExpandPath expands ~ and converts to an absolute path.
@@ -598,6 +599,7 @@ func resolveLuaFileOp(cfg *config.DotsConfig, mod config.ModuleDir, op luacfg.Fi
 			st := resolveSingleState(srcPath, dest, mod.Path, homeDir)
 			st.ConfigSource = op.Source
 			st.ConfigDest = op.Destination
+			st.OpType = "file"
 			statuses = append(statuses, st)
 		}
 
@@ -614,6 +616,7 @@ func resolveLuaFileOp(cfg *config.DotsConfig, mod config.ModuleDir, op luacfg.Fi
 			st := resolveSingleState(srcPath, dest, mod.Path, homeDir)
 			st.ConfigSource = op.Source
 			st.ConfigDest = op.Destination
+			st.OpType = "dir_to"
 			statuses = append(statuses, st)
 		}
 
@@ -634,6 +637,7 @@ func resolveLuaFileOp(cfg *config.DotsConfig, mod config.ModuleDir, op luacfg.Fi
 				st := resolveSingleState(childPath, childDest, mod.Path, homeDir)
 				st.ConfigSource = op.Source + "/" + child.Name()
 				st.ConfigDest = op.Destination
+				st.OpType = "dir_into"
 				statuses = append(statuses, st)
 			}
 		}
@@ -656,6 +660,7 @@ func resolveLuaFileOp(cfg *config.DotsConfig, mod config.ModuleDir, op luacfg.Fi
 			st := resolveSingleState(match, childDest, mod.Path, homeDir)
 			st.ConfigSource = op.Pattern
 			st.ConfigDest = op.Destination
+			st.OpType = "glob"
 			statuses = append(statuses, st)
 		}
 	}
@@ -739,6 +744,7 @@ func resolveModuleMappings(cfg *config.DotsConfig, modulePath string, mappings [
 					st := resolveSingleState(childPath, childDest, modulePath, homeDir)
 					st.ConfigSource = m.Source
 					st.ConfigDest = m.Destination
+					st.OpType = "yaml"
 					statuses = append(statuses, st)
 				}
 				continue
@@ -755,6 +761,7 @@ func resolveModuleMappings(cfg *config.DotsConfig, modulePath string, mappings [
 			st := resolveSingleState(src, finalDest, modulePath, homeDir)
 			st.ConfigSource = m.Source
 			st.ConfigDest = m.Destination
+			st.OpType = "yaml"
 			statuses = append(statuses, st)
 		}
 	}
@@ -772,11 +779,15 @@ func resolveSingleState(src, dest, modulePath, homeDir string) LinkStatus {
 		if _, err := os.Stat(origPath); err == nil {
 			backup = origPath
 		}
+		detail := "path outside home directory"
+		if dest == homeDir {
+			detail = "destination is $HOME — use an explicit subpath (e.g. '~/.zprofile') in file(), or dir(...):into('~') to expand directory contents"
+		}
 		return LinkStatus{
 			Source:      src,
 			Destination: dest,
 			State:       StateUnsafe,
-			Detail:      "path outside home directory",
+			Detail:      detail,
 			BackupPath:  backup,
 		}
 	}

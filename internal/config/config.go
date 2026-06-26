@@ -52,8 +52,12 @@ func (c *DotsConfig) GetCachedModuleDirs() []ModuleDir {
 
 // IsDotfilesRepo checks if a path is a dotfiles repository.
 func IsDotfilesRepo(path string) bool {
-	// New Lua format: init.lua
+	// New Lua format: init.lua (primary)
 	if _, err := os.Stat(filepath.Join(path, "init.lua")); err == nil {
+		return true
+	}
+	// Lua fallback: config.lua
+	if _, err := os.Stat(filepath.Join(path, "config.lua")); err == nil {
 		return true
 	}
 	// New format: .dots/config.yaml
@@ -113,7 +117,7 @@ func Load() (*DotsConfig, error) {
 
 	return nil, fmt.Errorf(
 		"could not find a dotfiles repository.\n"+
-			"No 'init.lua', '%s/%s' or '%s' found in current directory tree or common locations.\n\n"+
+			"No 'init.lua', 'config.lua', '%s/%s' or '%s' found in current directory tree or common locations.\n\n"+
 			"To fix this, you have 3 options:\n"+
 			"  1. dots --path ~/your-dotfiles <command> — specify path directly\n"+
 			"  2. export DOTS_REPO=~/your-dotfiles — set environment variable\n"+
@@ -130,8 +134,14 @@ func create(repoRoot string) *DotsConfig {
 		CLIDir:    filepath.Join(repoRoot, "cli"),
 	}
 
-	// Detect Lua repo and load init.lua if present
+	// Detect Lua repo: init.lua (primary) or config.lua (fallback)
+	isLua := false
 	if _, err := os.Stat(filepath.Join(repoRoot, "init.lua")); err == nil {
+		isLua = true
+	} else if _, err := os.Stat(filepath.Join(repoRoot, "config.lua")); err == nil {
+		isLua = true
+	}
+	if isLua {
 		cfg.IsLuaRepo = true
 		rootCfg, err := loadLuaRootConfig(repoRoot)
 		if err == nil && rootCfg != nil {

@@ -60,13 +60,14 @@ That's it. Two commands and your dotfiles are linked.
 | ------------------- | -------------------------------------------------- |
 | `dots init`         | Initialize repo — creates `init.lua` or `.dots/config.yaml` |
 | `dots link`         | Create symlinks for all modules                    |
+| `dots plan`         | Show what `dots link` would do without modifying   |
 | `dots unlink`       | Remove symlinks                                    |
 | `dots status`       | Show link state grouped by status                  |
 | `dots list`         | List modules or backups with filters               |
 | `dots edit`         | Open module folder or config file in $EDITOR       |
 | `dots adopt <path>` | Import an existing config into the repo            |
 | `dots install`      | Install dependencies from config files             |
-| `dots migrate`      | Migrate config between schema versions             |
+| `dots doctor`       | Deep health check for your dotfiles setup          |
 | `dots backup`       | Git commit and optional push                       |
 
 ## Quick examples
@@ -115,10 +116,17 @@ dots edit Nvim --config   # open config file directly
 | `-t / --type`        | Filter by module type (repeatable)                                                |
 | `-s / --state`       | Filter by state: `linked`, `unlinked`, `broken`, `missing`, `unsafe` (repeatable) |
 | `-f / --format`      | Output format: `default`, `table`, `json` (solo para `status`)                    |
+| `--backups`          | Show only mappings with .orig backup files (`status`, `list`)                     |
+| `--linked`           | Show linked modules (solo para `list`)                                            |
+| `--unlinked`         | Show unlinked modules (solo para `list`)                                          |
+| `--broken`           | Show broken modules (solo para `list`)                                            |
 | `--force`            | Overwrite existing symlinks in conflict (solo para `link`)                        |
-| `--variant`          | Select variant for modules with multiple variants (solo para `link`)              |
+| `--variant`          | Select variant for modules with multiple variants (solo para `link`, `list`)      |
 | `-i / --interactive` | Interactively select modules to link/unlink (`link`, `unlink`)                    |
+| `-y / --yes`         | Skip confirmation prompt (solo para `install`)                                    |
+| `-m / --message`     | Commit message (solo para `backup run`)                                           |
 | `--dry-run`          | Preview without executing                                                         |
+| `--no-hints`         | Suppress migration hints from the syntax checker (persistent)                     |
 
 ---
 
