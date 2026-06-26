@@ -9,6 +9,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestIsDotfilesRepo_ConfigLua(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create config.lua marker
+	err := os.WriteFile(filepath.Join(dir, "config.lua"), []byte("return { name = \"test\" }"), 0644)
+	require.NoError(t, err)
+
+	assert.True(t, IsDotfilesRepo(dir), "config.lua should be detected as a repo marker")
+}
+
 func TestIsDotfilesRepo_NewFormat(t *testing.T) {
 	dir := t.TempDir()
 

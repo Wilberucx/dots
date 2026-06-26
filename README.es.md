@@ -48,13 +48,14 @@ Eso es todo. Dos comandos y tus dotfiles están enlazados.
 | ------------------- | --------------------------------------------------- |
 | `dots init`         | Inicializa el repo — crea `init.lua` o `.dots/config.yaml` |
 | `dots link`         | Crea symlinks para todos los módulos                |
+| `dots plan`         | Muestra lo que haría `dots link` sin modificar nada |
 | `dots unlink`       | Elimina symlinks                                    |
 | `dots status`       | Muestra el estado de enlace agrupado               |
 | `dots list`         | Lista módulos o backups con filtros                 |
 | `dots edit`         | Abre la carpeta del módulo o archivo de configuración en $EDITOR |
 | `dots adopt <path>` | Importa una configuración existente al repo         |
 | `dots install`      | Instala dependencias desde los archivos de configuración |
-| `dots migrate`      | Migra configuración entre versiones de esquema      |
+| `dots doctor`       | Diagnóstico profundo de tu configuración de dotfiles |
 | `dots backup`       | Git commit y push opcional                          |
 
 ## Ejemplos rápidos
@@ -103,10 +104,17 @@ dots edit Nvim --config   # abre el archivo de configuración directamente
 | `-t / --type`        | Filtrar por tipo de módulo (repetible)                                             |
 | `-s / --state`       | Filtrar por estado: `linked`, `unlinked`, `broken`, `missing`, `unsafe` (repetible) |
 | `-f / --format`      | Formato de salida: `default`, `table`, `json` (solo para `status`)                 |
+| `--backups`          | Mostrar solo archivos con backup .orig (`status`, `list`)                          |
+| `--linked`           | Mostrar módulos enlazados (solo para `list`)                                      |
+| `--unlinked`         | Mostrar módulos desenlazados (solo para `list`)                                   |
+| `--broken`           | Mostrar módulos rotos (solo para `list`)                                          |
 | `--force`            | Sobrescribir symlinks existentes en conflicto (solo para `link`)                   |
-| `--variant`          | Seleccionar variante para módulos con múltiples variantes (solo para `link`)       |
+| `--variant`          | Seleccionar variante para módulos con múltiples variantes (solo para `link`, `list`) |
 | `-i / --interactive` | Seleccionar módulos interactivamente para enlazar/desenlazar (`link`, `unlink`)    |
+| `-y / --yes`         | Saltar confirmación (solo para `install`)                                          |
+| `-m / --message`     | Mensaje de commit (solo para `backup run`)                                        |
 | `--dry-run`          | Vista previa sin ejecutar                                                          |
+| `--no-hints`         | Suprimir sugerencias de migración del syntax checker (persistente)                |
 
 ---
 

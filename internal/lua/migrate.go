@@ -140,8 +140,14 @@ func generateFileEntry(f map[string]interface{}) string {
 			cleanDest := strings.TrimSuffix(strings.TrimSuffix(dest, "/*"), "/")
 			if hasPerOS {
 				firstDest := cleanDest
-				for _, v := range perOS {
-					if s, ok := v.(string); ok {
+				// Sort keys for deterministic iteration (linux before mac before windows)
+				var osKeys []string
+				for k := range perOS {
+					osKeys = append(osKeys, k)
+				}
+				sort.Strings(osKeys)
+				for _, k := range osKeys {
+					if s, ok := perOS[k].(string); ok {
 						firstDest = strings.TrimSuffix(strings.TrimSuffix(s, "/*"), "/")
 						break
 					}

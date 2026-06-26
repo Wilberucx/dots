@@ -116,11 +116,24 @@ func loadConfig() (*config.DotsConfig, error) {
 	return cfg, err
 }
 
-// loadLuaInitConfig loads init.lua and returns the parsed config.
+// loadLuaInitConfig loads init.lua (or config.lua as fallback) and returns the parsed config.
 func loadLuaInitConfig(repoRoot string) (*luacfg.RootConfig, error) {
 	vm := luacfg.NewLuaVM()
 	defer vm.Close()
-	return vm.LoadRootConfig(filepath.Join(repoRoot, "init.lua"))
+
+	// Try init.lua first (primary marker)
+	initPath := filepath.Join(repoRoot, "init.lua")
+	if _, err := os.Stat(initPath); err == nil {
+		return vm.LoadRootConfig(initPath)
+	}
+
+	// Fallback to config.lua
+	configPath := filepath.Join(repoRoot, "config.lua")
+	if _, err := os.Stat(configPath); err == nil {
+		return vm.LoadRootConfig(configPath)
+	}
+
+	return nil, nil
 }
 
 // discoverLuaModules discovers modules using the Lua module discovery system.
@@ -369,6 +382,6 @@ func init() {
 }
 
 // Version is set at build time via -ldflags.
-var Version = "0.14.2"
+var Version = "0.14.3"
 
 // checkForUpdates and notifyIfNeeded are implemented in updates.go
