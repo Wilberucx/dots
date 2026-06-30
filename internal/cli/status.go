@@ -32,6 +32,12 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	stateFilterFlags := stringSliceFlag(cmd, "state")
 	format := stringFlag(cmd, "format")
 	showBackups, _ := cmd.Flags().GetBool("backups")
+	porcelain, _ := cmd.Flags().GetBool("porcelain")
+
+	// --porcelain flag overrides --format
+	if porcelain {
+		format = "porcelain"
+	}
 
 	allModules, err := resolver.ResolveModules(cfg, modules, types, "")
 	if err != nil {
@@ -39,6 +45,10 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(allModules) == 0 {
+		if format == "porcelain" {
+			// No output for porcelain on empty — silent like git
+			return nil
+		}
 		ui.PrintWarning("No modules found.")
 		return nil
 	}
@@ -49,7 +59,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		for _, s := range stateFilterFlags {
 			switch s {
 			case "unlinked":
-				stateSet["pending"] = true
+				stateSet["unlinked"] = true
 			case "broken":
 				stateSet["conflict"] = true
 			case "linked":
@@ -69,6 +79,8 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		renderTable(allModules, stateSet, cfg, showBackups)
 	case "json":
 		return renderJSON(allModules, stateSet, cfg, showBackups)
+	case "porcelain":
+		renderPorcelain(allModules, stateSet, cfg, showBackups)
 	default:
 		ui.PrintHeader("Dots Status")
 		renderDefault(allModules, stateSet, cfg, showBackups)
@@ -123,7 +135,7 @@ func renderDefault(
 				moduleBroken++
 			case resolver.StateMissing:
 				moduleMissing++
-			case resolver.StatePending:
+			case resolver.StateUnlinked:
 				modulePending++
 			}
 		}
@@ -175,7 +187,7 @@ func renderDefault(
 				missingSrc = append(missingSrc, moduleCategory{moduleName, info})
 			}
 		} else if modulePending > 0 {
-			if stateFilter == nil || stateFilter["pending"] {
+			if stateFilter == nil || stateFilter["unlinked"] {
 				info := fmt.Sprintf("%d unlinked", modulePending)
 				if backupInfo != "" {
 					info = info + " ⚠ (" + backupInfo + ")"
@@ -287,7 +299,7 @@ func stateSymbol(state resolver.LinkState) string {
 		return "✖ conflict"
 	case resolver.StateUnsafe:
 		return "⚠ unsafe"
-	case resolver.StatePending:
+	case resolver.StateUnlinked:
 		return "○ unlinked"
 	case resolver.StateMissing:
 		return "… missing"
@@ -408,7 +420,7 @@ func renderJSON(
 
 	jsonStateLabels := map[resolver.LinkState]string{
 		resolver.StateLinked:   "linked",
-		resolver.StatePending:  "unlinked",
+		resolver.StateUnlinked: "unlinked",
 		resolver.StateConflict: "broken",
 		resolver.StateMissing:  "missing",
 		resolver.StateUnsafe:   "unsafe",
@@ -463,6 +475,48 @@ func renderJSON(
 
 	fmt.Println(string(jsonData))
 	return nil
+}
+
+// ─── Porcelain output ──────────────────────────────────────────────────────
+
+func renderPorcelain(
+	allModules map[string][]resolver.LinkStatus,
+	stateFilter map[string]bool,
+	cfg *config.DotsConfig,
+	showBackups bool,
+) {
+	sortedNames := sortedModuleNames(allModules)
+
+	for _, moduleName := range sortedNames {
+		statuses := allModules[moduleName]
+
+		for _, st := range statuses {
+			if stateFilter != nil && !stateFilter[string(st.State)] {
+				continue
+			}
+			if showBackups && st.BackupPath == "" {
+				continue
+			}
+
+			srcCell := st.ConfigSource
+			if srcCell == "" {
+				srcCell = filepath.Base(st.Source)
+			}
+
+			destCell := st.ConfigDest
+			if destCell == "" {
+				destCell = shortDisplayPath(st.Destination, cfg.HomeDir)
+			}
+
+			// Tab-separated: module, state, source, destination
+			fmt.Printf("%s\t%s\t%s\t%s\n",
+				moduleName,
+				string(st.State),
+				srcCell,
+				destCell,
+			)
+		}
+	}
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

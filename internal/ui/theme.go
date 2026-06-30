@@ -24,7 +24,7 @@ var StateStyle = map[string]struct {
 	Color lipgloss.Color
 }{
 	"linked":   {"linked", lipgloss.Color("76")},
-	"pending":  {"unlinked", lipgloss.Color("243")},
+	"unlinked": {"unlinked", lipgloss.Color("243")},
 	"conflict": {"broken", lipgloss.Color("196")},
 	"missing":  {"missing", lipgloss.Color("214")},
 	"unsafe":   {"unsafe", lipgloss.Color("196")},

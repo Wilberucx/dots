@@ -259,8 +259,9 @@ func init() {
 	statusCmd.Flags().StringSliceP("module", "m", nil, "Show status only for specific modules (repeatable)")
 	statusCmd.Flags().StringSliceP("type", "t", nil, "Show status only for modules of this type (repeatable)")
 	statusCmd.Flags().StringSliceP("state", "s", nil, "Filter by state: linked, unlinked, broken, missing, unsafe (repeatable)")
-	statusCmd.Flags().StringP("format", "f", "default", "Output format: default, table, json")
+	statusCmd.Flags().StringP("format", "f", "default", "Output format: default, table, json, porcelain")
 	statusCmd.Flags().Bool("backups", false, "Show only mappings with .orig backup files")
+	statusCmd.Flags().Bool("porcelain", false, "Machine-parseable tab-separated output (state\\tmodule\\tsource\\tdestination)")
 }
 
 // listCmd represents the `dots list` command.
@@ -382,6 +383,6 @@ func init() {
 }
 
 // Version is set at build time via -ldflags.
-var Version = "0.14.3"
+var Version = "0.15.0"
 
 // checkForUpdates and notifyIfNeeded are implemented in updates.go

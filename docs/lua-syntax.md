@@ -203,8 +203,7 @@ files = {
 ```
 
 Each item is processed in order and produces one or more `LinkStatus`
-entries (symlink states: `linked`, `conflict`, `pending`, `missing`,
-`unsafe`).
+entries (symlink states:`linked`, `conflict`, `unlinked`, `missing`,unsafe`).
 
 ### 3.4 The `dependencies` Field
 

@@ -205,7 +205,7 @@ files = {
 ```
 
 Cada elemento se procesa en orden y produce uno o más `LinkStatus` (estados
-de symlink: `linked`, `conflict`, `pending`, `missing`, `unsafe`).
+de symlink: `linked`, `conflict`, `unlinked`, `missing`, `unsafe`).
 
 ### 3.4 El campo `dependencies`
 
