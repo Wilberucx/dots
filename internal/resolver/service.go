@@ -128,7 +128,7 @@ func buildModuleInfo(cfg *config.DotsConfig, name string, sts []LinkStatus) Modu
 				hasConflict = true
 			case StateLinked:
 				hasLinked = true
-			case StatePending:
+			case StateUnlinked:
 				hasPending = true
 			}
 		}

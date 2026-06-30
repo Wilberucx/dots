@@ -111,7 +111,7 @@ func actionFromLinkStatus(modName string, st resolver.LinkStatus, effectiveForce
 			}
 		}
 
-	case resolver.StatePending:
+	case resolver.StateUnlinked:
 		if st.Detail == "backup needed" {
 			backupPath := st.BackupPath
 			if backupPath == "" {
@@ -172,7 +172,7 @@ func BuildUnlinkPlan(modules map[string][]resolver.LinkStatus) *Plan {
 				act.Kind = ActionErrorConflict
 				act.Detail = "conflict or unsafe — skipping"
 
-			case resolver.StatePending, resolver.StateMissing:
+			case resolver.StateUnlinked, resolver.StateMissing:
 				act.Kind = ActionSkipPending
 				act.Detail = "not linked"
 

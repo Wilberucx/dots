@@ -19,7 +19,7 @@ type LinkState string
 const (
 	StateLinked   LinkState = "linked"
 	StateConflict LinkState = "conflict"
-	StatePending  LinkState = "pending"
+	StateUnlinked LinkState = "unlinked"
 	StateMissing  LinkState = "missing"
 	StateUnsafe   LinkState = "unsafe"
 )
@@ -865,7 +865,7 @@ func resolveSingleState(src, dest, modulePath, homeDir string) LinkStatus {
 		return LinkStatus{
 			Source:      src,
 			Destination: dest,
-			State:       StatePending,
+			State:       StateUnlinked,
 			Detail:      "backup needed",
 			BackupPath:  backup,
 		}
@@ -875,7 +875,7 @@ func resolveSingleState(src, dest, modulePath, homeDir string) LinkStatus {
 	return LinkStatus{
 		Source:      src,
 		Destination: dest,
-		State:       StatePending,
+		State:       StateUnlinked,
 		Detail:      "will create",
 		BackupPath:  "",
 	}

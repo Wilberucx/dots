@@ -57,7 +57,7 @@ func runList(cmd *cobra.Command) error {
 
 		if unlinked {
 			for _, st := range statuses {
-				if st.State == resolver.StatePending {
+				if st.State == resolver.StateUnlinked {
 					results[moduleName] = true
 					break
 				}

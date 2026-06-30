@@ -152,7 +152,7 @@ func runUnlink(cmd *cobra.Command, args []string) error {
 				})
 				modStats.notLinked++
 
-			case resolver.StatePending, resolver.StateMissing:
+			case resolver.StateUnlinked, resolver.StateMissing:
 				rows = append(rows, linkRow{
 					icon:   ui.InfoStyle.Render("ℹ"),
 					src:    srcName,

@@ -24,7 +24,7 @@ func TestBuildLinkPlan_Linked(t *testing.T) {
 func TestBuildLinkPlan_Pending(t *testing.T) {
 	modules := map[string][]resolver.LinkStatus{
 		"Zsh": {
-			{Source: "/repo/Zsh/.zshrc", Destination: "/home/user/.zshrc", State: resolver.StatePending, Detail: "will create"},
+			{Source: "/repo/Zsh/.zshrc", Destination: "/home/user/.zshrc", State: resolver.StateUnlinked, Detail: "will create"},
 		},
 	}
 
@@ -36,7 +36,7 @@ func TestBuildLinkPlan_Pending(t *testing.T) {
 func TestBuildLinkPlan_BackupNeeded(t *testing.T) {
 	modules := map[string][]resolver.LinkStatus{
 		"Zsh": {
-			{Source: "/repo/Zsh/.zshrc", Destination: "/home/user/.zshrc", State: resolver.StatePending, Detail: "backup needed"},
+			{Source: "/repo/Zsh/.zshrc", Destination: "/home/user/.zshrc", State: resolver.StateUnlinked, Detail: "backup needed"},
 		},
 	}
 
@@ -57,7 +57,7 @@ func TestBuildLinkPlan_BackupNeeded_OrigExists(t *testing.T) {
 
 	modules := map[string][]resolver.LinkStatus{
 		"Zsh": {
-			{Source: "/repo/Zsh/.zshrc", Destination: destPath, State: resolver.StatePending, Detail: "backup needed", BackupPath: origPath},
+			{Source: "/repo/Zsh/.zshrc", Destination: destPath, State: resolver.StateUnlinked, Detail: "backup needed", BackupPath: origPath},
 		},
 	}
 
@@ -79,7 +79,7 @@ func TestBuildLinkPlan_BackupNeeded_BrokenSymlinkOrig(t *testing.T) {
 
 	modules := map[string][]resolver.LinkStatus{
 		"Zsh": {
-			{Source: "/repo/Zsh/.zshrc", Destination: destPath, State: resolver.StatePending, Detail: "backup needed", BackupPath: origPath},
+			{Source: "/repo/Zsh/.zshrc", Destination: destPath, State: resolver.StateUnlinked, Detail: "backup needed", BackupPath: origPath},
 		},
 	}
 
@@ -100,7 +100,7 @@ func TestBuildLinkPlan_BackupNeeded_LstatError(t *testing.T) {
 	// (which should still return backup needed)
 	modules := map[string][]resolver.LinkStatus{
 		"Zsh": {
-			{Source: "/repo/Zsh/.zshrc", Destination: destPath, State: resolver.StatePending, Detail: "backup needed", BackupPath: origPath},
+			{Source: "/repo/Zsh/.zshrc", Destination: destPath, State: resolver.StateUnlinked, Detail: "backup needed", BackupPath: origPath},
 		},
 	}
 
@@ -206,7 +206,7 @@ func TestBuildLinkPlan_MultipleModules(t *testing.T) {
 	modules := map[string][]resolver.LinkStatus{
 		"Zsh": {
 			{Source: "/repo/Zsh/.zshrc", Destination: "/home/user/.zshrc", State: resolver.StateLinked},
-			{Source: "/repo/Zsh/.zshenv", Destination: "/home/user/.zshenv", State: resolver.StatePending, Detail: "will create"},
+			{Source: "/repo/Zsh/.zshenv", Destination: "/home/user/.zshenv", State: resolver.StateUnlinked, Detail: "will create"},
 		},
 		"Nvim": {
 			{Source: "/repo/Nvim/init.lua", Destination: "/home/user/.config/nvim/init.lua", State: resolver.StateConflict},
@@ -235,7 +235,7 @@ func TestBuildUnlinkPlan_Linked(t *testing.T) {
 func TestBuildUnlinkPlan_NotLinked(t *testing.T) {
 	modules := map[string][]resolver.LinkStatus{
 		"Zsh": {
-			{Source: "/repo/Zsh/.zshrc", Destination: "/home/user/.zshrc", State: resolver.StatePending},
+			{Source: "/repo/Zsh/.zshrc", Destination: "/home/user/.zshrc", State: resolver.StateUnlinked},
 		},
 	}
 
@@ -248,7 +248,7 @@ func TestCountByKind(t *testing.T) {
 	modules := map[string][]resolver.LinkStatus{
 		"Zsh": {
 			{Source: "/a", Destination: "/b", State: resolver.StateLinked},
-			{Source: "/c", Destination: "/d", State: resolver.StatePending, Detail: "will create"},
+			{Source: "/c", Destination: "/d", State: resolver.StateUnlinked, Detail: "will create"},
 		},
 	}
 
@@ -262,7 +262,7 @@ func TestFilterMutatingActions(t *testing.T) {
 	modules := map[string][]resolver.LinkStatus{
 		"Zsh": {
 			{Source: "/a", Destination: "/b", State: resolver.StateLinked},
-			{Source: "/c", Destination: "/d", State: resolver.StatePending, Detail: "will create"},
+			{Source: "/c", Destination: "/d", State: resolver.StateUnlinked, Detail: "will create"},
 			{Source: "/e", Destination: "/f", State: resolver.StateConflict},
 		},
 	}
@@ -277,7 +277,7 @@ func TestFilterMutatingActionsWithForce(t *testing.T) {
 	modules := map[string][]resolver.LinkStatus{
 		"Zsh": {
 			{Source: "/a", Destination: "/b", State: resolver.StateLinked},
-			{Source: "/c", Destination: "/d", State: resolver.StatePending, Detail: "will create"},
+			{Source: "/c", Destination: "/d", State: resolver.StateUnlinked, Detail: "will create"},
 			{Source: "/e", Destination: "/f", State: resolver.StateConflict},
 		},
 	}
@@ -291,7 +291,7 @@ func TestActionsByModule(t *testing.T) {
 	modules := map[string][]resolver.LinkStatus{
 		"Zsh": {
 			{Source: "/a", Destination: "/b", State: resolver.StateLinked},
-			{Source: "/c", Destination: "/d", State: resolver.StatePending, Detail: "will create"},
+			{Source: "/c", Destination: "/d", State: resolver.StateUnlinked, Detail: "will create"},
 		},
 	}
 
@@ -307,7 +307,7 @@ func TestModuleNames_Sorted(t *testing.T) {
 			{Source: "/a", Destination: "/b", State: resolver.StateLinked},
 		},
 		"Nvim": {
-			{Source: "/c", Destination: "/d", State: resolver.StatePending, Detail: "will create"},
+			{Source: "/c", Destination: "/d", State: resolver.StateUnlinked, Detail: "will create"},
 		},
 	}
 

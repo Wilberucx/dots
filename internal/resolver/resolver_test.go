@@ -519,7 +519,7 @@ func TestResolveModules_LuaDirIntoVariant_NoneLinked_ShowsVariants(t *testing.T)
 	// Should resolve with default variant "termux" (last declared) and show pending
 	require.Len(t, results["Zsh"], 2)
 	for _, st := range results["Zsh"] {
-		assert.Equal(t, StatePending, st.State)
+		assert.Equal(t, StateUnlinked, st.State)
 	}
 
 	// No active variant detected (none linked)
@@ -561,7 +561,7 @@ files:
 	require.NoError(t, err)
 	require.Contains(t, results, "Zsh")
 	require.Len(t, results["Zsh"], 1)
-	assert.Equal(t, StatePending, results["Zsh"][0].State)
+	assert.Equal(t, StateUnlinked, results["Zsh"][0].State)
 	assert.Equal(t, "will create", results["Zsh"][0].Detail)
 }
 
@@ -572,7 +572,7 @@ func TestResolveModules_LinkedModule(t *testing.T) {
 	createModule(t, cfg, "Zsh", `
 files:
   - source: .zshrc
-    destination: `+filepath.Join(cfg.HomeDir, ".zshrc")+`
+    destination: `+	filepath.Join(cfg.HomeDir, ".zshrc")+`
 `, map[string]string{".zshrc": "export FOO=bar"})
 
 	// Create the symlink
@@ -592,7 +592,7 @@ func TestResolveModules_ConflictModule(t *testing.T) {
 	createModule(t, cfg, "Zsh", `
 files:
   - source: .zshrc
-    destination: `+filepath.Join(cfg.HomeDir, ".zshrc")+`
+    destination: `+	filepath.Join(cfg.HomeDir, ".zshrc")+`
 `, map[string]string{".zshrc": "export FOO=bar"})
 
 	// Create a symlink pointing elsewhere
@@ -613,7 +613,7 @@ func TestResolveModules_WithBackup(t *testing.T) {
 	createModule(t, cfg, "Zsh", `
 files:
   - source: .zshrc
-    destination: `+filepath.Join(cfg.HomeDir, ".zshrc")+`
+    destination: `+	filepath.Join(cfg.HomeDir, ".zshrc")+`
 `, map[string]string{".zshrc": "export FOO=bar"})
 
 	// Create a real file at destination (not a symlink)
@@ -627,7 +627,7 @@ files:
 	require.NoError(t, err)
 	require.Contains(t, results, "Zsh")
 	require.Len(t, results["Zsh"], 1)
-	assert.Equal(t, StatePending, results["Zsh"][0].State)
+	assert.Equal(t, StateUnlinked, results["Zsh"][0].State)
 	assert.Equal(t, "backup needed", results["Zsh"][0].Detail)
 }
 

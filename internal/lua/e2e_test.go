@@ -298,9 +298,9 @@ func TestE2E_FullLuaPipeline(t *testing.T) {
 	assert.Len(t, results["Zsh"], 2, "Zsh: 2 files visible (linux OS)")
 	// Verify .zshrc and .zshenv are present, .mac-only is NOT
 	zshrc := findStatus(t, results["Zsh"], ".zshrc")
-	assert.Equal(t, resolver.StatePending, zshrc.State, ".zshrc should be pending")
+	assert.Equal(t, resolver.StateUnlinked, zshrc.State, ".zshrc should be pending")
 	zshenv := findStatus(t, results["Zsh"], ".zshenv")
-	assert.Equal(t, resolver.StatePending, zshenv.State, ".zshenv should be pending")
+	assert.Equal(t, resolver.StateUnlinked, zshenv.State, ".zshenv should be pending")
 	// .mac-only should NOT be present (filtered by OS)
 	for _, st := range results["Zsh"] {
 		assert.NotEqual(t, ".mac-only", filepath.Base(st.Source), ".mac-only should be filtered out")
@@ -321,13 +321,13 @@ func TestE2E_FullLuaPipeline(t *testing.T) {
 	require.Contains(t, results, "Scripts", "Scripts should be in results")
 	assert.Len(t, results["Scripts"], 2, "Scripts: 2 files from dir expansion")
 	for _, st := range results["Scripts"] {
-		assert.Equal(t, resolver.StatePending, st.State)
+		assert.Equal(t, resolver.StateUnlinked, st.State)
 	}
 
 	// Alacritty: 1 file (dir symlink)
 	require.Contains(t, results, "Alacritty", "Alacritty should be in results")
 	assert.Len(t, results["Alacritty"], 1, "Alacritty: 1 dir symlink")
-	assert.Equal(t, resolver.StatePending, results["Alacritty"][0].State)
+	assert.Equal(t, resolver.StateUnlinked, results["Alacritty"][0].State)
 
 	// ═══════════════════════════════════════════════════════════════════════
 	// Phase 6: Create symlinks and verify linked detection
@@ -348,7 +348,7 @@ func TestE2E_FullLuaPipeline(t *testing.T) {
 
 	// .zshenv should still be pending
 	zshenv = findStatus(t, results["Zsh"], ".zshenv")
-	assert.Equal(t, resolver.StatePending, zshenv.State, ".zshenv should still be pending")
+	assert.Equal(t, resolver.StateUnlinked, zshenv.State, ".zshenv should still be pending")
 
 	// ═══════════════════════════════════════════════════════════════════════
 	// Phase 7: Conflict detection — wrong symlink target
@@ -366,7 +366,7 @@ func TestE2E_FullLuaPipeline(t *testing.T) {
 
 	// lazy-lock.json should be pending (doesn't exist yet)
 	lazyLock := findStatus(t, results["Nvim"], "lazy-lock.json")
-	assert.Equal(t, resolver.StatePending, lazyLock.State, "lazy-lock.json should still be pending")
+	assert.Equal(t, resolver.StateUnlinked, lazyLock.State, "lazy-lock.json should still be pending")
 
 	// ═══════════════════════════════════════════════════════════════════════
 	// Phase 8: Link all → all should be linked
@@ -772,7 +772,7 @@ func TestE2E_GlobPatterns(t *testing.T) {
 
 	// Verify all are pending (no symlinks exist)
 	for _, st := range results["Configs"] {
-		assert.Equal(t, resolver.StatePending, st.State)
+		assert.Equal(t, resolver.StateUnlinked, st.State)
 	}
 
 	// Create a symlink for one file and verify linked detection
