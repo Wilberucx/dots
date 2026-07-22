@@ -168,7 +168,7 @@ dots completion bash > /etc/bash_completion.d/dots
 - [Referencia de sintaxis Lua](docs/sintaxis-lua.md) — configuración `init.lua` / `dots.lua`
 - [Sistema de plugins](docs/sintaxis-lua.md#7-sistema-de-plugins) — extender dots con scripts Lua
 
-### YAML heredado
+### YAML heredado (⚠️ Deprecado — eliminar en v0.20.0)
 
 - [Referencia de path.yaml](docs/path-yaml-reference.md) — estructura de módulos, tipos de dependencias
 - [Schema v3](docs/schema-v3.md) — especificación del esquema actual

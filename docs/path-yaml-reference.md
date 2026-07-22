@@ -1,5 +1,13 @@
 # path.yaml Reference
 
+> **⚠️ DEPRECATED — will be removed in v0.20.0**
+>
+> YAML (`path.yaml`) is deprecated. New configurations should use Lua
+> (`dots.lua`). See [Lua syntax reference](lua-syntax.md) and the
+> [deprecation timeline](lua-syntax.md#102-coexistence-with-legacy-formats).
+>
+> Run `dots doctor` to identify modules still using `path.yaml`.
+
 Each module in your dotfiles repo is a directory containing:
 - A `path.yaml` file — declares files to link and dependencies to install
 - The actual config files or directories to be symlinked

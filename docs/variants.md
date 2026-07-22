@@ -128,8 +128,8 @@ The last entry in the `files` array becomes the default.
 
 ## Declaring Variants in YAML (`path.yaml`) — Legacy
 
-> **Note**: YAML format is supported for backward compatibility but is
-> deprecated. New modules should use Lua.
+> **⚠️ Deprecated — YAML support will be removed in v0.20.0**
+> See the [deprecation timeline](lua-syntax.md#102-coexistence-with-legacy-formats).
 
 In YAML, variants emerge from **same destination + multiple sources**.
 The order matters: the **last source in the YAML list is the default**

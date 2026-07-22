@@ -54,3 +54,8 @@ Feature tasks and pending implementations are tracked in the Obsidian Vault proj
 
 Do not use a local `pending.md` file. All feature decisions, roadmap items,
 and pending work lives in that Vault note and should be kept in sync.
+
+### Active Roadmap Items
+
+- **YAML removal** — planned for v0.20.0. See [docs/yaml-removal-plan.md](docs/yaml-removal-plan.md)
+  for per-phase breakdown of files to remove and dependency order.

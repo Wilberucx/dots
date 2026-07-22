@@ -789,12 +789,15 @@ end
 
 ### 8.1 Migración manual
 
-> **Nota**: El comando `dots migrate` CLI está en desarrollo y no está
-> disponible en esta versión. La migración se realiza manualmente usando
-> la función `MigrateModule()` desde Go, o editando directamente los archivos.
+> **Nota**: Cuando `dots link`, `dots status` o `dots doctor` detecta un módulo
+> usando `path.yaml`, el checker muestra una sugerencia de migración a `dots.lua`.
+> El migrador (`MigrateModule()` en Go) convierte módulos existentes de
+> `path.yaml` a `dots.lua` automáticamente cuando se le pregunta.
+>
+> También puedes migrar manualmente usando el template como guía.
 
-El migrador convierte módulos existentes de `path.yaml` a `dots.lua`.
-Puedes migrar manualmente usando el template como guía.
+> **⚠️ Aviso de deprecación**: YAML (`path.yaml`) será **eliminado completamente en v0.20.0**.
+> Ver el [cronograma](#102-coexistencia-con-formatos-legacy) abajo.
 
 ### 8.2 Mapeo YAML → Lua
 
@@ -962,18 +965,35 @@ el repo se detecta igualmente como repositorio Lua.
 
 > `init.lua` tiene prioridad sobre `config.lua` si ambos existen.
 
-### 10.2 Coexistencia con formatos legacy
+### 10.2 Coexistencia con formatos legacy — Cronograma de Deprecación
 
-`dots` soporta tres formatos de repositorio simultáneamente:
+Actualmente `dots` soporta tres formatos de repositorio simultáneamente, pero
+el soporte YAML se está eliminando gradualmente:
 
 | Marker | Formato | Estado |
 |--------|---------|--------|
-| `init.lua` | Lua | **Recomendado** |
-| `.dots/config.yaml` | YAML (v3) | Soportado |
-| `dots.toml` | TOML | Legacy |
+| `init.lua` | Lua | **✅ Recomendado** |
+| `.dots/config.yaml` | YAML (v3) | ⚠️ Deprecado — eliminar en v0.20.0 |
+| `dots.toml` | TOML | ❌ Legacy (eliminado) |
 
-Los módulos individuales también pueden coexistir: módulos con `dots.lua`
-(Lua) y módulos con `path.yaml` (YAML) en el mismo repo.
+Los módulos individuales con `path.yaml` siguen el mismo cronograma.
+
+#### Cronograma
+
+| Release | Acción |
+|---------|--------|
+| **v0.16.0** | Anuncio formal de deprecación (`dots doctor` muestra advertencia por cada módulo YAML) |
+| **v0.17.0** | Deprecación suave: `dots link/status/plan` muestran `[WARN]` al procesar módulos YAML |
+| **v0.18.0** | Deprecación fuerte: todos los comandos emiten advertencias de deprecación para YAML |
+| **v0.19.0** | Último release con soporte YAML |
+| **v0.20.0** | **Soporte YAML eliminado.** Solo se reconoce Lua (`init.lua` / `dots.lua`) |
+
+#### Checklist de Migración
+
+1. Ejecuta `dots doctor` para identificar módulos que aún usan `path.yaml`
+2. Ejecuta `dots link` — preguntará si migrar `path.yaml` → `dots.lua` automáticamente
+3. Revisa el `dots.lua` generado y ajusta si es necesario
+4. Elimina el archivo `path.yaml` antiguo
 
 ---
 

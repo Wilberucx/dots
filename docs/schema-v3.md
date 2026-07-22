@@ -1,7 +1,12 @@
 # Schema v3 — path.yaml
 
+> **⚠️ DEPRECATED**
+>
+> YAML (`path.yaml`) is deprecated and will be removed in **v0.20.0**.
+> See the [deprecation timeline](lua-syntax.md#102-coexistence-with-legacy-formats).
+
 > **Versión**: 3.0.0
-> **Status**: Active
+> **Status**: Deprecated — remove in v0.20.0
 > **Scope**: Estandarización del schema de `dependencies` y `files` en `path.yaml`
 
 ## Principio
@@ -177,7 +182,10 @@ Los campos detectados:
 
 Los campos v2 (`source`, `target`, `extract-path`, `arch_map`, `package-managers`, `destination-override`, `destination-linux`, `destination-mac`) ya no son reconocidos.
 
-Para migrar existente -> usar comando `dots migrate`.
+Para migrar existente -> usar comando `dots migrate` (migración v2→v3 automática).
+
+> **Nota**: Este comando migra internamente `path.yaml` de v2 a v3 cuando se ejecuta
+> `dots link` o `dots doctor`. No hay un subcomando `migrate` en la CLI.
 
 ---
 

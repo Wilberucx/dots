@@ -179,7 +179,8 @@ dots completion bash > /etc/bash_completion.d/dots
 - **Symlink-based** — dotfiles stay in your repo, symlinked to their destinations
 - **Dry-run first** — every mutating command supports `--dry-run` to preview before executing
 - **No hidden writes** — no writes outside requested commands; all changes are explicit and transactional
-- **Lua primary, YAML legacy** — new configs use `dots.lua`; `path.yaml` is supported but deprecated
+- **Lua primary, YAML legacy** — new configs use `dots.lua`; `path.yaml` is supported but **deprecated**
+- **YAML removal planned for v0.20.0** — migrate to Lua before then
 - **Plan abstraction** — the resolver produces a Plan that is shared across commands for consistency
 
 ## Documentation
@@ -189,7 +190,7 @@ dots completion bash > /etc/bash_completion.d/dots
 - [Lua syntax reference](docs/lua-syntax.md) — `init.lua` / `dots.lua` configuration
 - [Plugin system](docs/lua-syntax.md#7-plugin-system) — extending dots with Lua scripts
 
-### Legacy YAML
+### Legacy YAML (⚠️ Deprecated — remove in v0.20.0)
 
 - [path.yaml reference](docs/path-yaml-reference.md) — module structure, dependency types
 - [Schema v3](docs/schema-v3.md) — current schema specification

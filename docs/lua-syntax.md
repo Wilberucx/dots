@@ -781,16 +781,17 @@ end
 
 ---
 
-## 8. YAML to Lua Migration
+## 8. YAML to Lua Migration### 8.1 Auto-Migration
 
-### 8.1 Manual Migration
+> **Note**: When `dots link`, `dots status`, or `dots doctor` detects a module
+> using `path.yaml`, the checker shows a hint suggesting migration to `dots.lua`.
+> The migrator (`MigrateModule()` in Go) converts existing modules from
+> `path.yaml` to `dots.lua` automatically when prompted.
+>
+> You can also migrate manually using the template as a guide.
 
-> **Note**: The `dots migrate` CLI command is under development and not
-> available in this version. Migration is done manually using the
-> `MigrateModule()` function from Go, or by editing files directly.
-
-The migrator converts existing modules from `path.yaml` to `dots.lua`.
-You can migrate manually using the template as a guide.
+> **⚠️ Deprecation warning**: YAML (`path.yaml`) will be **fully removed in v0.20.0**.
+> See the [timeline](#102-coexistence-with-legacy-formats) below.
 
 ### 8.2 YAML → Lua Mapping
 
@@ -958,18 +959,35 @@ the repo is still detected as a Lua repository.
 
 > `init.lua` takes priority over `config.lua` if both exist.
 
-### 10.2 Coexistence with Legacy Formats
+### 10.2 Coexistence with Legacy Formats — Deprecation Timeline
 
-`dots` supports three repository formats simultaneously:
+`dots` currently supports three repository formats simultaneously, but YAML
+support is being phased out:
 
-| Marker             | Format   | Status        |
-|--------------------|----------|---------------|
-| `init.lua`         | Lua      | **Recommended** |
-| `.dots/config.yaml` | YAML (v3) | Supported     |
-| `dots.toml`        | TOML     | Legacy        |
+| Marker             | Format   | Status                        |
+|--------------------|----------|-------------------------------|
+| `init.lua`         | Lua      | **✅ Recommended**            |
+| `.dots/config.yaml` | YAML (v3) | ⚠️ Deprecated — remove in v0.20.0 |
+| `dots.toml`        | TOML     | ❌ Legacy (removed)           |
 
-Individual modules can also coexist: modules with `dots.lua` (Lua) and
-modules with `path.yaml` (YAML) in the same repo.
+Module-level `path.yaml` follows the same timeline.
+
+#### Timeline
+
+| Release | Action |
+|---------|--------|
+| **v0.16.0** | Formal deprecation announcement (`dots doctor` shows warning for each YAML module) |
+| **v0.17.0** | Soft deprecation: `dots link/status/plan` show `[WARN]` when processing YAML modules |
+| **v0.18.0** | Strong deprecation: all commands emit deprecation warnings for YAML usage |
+| **v0.19.0** | Last release with YAML support |
+| **v0.20.0** | **YAML support removed.** Only Lua (`init.lua` / `dots.lua`) is recognized |
+
+#### Migration Checklist
+
+1. Run `dots doctor` to identify modules still using `path.yaml`
+2. Run `dots link` — it will prompt to migrate `path.yaml` → `dots.lua` automatically
+3. Review the generated `dots.lua` and adjust if needed
+4. Delete the old `path.yaml` file
 
 ---
 
