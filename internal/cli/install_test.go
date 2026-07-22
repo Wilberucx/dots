@@ -3,13 +3,14 @@ package cli
 import (
 	"testing"
 
-	"github.com/Wilberucx/dots/internal/config"
-	"github.com/Wilberucx/dots/internal/yaml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Wilberucx/dots/internal/config"
+	"github.com/Wilberucx/dots/internal/yaml"
 )
 
-// ─── resolveInstallDecision tests ────────────────────────────────────────────
+// ─── resolveInstallDecision tests ────────────────────────────────────────────.
 
 // mockManager implements plugins.PackageManager for testing.
 type mockManager struct {
@@ -246,7 +247,7 @@ func TestResolveInstallDecision_PackageFallbackWithExistingDest(t *testing.T) {
 	assert.Contains(t, fallbackDecision.SkipReason, "already exists")
 }
 
-// ─── buildVariantSwapMap purity test ─────────────────────────────────────────
+// ─── buildVariantSwapMap purity test ─────────────────────────────────────────.
 
 func TestBuildVariantSwapMap_NilOnNoVariant(t *testing.T) {
 	// When variant is empty and no per-module variants, should return nil
@@ -274,7 +275,7 @@ func TestBuildVariantSwapMap_NoSwapNeeded(t *testing.T) {
 	assert.Nil(t, m, "no active variant means no swap needed")
 }
 
-// ─── sortedSwapModules test ──────────────────────────────────────────────────
+// ─── sortedSwapModules test ──────────────────────────────────────────────────.
 
 func TestSortedSwapModules(t *testing.T) {
 	m := map[string]bool{

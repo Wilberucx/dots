@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// ─── Model ──────────────────────────────────────────────────────────────────
+// ─── Model ──────────────────────────────────────────────────────────────────.
 
 type moduleItem struct {
 	name    string
@@ -122,7 +122,7 @@ func (m selectorModel) collectSelected() []string {
 	return selected
 }
 
-// ─── Styles ─────────────────────────────────────────────────────────────────
+// ─── Styles ─────────────────────────────────────────────────────────────────.
 
 var (
 	QuestionStyle = lipgloss.NewStyle().
@@ -139,10 +139,10 @@ var (
 			Foreground(lipgloss.Color("243"))
 )
 
-// ─── Public API ──────────────────────────────────────────────────────────────
+// ─── Public API ──────────────────────────────────────────────────────────────.
 
 // RunModuleSelector runs an interactive checkbox-style module selection TUI.
-// Returns the list of selected module names, or nil if cancelled.
+// Returns the list of selected module names, or nil if canceled.
 func RunModuleSelector(names []string, preselectAll bool) ([]string, error) {
 	items := make([]moduleItem, len(names))
 	for i, name := range names {
@@ -177,7 +177,7 @@ func RunModuleSelector(names []string, preselectAll bool) ([]string, error) {
 	return finalModel.selected, nil
 }
 
-// ─── Single-select picker model ──────────────────────────────────────────────
+// ─── Single-select picker model ──────────────────────────────────────────────.
 
 type pickerModel struct {
 	title    string
@@ -245,7 +245,7 @@ func (m pickerModel) View() string {
 }
 
 // RunModulePicker runs an interactive single-select module picker TUI.
-// Returns the selected module name, or empty string if cancelled.
+// Returns the selected module name, or empty string if canceled.
 func RunModulePicker(names []string) string {
 	if len(names) == 0 {
 		return ""
@@ -260,7 +260,7 @@ func RunModulePicker(names []string) string {
 }
 
 // RunVariantPicker runs an interactive single-select variant picker TUI.
-// Returns the selected variant name, or empty string if cancelled.
+// Returns the selected variant name, or empty string if canceled.
 func RunVariantPicker(moduleName string, variants []string) string {
 	if len(variants) == 0 {
 		return ""
@@ -296,7 +296,7 @@ func RunPrompt(message, defaultValue string) string {
 	fmt.Printf("%s ", HelpStyle.Render(fmt.Sprintf("[%s]", defaultValue)))
 
 	var response string
-	fmt.Scanln(&response)
+	_, _ = fmt.Scanln(&response)
 	response = strings.TrimSpace(response)
 
 	if response == "" {
@@ -316,7 +316,7 @@ func RunConfirm(message string, defaultValue bool) bool {
 	fmt.Printf("%s ", HelpStyle.Render(fmt.Sprintf("[%s]", defaultStr)))
 
 	var response string
-	fmt.Scanln(&response)
+	_, _ = fmt.Scanln(&response)
 	response = strings.TrimSpace(strings.ToLower(response))
 
 	if response == "" {

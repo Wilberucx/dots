@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Wilberucx/dots/internal/config"
 	luacfg "github.com/Wilberucx/dots/internal/lua"
 	"github.com/Wilberucx/dots/internal/plugins"
@@ -18,7 +20,6 @@ import (
 	"github.com/Wilberucx/dots/internal/template"
 	"github.com/Wilberucx/dots/internal/ui"
 	"github.com/Wilberucx/dots/internal/yaml"
-	"github.com/spf13/cobra"
 )
 
 func init() {
@@ -94,7 +95,7 @@ func runInstall(cmd *cobra.Command, args []string) error {
 	// Confirm before proceeding
 	if !yes {
 		if !ui.RunConfirm("Proceed with installation?", true) {
-			ui.PrintInfo("Installation cancelled.")
+			ui.PrintInfo("Installation canceled.")
 			return nil
 		}
 	}
@@ -203,7 +204,7 @@ func loadLuaDependencies(modPath string) ([]yaml.Dependency, error) {
 }
 
 // installDep dispatches to the correct installer based on dep.Type.
-// It uses resolveInstallDecision to centralise skip/fallback logic so that
+// It uses resolveInstallDecision to centralize skip/fallback logic so that
 // the dry‑run preview (displayDepCommands) and actual execution always agree.
 func installDep(dep yaml.Dependency, manager plugins.PackageManager, dryRun bool) {
 	decision := resolveInstallDecision(dep, manager)
@@ -234,7 +235,7 @@ func installDep(dep yaml.Dependency, manager plugins.PackageManager, dryRun bool
 	}
 }
 
-// ─── Dependency decision ─────────────────────────────────────────────────────
+// ─── Dependency decision ─────────────────────────────────────────────────────.
 
 // installDecision captures the resolved decision for a dependency.
 // It is the single source of truth shared between preview and execution.
@@ -245,7 +246,7 @@ type installDecision struct {
 	SkipReason   string          // non-empty means the dep should be skipped
 }
 
-// resolveInstallDecision centralises ALL skip / fallback / resolution logic
+// resolveInstallDecision centralizes ALL skip / fallback / resolution logic
 // for every dependency type. It is used by both the dry‑run preview
 // (displayDepCommands) and the actual execution (installDep) so they
 // always agree on what will happen.
@@ -356,7 +357,7 @@ func installGitDep(dep yaml.Dependency, dryRun bool) {
 	ui.PrintSuccess(fmt.Sprintf("  Installed %s", dep.Name))
 }
 
-// ─── Package dependencies ────────────────────────────────────────────────────
+// ─── Package dependencies ────────────────────────────────────────────────────.
 
 // installPackageDep runs the package manager install command.
 // Caller must ensure the dep is not skipped and managers are resolved
@@ -385,7 +386,7 @@ func installPackageDep(dep yaml.Dependency, pkgName string, manager plugins.Pack
 	ui.PrintSuccess(fmt.Sprintf("  Installed %s", dep.Name))
 }
 
-// ─── Binary dependencies ─────────────────────────────────────────────────────
+// ─── Binary dependencies ─────────────────────────────────────────────────────.
 
 // installBinaryDep downloads a binary or archive. Caller must ensure dep.URL
 // and dep.Dest are non‑empty and that Dest does not already exist
@@ -418,7 +419,7 @@ func installBinaryDep(dep yaml.Dependency, dryRun bool) {
 func downloadAndExtract(url, dest, extract string) error {
 	// Create parent dir
 	parentDir := filepath.Dir(dest)
-	if err := os.MkdirAll(parentDir, 0755); err != nil {
+	if err := os.MkdirAll(parentDir, 0o755); err != nil {
 		return fmt.Errorf("creating parent dir: %w", err)
 	}
 
@@ -511,7 +512,7 @@ func downloadAndExtract(url, dest, extract string) error {
 		if err := os.Rename(tmpFile, dest); err != nil {
 			return fmt.Errorf("moving binary: %w", err)
 		}
-		if err := os.Chmod(dest, 0755); err != nil {
+		if err := os.Chmod(dest, 0o755); err != nil {
 			return fmt.Errorf("chmod binary: %w", err)
 		}
 	}
@@ -583,7 +584,7 @@ func printDepBody(dep yaml.Dependency, pkgName string, manager plugins.PackageMa
 	}
 }
 
-// ─── Post-install ────────────────────────────────────────────────────────────
+// ─── Post-install ────────────────────────────────────────────────────────────.
 
 func runPostInstall(dep yaml.Dependency, dryRun bool) {
 	if dep.PostInstall == "" {

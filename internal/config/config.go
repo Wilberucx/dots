@@ -27,8 +27,8 @@ type DotsConfig struct {
 	HomeDir   string
 	CLIDir    string
 	// Lua repo fields (only set for init.lua repos)
-	IsLuaRepo       bool
-	InitCfg         *RootConfig
+	IsLuaRepo bool
+	InitCfg   *RootConfig
 	// Cached module dirs (set externally for Lua repos)
 	cachedModuleDirs []ModuleDir
 }

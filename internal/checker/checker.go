@@ -9,13 +9,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+	yamlv3 "gopkg.in/yaml.v3"
+
 	"github.com/Wilberucx/dots/internal/config"
 	luacfg "github.com/Wilberucx/dots/internal/lua"
 	"github.com/Wilberucx/dots/internal/resolver"
 	"github.com/Wilberucx/dots/internal/ui"
 	"github.com/Wilberucx/dots/internal/yaml"
-	"github.com/charmbracelet/lipgloss"
-	yamlv3 "gopkg.in/yaml.v3"
 )
 
 // Severity indicates how serious an issue is.
@@ -29,11 +30,11 @@ const (
 
 // Issue represents a single diagnostic finding.
 type Issue struct {
-	Module   string   // Module name (e.g. "Nvim")
-	File     string   // Path to config file relative to repo root
+	Module   string // Module name (e.g. "Nvim")
+	File     string // Path to config file relative to repo root
 	Severity Severity
 	Message  string
-	Field    string   // Optional: the problematic field name
+	Field    string // Optional: the problematic field name
 }
 
 // Result holds all findings from a syntax check run.

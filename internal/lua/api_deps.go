@@ -6,8 +6,9 @@ import (
 
 // apiPkg implements the Lua pkg() function.
 // Usage:
-//   pkg "ripgrep"           → string shorthand (dep type = package)
-//   pkg("fd"):on({...})     → explicit table with chaining
+//
+//	pkg "ripgrep"           → string shorthand (dep type = package)
+//	pkg("fd"):on({...})     → explicit table with chaining
 func (vm *LuaVM) apiPkg(L *lua.LState) int {
 	// Get the argument safely — handle both pkg "name" and pkg("name")
 	name := ""
@@ -35,8 +36,7 @@ func (vm *LuaVM) apiPkg(L *lua.LState) int {
 	return 1
 }
 
-// apiCurl implements the Lua curl() function.
-// Usage: curl(url):extract("bin"):to("~/.local/bin/x"):version("v1.0"):arch({...})
+// Usage: curl(url):extract("bin"):to("~/.local/bin/x"):version("v1.0"):arch({...}).
 func (vm *LuaVM) apiCurl(L *lua.LState) int {
 	url := L.OptString(1, "")
 	if url == "" {
@@ -50,8 +50,7 @@ func (vm *LuaVM) apiCurl(L *lua.LState) int {
 	return 1
 }
 
-// apiGit implements the Lua git() function.
-// Usage: git(url):to("~/plugins/p10k"):at("v1.19.0"):post("cmd")
+// Usage: git(url):to("~/plugins/p10k"):at("v1.19.0"):post("cmd").
 func (vm *LuaVM) apiGit(L *lua.LState) int {
 	url := L.OptString(1, "")
 	if url == "" {

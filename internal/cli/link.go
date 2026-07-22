@@ -7,12 +7,13 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Wilberucx/dots/internal/config"
 	"github.com/Wilberucx/dots/internal/plan"
 	"github.com/Wilberucx/dots/internal/resolver"
 	"github.com/Wilberucx/dots/internal/transaction"
 	"github.com/Wilberucx/dots/internal/ui"
-	"github.com/spf13/cobra"
 )
 
 func init() {
@@ -167,11 +168,11 @@ func runLink(cmd *cobra.Command, args []string) error {
 			if err != nil || vInfo == nil || !vInfo.HasVariants {
 				continue
 			}
-		chosen := ui.RunVariantPicker(modName, vInfo.Variants)
-		if chosen == "" {
-			ui.PrintInfo("Cancelled.")
-			return nil
-		}
+			chosen := ui.RunVariantPicker(modName, vInfo.Variants)
+			if chosen == "" {
+				ui.PrintInfo("Canceled.")
+				return nil
+			}
 			if moduleVariants == nil {
 				moduleVariants = make(map[string]string)
 			}

@@ -9,7 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// DestinationStr returns the destination string in ~/... format for path.yaml.
+// DestinationStr returns the destination string in ~/... Format for path.yaml.
 func DestinationStr(absPath, homeDir string) string {
 	rel, err := filepath.Rel(homeDir, absPath)
 	if err != nil {
@@ -91,7 +91,7 @@ func AppendFileEntry(yamlPath string, entry map[string]interface{}) error {
 		return fmt.Errorf("marshaling yaml: %w", err)
 	}
 
-	if err := os.WriteFile(yamlPath, out, 0644); err != nil {
+	if err := os.WriteFile(yamlPath, out, 0o644); err != nil {
 		return fmt.Errorf("writing %s: %w", yamlPath, err)
 	}
 
@@ -102,11 +102,11 @@ func AppendFileEntry(yamlPath string, entry map[string]interface{}) error {
 func WriteConfigYAML(path, content string) error {
 	// Create directory if needed
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("creating directory %s: %w", dir, err)
 	}
 
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("writing %s: %w", path, err)
 	}
 	return nil
@@ -114,7 +114,7 @@ func WriteConfigYAML(path, content string) error {
 
 // AppendToFile appends a line to a file, creating it if it doesn't exist.
 func AppendToFile(path, content string) error {
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return fmt.Errorf("opening %s: %w", path, err)
 	}

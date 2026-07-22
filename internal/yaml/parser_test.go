@@ -12,7 +12,7 @@ import (
 func writeTestYAML(t *testing.T, dir, content string) string {
 	t.Helper()
 	path := filepath.Join(dir, "path.yaml")
-	err := os.WriteFile(path, []byte(content), 0644)
+	err := os.WriteFile(path, []byte(content), 0o644)
 	require.NoError(t, err)
 	return path
 }

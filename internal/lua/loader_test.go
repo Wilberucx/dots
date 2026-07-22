@@ -5,12 +5,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	lua "github.com/yuin/gopher-lua"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	lua "github.com/yuin/gopher-lua"
 )
 
-// ─── loadPlugin (Go function) ───────────────────────────────────────────────
+// ─── loadPlugin (Go function) ───────────────────────────────────────────────.
 
 func TestLoadPlugin_BuiltinHTTP(t *testing.T) {
 	L := lua.NewState()
@@ -89,11 +89,11 @@ func TestLoadPlugin_CustomPluginDir(t *testing.T) {
 	dir := t.TempDir()
 
 	dotsDir := filepath.Join(dir, "dots")
-	err := os.MkdirAll(dotsDir, 0755)
+	err := os.MkdirAll(dotsDir, 0o755)
 	require.NoError(t, err)
 
 	pluginContent := `return { hello = function() return "world" end }`
-	err = os.WriteFile(filepath.Join(dotsDir, "custom.lua"), []byte(pluginContent), 0644)
+	err = os.WriteFile(filepath.Join(dotsDir, "custom.lua"), []byte(pluginContent), 0o644)
 	require.NoError(t, err)
 
 	L := lua.NewState()
@@ -125,11 +125,11 @@ func TestLoadPlugin_BuiltinTakesPriority(t *testing.T) {
 
 	// Create a conflicting plugin in dots/ — should NOT shadow built-in
 	dotsDir := filepath.Join(dir, "dots")
-	err := os.MkdirAll(dotsDir, 0755)
+	err := os.MkdirAll(dotsDir, 0o755)
 	require.NoError(t, err)
 
 	overrideContent := `return { download = function() return "OVERRIDE" end }`
-	err = os.WriteFile(filepath.Join(dotsDir, "http.lua"), []byte(overrideContent), 0644)
+	err = os.WriteFile(filepath.Join(dotsDir, "http.lua"), []byte(overrideContent), 0o644)
 	require.NoError(t, err)
 
 	L := lua.NewState()
@@ -154,7 +154,7 @@ func TestLoadPlugin_BuiltinTakesPriority(t *testing.T) {
 	assert.Equal(t, lua.LTFunction, tbl.RawGetString("download").Type())
 }
 
-// ─── Plugin loader (require integration) ────────────────────────────────────
+// ─── Plugin loader (require integration) ────────────────────────────────────.
 
 func TestPluginLoader_BuiltinViaRequire(t *testing.T) {
 	vm := NewLuaVM()
@@ -190,11 +190,11 @@ func TestPluginLoader_CustomViaRequire(t *testing.T) {
 	dir := t.TempDir()
 
 	dotsDir := filepath.Join(dir, "dots")
-	err := os.MkdirAll(dotsDir, 0755)
+	err := os.MkdirAll(dotsDir, 0o755)
 	require.NoError(t, err)
 
 	pluginContent := `return { hello = function() return "world" end }`
-	err = os.WriteFile(filepath.Join(dotsDir, "greeter.lua"), []byte(pluginContent), 0644)
+	err = os.WriteFile(filepath.Join(dotsDir, "greeter.lua"), []byte(pluginContent), 0o644)
 	require.NoError(t, err)
 
 	vm := NewLuaVM()
@@ -210,7 +210,7 @@ func TestPluginLoader_CustomViaRequire(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// ─── LoadModulePlugins ──────────────────────────────────────────────────────
+// ─── LoadModulePlugins ──────────────────────────────────────────────────────.
 
 func TestLoadModulePlugins_Empty(t *testing.T) {
 	vm := NewLuaVM()
@@ -250,11 +250,11 @@ func TestLoadModulePlugins_CustomPlugin(t *testing.T) {
 	dir := t.TempDir()
 
 	dotsDir := filepath.Join(dir, "dots")
-	err := os.MkdirAll(dotsDir, 0755)
+	err := os.MkdirAll(dotsDir, 0o755)
 	require.NoError(t, err)
 
 	pluginContent := `return { greet = function(name) return "hello " .. name end }`
-	err = os.WriteFile(filepath.Join(dotsDir, "greeter.lua"), []byte(pluginContent), 0644)
+	err = os.WriteFile(filepath.Join(dotsDir, "greeter.lua"), []byte(pluginContent), 0o644)
 	require.NoError(t, err)
 
 	vm := NewLuaVM()
@@ -274,7 +274,7 @@ func TestLoadModulePlugins_CustomPlugin(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-// ─── Embed.FS access ────────────────────────────────────────────────────────
+// ─── Embed.FS access ────────────────────────────────────────────────────────.
 
 func TestBuiltinPluginsEmbed(t *testing.T) {
 	expected := []string{"http.lua", "archive.lua", "git.lua"}

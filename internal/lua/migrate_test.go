@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ─── InitLuaTemplate ────────────────────────────────────────────────────────
+// ─── InitLuaTemplate ────────────────────────────────────────────────────────.
 
 func TestInitLuaTemplate_WithName(t *testing.T) {
 	result := InitLuaTemplate("cantoarch/dotfiles")
@@ -30,19 +30,19 @@ func TestInitLuaTemplateMinimal(t *testing.T) {
 	assert.Contains(t, InitLuaTemplateMinimal, "return {")
 }
 
-// ─── MigrateModule ──────────────────────────────────────────────────────────
+// ─── MigrateModule ──────────────────────────────────────────────────────────.
 
 func TestMigrateModule_SimpleFile(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "Nvim")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
 	yamlContent := `files:
   - source: init.lua
     destination: ~/.config/nvim/init.lua
 `
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0o644)
 	require.NoError(t, err)
 
 	luaContent, err := MigrateModule(modDir)
@@ -57,7 +57,7 @@ func TestMigrateModule_SimpleFile(t *testing.T) {
 func TestMigrateModule_DirInto(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "Scripts")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
 	// Destination with /* should generate dir():into() (expand contents)
@@ -65,7 +65,7 @@ func TestMigrateModule_DirInto(t *testing.T) {
   - source: scripts
     destination: ~/.local/bin/*
 `
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0o644)
 	require.NoError(t, err)
 
 	luaContent, err := MigrateModule(modDir)
@@ -77,7 +77,7 @@ func TestMigrateModule_DirInto(t *testing.T) {
 func TestMigrateModule_DirTo(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "Config")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
 	// Directory source without /* should generate dir():to() (symlink entire dir)
@@ -85,7 +85,7 @@ func TestMigrateModule_DirTo(t *testing.T) {
   - source: config
     destination: ~/.config/tool
 `
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0o644)
 	require.NoError(t, err)
 
 	luaContent, err := MigrateModule(modDir)
@@ -97,12 +97,12 @@ func TestMigrateModule_DirTo(t *testing.T) {
 func TestMigrateModule_EmptyFiles(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "EmptyFiles")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
 	yamlContent := `files: []
 `
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0o644)
 	require.NoError(t, err)
 
 	luaContent, err := MigrateModule(modDir)
@@ -115,12 +115,12 @@ func TestMigrateModule_EmptyFiles(t *testing.T) {
 func TestMigrateModule_EmptyDeps(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "EmptyDeps")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
 	yamlContent := `dependencies: []
 `
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0o644)
 	require.NoError(t, err)
 
 	luaContent, err := MigrateModule(modDir)
@@ -133,7 +133,7 @@ func TestMigrateModule_EmptyDeps(t *testing.T) {
 func TestMigrateModule_WithType(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "Zsh")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
 	yamlContent := `type: minimal
@@ -141,7 +141,7 @@ files:
   - source: .zshrc
     destination: ~/.zshrc
 `
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0o644)
 	require.NoError(t, err)
 
 	luaContent, err := MigrateModule(modDir)
@@ -154,14 +154,14 @@ files:
 func TestMigrateModule_PkgDeps(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "Tools")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
 	yamlContent := `dependencies:
   - neovim
   - ripgrep
 `
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0o644)
 	require.NoError(t, err)
 
 	luaContent, err := MigrateModule(modDir)
@@ -175,7 +175,7 @@ func TestMigrateModule_PkgDeps(t *testing.T) {
 func TestMigrateModule_BinaryDep(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "Fd")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
 	yamlContent := `dependencies:
@@ -185,7 +185,7 @@ func TestMigrateModule_BinaryDep(t *testing.T) {
     dest: ~/.local/bin/fd
     extract: fd/fd
 `
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0o644)
 	require.NoError(t, err)
 
 	luaContent, err := MigrateModule(modDir)
@@ -199,7 +199,7 @@ func TestMigrateModule_BinaryDep(t *testing.T) {
 func TestMigrateModule_GitDep(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "P10k")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
 	yamlContent := `dependencies:
@@ -209,7 +209,7 @@ func TestMigrateModule_GitDep(t *testing.T) {
     dest: ~/.local/share/zsh/plugins/p10k
     ref: v1.19.0
 `
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0o644)
 	require.NoError(t, err)
 
 	luaContent, err := MigrateModule(modDir)
@@ -223,7 +223,7 @@ func TestMigrateModule_GitDep(t *testing.T) {
 func TestMigrateModule_WithManagers(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "Neovim")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
 	yamlContent := `dependencies:
@@ -234,7 +234,7 @@ func TestMigrateModule_WithManagers(t *testing.T) {
       apt: neovim
       brew: neovim
 `
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0o644)
 	require.NoError(t, err)
 
 	luaContent, err := MigrateModule(modDir)
@@ -249,7 +249,7 @@ func TestMigrateModule_WithManagers(t *testing.T) {
 func TestMigrateModule_PerOS(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "Alacritty")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
 	yamlContent := `files:
@@ -258,7 +258,7 @@ func TestMigrateModule_PerOS(t *testing.T) {
       linux: ~/.config/alacritty/alacritty.yml
       mac: ~/Library/Application Support/alacritty/alacritty.yml
 `
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0o644)
 	require.NoError(t, err)
 
 	luaContent, err := MigrateModule(modDir)
@@ -272,15 +272,15 @@ func TestMigrateModule_PerOS(t *testing.T) {
 func TestMigrateModule_AlreadyExists(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "Exists")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
 	// dots.lua already exists
-	err = os.WriteFile(filepath.Join(modDir, "dots.lua"), []byte("return {}"), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "dots.lua"), []byte("return {}"), 0o644)
 	require.NoError(t, err)
 
 	// path.yaml also exists
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte("files: []"), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte("files: []"), 0o644)
 	require.NoError(t, err)
 
 	_, err = MigrateModule(modDir)
@@ -291,7 +291,7 @@ func TestMigrateModule_AlreadyExists(t *testing.T) {
 func TestMigrateModule_DirIntoWithPerOS(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "Scripts")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
 	// per-os + dest with /* — should generate dir():into() with first OS dest + comment
@@ -302,7 +302,7 @@ func TestMigrateModule_DirIntoWithPerOS(t *testing.T) {
       linux: ~/.local/bin/*
       mac: ~/Library/bin/*
 `
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0o644)
 	require.NoError(t, err)
 
 	luaContent, err := MigrateModule(modDir)
@@ -315,7 +315,7 @@ func TestMigrateModule_DirIntoWithPerOS(t *testing.T) {
 func TestMigrateModule_NoPathYAML(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "NoYAML")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
 	_, err = MigrateModule(modDir)
@@ -325,9 +325,9 @@ func TestMigrateModule_NoPathYAML(t *testing.T) {
 func TestMigrateModule_EmptyYAML(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "Empty")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(""), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(""), 0o644)
 	require.NoError(t, err)
 
 	_, err = MigrateModule(modDir)
@@ -335,7 +335,7 @@ func TestMigrateModule_EmptyYAML(t *testing.T) {
 	assert.Contains(t, err.Error(), "empty")
 }
 
-// ─── generateFileEntry ──────────────────────────────────────────────────────
+// ─── generateFileEntry ──────────────────────────────────────────────────────.
 
 func TestGenerateFileEntry_Simple(t *testing.T) {
 	f := map[string]interface{}{
@@ -378,7 +378,7 @@ func TestGenerateFileEntry_OSFilter(t *testing.T) {
 	assert.Equal(t, `file("linux-only.conf", "~/.config/linux.conf"):when("linux")`, result)
 }
 
-// ─── generateDepEntry ───────────────────────────────────────────────────────
+// ─── generateDepEntry ───────────────────────────────────────────────────────.
 
 func TestGenerateDepEntry_PkgSimple(t *testing.T) {
 	d := map[string]interface{}{
@@ -451,7 +451,7 @@ func TestGenerateDepEntry_BinaryWithArch(t *testing.T) {
 	assert.Contains(t, result, `:arch({`)
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────.
 
 func TestIsDirLike(t *testing.T) {
 	tests := []struct {
@@ -476,12 +476,12 @@ func TestIsDirLike(t *testing.T) {
 	}
 }
 
-// ─── WriteLuaModule / WriteInitLua ──────────────────────────────────────────
+// ─── WriteLuaModule / WriteInitLua ──────────────────────────────────────────.
 
 func TestWriteLuaModule(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "TestMod")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
 	err = WriteLuaModule(modDir, "return { type = \"test\" }")
@@ -502,12 +502,12 @@ func TestWriteInitLua(t *testing.T) {
 	assert.Equal(t, "return { name = \"test\" }", string(content))
 }
 
-// ─── Integration: Full migration round-trip ─────────────────────────────────
+// ─── Integration: Full migration round-trip ─────────────────────────────────.
 
 func TestIntegration_FullModuleMigration(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "FullMod")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
 	yamlContent := strings.TrimSpace(`
@@ -535,7 +535,7 @@ dependencies:
     ref: v1.0
 `)
 
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0o644)
 	require.NoError(t, err)
 
 	luaContent, err := MigrateModule(modDir)

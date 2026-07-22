@@ -4,8 +4,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Wilberucx/dots/internal/resolver"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/Wilberucx/dots/internal/resolver"
 )
 
 func TestBuildLinkPlan_Linked(t *testing.T) {
@@ -51,7 +52,7 @@ func TestBuildLinkPlan_BackupNeeded_OrigExists(t *testing.T) {
 	origPath := destPath + ".orig"
 
 	// Create a regular file at .orig
-	if err := os.WriteFile(origPath, []byte("backup"), 0644); err != nil {
+	if err := os.WriteFile(origPath, []byte("backup"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

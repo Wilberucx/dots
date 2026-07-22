@@ -139,9 +139,9 @@ func getExplicitLuaVariants(moduleCfg *luacfg.ModuleConfig, currentOS string) (*
 	}
 
 	return &yaml.VariantInfo{
-		HasVariants:        true,
-		Variants:           variants,
-		DefaultVariant:     defaultVariant,
+		HasVariants:         true,
+		Variants:            variants,
+		DefaultVariant:      defaultVariant,
 		VariantDestinations: variantDests,
 	}, nil
 }
@@ -175,9 +175,9 @@ func getImplicitLuaVariants(moduleCfg *luacfg.ModuleConfig, currentOS string) (*
 
 	defaultVariant := variants[len(variants)-1]
 	return &yaml.VariantInfo{
-		HasVariants:        true,
-		Variants:           variants,
-		DefaultVariant:     defaultVariant,
+		HasVariants:         true,
+		Variants:            variants,
+		DefaultVariant:      defaultVariant,
 		VariantDestinations: variantDests,
 	}, nil
 }
@@ -436,8 +436,7 @@ func isSingleSymlink(src, dest string) bool {
 	return linkTarget == srcResolved
 }
 
-// ResolveModules scans all configuration modules and returns link status for each.
-// modules and types are optional filters; variant can force a specific variant.
+// Modules and types are optional filters; variant can force a specific variant.
 func ResolveModules(
 	cfg *config.DotsConfig,
 	modules []string,
@@ -888,5 +887,3 @@ func shortPath(path, homeDir string) string {
 	}
 	return path
 }
-
-

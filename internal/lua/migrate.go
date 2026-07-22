@@ -69,7 +69,7 @@ func MigrateModule(modPath string) (string, error) {
 	}
 
 	return generateLuaFromYAML(raw, filepath.Base(modPath))
-}// generateLuaFromYAML converts a parsed path.yaml dict to dots.lua Lua content.
+} // generateLuaFromYAML converts a parsed path.yaml dict to dots.lua Lua content.
 func generateLuaFromYAML(raw map[string]interface{}, modName string) (string, error) {
 	var b strings.Builder
 
@@ -120,8 +120,7 @@ func generateLuaFromYAML(raw map[string]interface{}, modName string) (string, er
 	return b.String(), nil
 }
 
-// generateFileEntry converts a YAML file mapping to a Lua file() line.
-// modPath is the full path to the module directory, used for file existence checks.
+// ModPath is the full path to the module directory, used for file existence checks.
 func generateFileEntry(f map[string]interface{}) string {
 	source := getYAMLString(f, "source")
 	dest := getYAMLString(f, "destination")
@@ -256,7 +255,7 @@ func generateDepEntry(d map[string]interface{}) string {
 	}
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────.
 
 func getYAMLString(m map[string]interface{}, key string, defaults ...string) string {
 	if v, ok := m[key].(string); ok {
@@ -306,15 +305,15 @@ func formatMapTable(m map[string]interface{}) string {
 // knownFileNames is a blocklist of common filenames without extensions that are
 // definitely files, not directories. Used to prevent isDirLike false positives.
 var knownFileNames = map[string]bool{
-	"Makefile":   true,
-	"README":     true,
-	"LICENSE":    true,
-	"Dockerfile": true,
-	"CHANGELOG":  true,
+	"Makefile":    true,
+	"README":      true,
+	"LICENSE":     true,
+	"Dockerfile":  true,
+	"CHANGELOG":   true,
 	"Vagrantfile": true,
-	"TODO":       true,
-	"NOTES":      true,
-	"COPYING":    true,
+	"TODO":        true,
+	"NOTES":       true,
+	"COPYING":     true,
 }
 
 // isDirLike checks if a source path looks like a directory.
@@ -333,11 +332,11 @@ func isDirLike(source string) bool {
 // WriteLuaModule writes the Lua config to dots.lua in the module directory.
 func WriteLuaModule(modPath, luaContent string) error {
 	luaPath := filepath.Join(modPath, "dots.lua")
-	return os.WriteFile(luaPath, []byte(luaContent), 0644)
+	return os.WriteFile(luaPath, []byte(luaContent), 0o644)
 }
 
 // WriteInitLua writes init.lua in the repo root.
 func WriteInitLua(repoRoot, content string) error {
 	initPath := filepath.Join(repoRoot, "init.lua")
-	return os.WriteFile(initPath, []byte(content), 0644)
+	return os.WriteFile(initPath, []byte(content), 0o644)
 }

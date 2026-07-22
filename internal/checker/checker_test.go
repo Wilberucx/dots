@@ -6,9 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Wilberucx/dots/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/Wilberucx/dots/internal/config"
 )
 
 // setupTestRepo creates a temporary dotfiles repo with the given module structure.
@@ -18,9 +19,9 @@ func setupTestRepo(t *testing.T) *config.DotsConfig {
 
 	// Create marker
 	dotsDir := filepath.Join(repoDir, ".dots")
-	err := os.MkdirAll(dotsDir, 0755)
+	err := os.MkdirAll(dotsDir, 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(dotsDir, "config.yaml"), []byte("version: 1"), 0644)
+	err = os.WriteFile(filepath.Join(dotsDir, "config.yaml"), []byte("version: 1"), 0o644)
 	require.NoError(t, err)
 
 	// Create a home dir
@@ -41,17 +42,17 @@ func setupTestRepo(t *testing.T) *config.DotsConfig {
 func createModule(t *testing.T, cfg *config.DotsConfig, name, yamlContent string, sourceFiles map[string]string) {
 	t.Helper()
 	modDir := filepath.Join(cfg.RepoRoot, name)
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0o644)
 	require.NoError(t, err)
 
 	for srcPath, content := range sourceFiles {
 		fullPath := filepath.Join(modDir, srcPath)
-		err := os.MkdirAll(filepath.Dir(fullPath), 0755)
+		err := os.MkdirAll(filepath.Dir(fullPath), 0o755)
 		require.NoError(t, err)
-		err = os.WriteFile(fullPath, []byte(content), 0644)
+		err = os.WriteFile(fullPath, []byte(content), 0o644)
 		require.NoError(t, err)
 	}
 }
@@ -557,7 +558,7 @@ files:
 
 	// Create a conflicting symlink at the destination
 	destPath := filepath.Join(cfg.HomeDir, ".config", "nvim", "init.lua")
-	err := os.MkdirAll(filepath.Dir(destPath), 0755)
+	err := os.MkdirAll(filepath.Dir(destPath), 0o755)
 	require.NoError(t, err)
 	err = os.Symlink("/some/wrong/target", destPath)
 	require.NoError(t, err)
@@ -575,4 +576,3 @@ files:
 	}
 	assert.True(t, found, "expected broken link error in issues")
 }
-

@@ -57,6 +57,11 @@ Eso es todo. Dos comandos y tus dotfiles están enlazados.
 | `dots install`      | Instala dependencias desde los archivos de configuración |
 | `dots doctor`       | Diagnóstico profundo de tu configuración de dotfiles |
 | `dots backup`       | Git commit y push opcional                          |
+| `dots backup run`   | Ejecuta un backup — git add, commit y push opcional |
+| `dots backup list`  | Lista backups recientes del historial de git        |
+| `dots backup diff`  | Muestra diff desde el último backup o un ref específico |
+| `dots completion`   | Genera scripts de completado para el shell (bash/zsh/fish/powershell) |
+| `dots version`      | Muestra la versión                                   |
 
 ## Ejemplos rápidos
 
@@ -73,6 +78,12 @@ dots status
 # Filtrar por estado
 dots status --state unlinked
 
+# Filtrar por tipo
+dots status --type editor
+
+# Diagnóstico profundo
+dots doctor
+
 # Importar una configuración existente
 dots adopt ~/.zshrc
 
@@ -84,6 +95,7 @@ dots install -m Zsh
 
 # Vista previa sin ejecutar
 dots link --dry-run
+dots plan
 
 # Listar módulos
 dots list
@@ -92,6 +104,18 @@ dots list --variant
 # Editar un módulo
 dots edit Zsh
 dots edit Nvim --config   # abre el archivo de configuración directamente
+
+# Backup
+dots backup run
+dots backup list --limit 5
+dots backup diff --ref HEAD~3
+
+# Salida para scripting
+dots status --porcelain
+dots status --format json
+
+# Completado para el shell
+dots completion bash > /etc/bash_completion.d/dots
 ```
 
 ---
@@ -103,16 +127,24 @@ dots edit Nvim --config   # abre el archivo de configuración directamente
 | `-m / --module`      | Filtrar por nombre de módulo (repetible)                                           |
 | `-t / --type`        | Filtrar por tipo de módulo (repetible)                                             |
 | `-s / --state`       | Filtrar por estado: `linked`, `unlinked`, `broken`, `missing`, `unsafe` (repetible) |
-| `-f / --format`      | Formato de salida: `default`, `table`, `json` (solo para `status`)                 |
+| `-f / --format`      | Formato de salida: `default`, `table`, `json`, `porcelain` (`status`, `plan`)     |
 | `--backups`          | Mostrar solo archivos con backup .orig (`status`, `list`)                          |
 | `--linked`           | Mostrar módulos enlazados (solo para `list`)                                      |
 | `--unlinked`         | Mostrar módulos desenlazados (solo para `list`)                                   |
 | `--broken`           | Mostrar módulos rotos (solo para `list`)                                          |
-| `--force`            | Sobrescribir symlinks existentes en conflicto (solo para `link`)                   |
-| `--variant`          | Seleccionar variante para módulos con múltiples variantes (solo para `link`, `list`) |
+| `--force`            | Sobrescribir symlinks existentes en conflicto (`link`, `plan`)                     |
+| `--variant`          | Seleccionar variante para módulos con múltiples variantes (`link`, `list`, `plan`) |
 | `-i / --interactive` | Seleccionar módulos interactivamente para enlazar/desenlazar (`link`, `unlink`)    |
-| `-y / --yes`         | Saltar confirmación (solo para `install`)                                          |
-| `-m / --message`     | Mensaje de commit (solo para `backup run`)                                        |
+| `-y / --yes`         | Saltar confirmación (`install`)                                                    |
+| `-m / --message`     | Mensaje de commit (`backup run`)                                                   |
+| `--ref`             | Ref de git para comparar contra HEAD (`backup diff`) — default: `HEAD~1`           |
+| `-n / --limit`      | Número de backups a mostrar (`backup list`) — default: 10                          |
+| `--no-push`         | Saltar push al remoto después del commit (`backup run`)                            |
+| `--no-sync`         | Saltar verificación de sincronización remota (`backup run`)                        |
+| `--no-verify`       | Saltar hooks de git durante el commit (`backup run`)                               |
+| `-C / --config`      | Editar el archivo de configuración del módulo (`dots.lua`/`path.yaml`) en vez de la carpeta (`edit`) |
+| `--porcelain`        | Salida tabulada apta para scripting (`status`) — invalida `--format`               |
+| `--hints`            | Mostrar sugerencias de migración (YAML → Lua) (`doctor`) — default: true           |
 | `--dry-run`          | Vista previa sin ejecutar                                                          |
 | `--no-hints`         | Suprimir sugerencias de migración del syntax checker (persistente)                |
 

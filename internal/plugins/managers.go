@@ -21,9 +21,9 @@ type PackageManager interface {
 // Pacman adapts the Arch Linux package manager.
 type Pacman struct{}
 
-func (Pacman) Name() string           { return "pacman" }
-func (Pacman) NeedsSudo() bool        { return true }
-func (Pacman) IsAvailable() bool      { return exec.Command("pacman", "--version").Run() == nil }
+func (Pacman) Name() string      { return "pacman" }
+func (Pacman) NeedsSudo() bool   { return true }
+func (Pacman) IsAvailable() bool { return exec.Command("pacman", "--version").Run() == nil }
 
 func (Pacman) InstallCommand(packages []string) []string {
 	cmd := []string{"pacman", "-S", "--noconfirm"}

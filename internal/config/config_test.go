@@ -13,7 +13,7 @@ func TestIsDotfilesRepo_ConfigLua(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create config.lua marker
-	err := os.WriteFile(filepath.Join(dir, "config.lua"), []byte("return { name = \"test\" }"), 0644)
+	err := os.WriteFile(filepath.Join(dir, "config.lua"), []byte("return { name = \"test\" }"), 0o644)
 	require.NoError(t, err)
 
 	assert.True(t, IsDotfilesRepo(dir), "config.lua should be detected as a repo marker")
@@ -24,9 +24,9 @@ func TestIsDotfilesRepo_NewFormat(t *testing.T) {
 
 	// Create .dots/config.yaml
 	dotsDir := filepath.Join(dir, MarkerDir)
-	err := os.MkdirAll(dotsDir, 0755)
+	err := os.MkdirAll(dotsDir, 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(dotsDir, MarkerConfig), []byte("version: 1"), 0644)
+	err = os.WriteFile(filepath.Join(dotsDir, MarkerConfig), []byte("version: 1"), 0o644)
 	require.NoError(t, err)
 
 	assert.True(t, IsDotfilesRepo(dir))
@@ -36,7 +36,7 @@ func TestIsDotfilesRepo_LegacyFormat(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create dots.toml
-	err := os.WriteFile(filepath.Join(dir, LegacyMarker), []byte("[dots]\nversion = \"1\""), 0644)
+	err := os.WriteFile(filepath.Join(dir, LegacyMarker), []byte("[dots]\nversion = \"1\""), 0o644)
 	require.NoError(t, err)
 
 	assert.True(t, IsDotfilesRepo(dir))
@@ -56,9 +56,9 @@ func TestLoad_WithEnvVar(t *testing.T) {
 
 	// Create .dots/config.yaml
 	dotsDir := filepath.Join(dir, MarkerDir)
-	err := os.MkdirAll(dotsDir, 0755)
+	err := os.MkdirAll(dotsDir, 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(dotsDir, MarkerConfig), []byte("version: 1"), 0644)
+	err = os.WriteFile(filepath.Join(dotsDir, MarkerConfig), []byte("version: 1"), 0o644)
 	require.NoError(t, err)
 
 	// Set env var
@@ -95,9 +95,9 @@ func TestGetModuleDirs_Empty(t *testing.T) {
 
 	// Create .dots/config.yaml
 	dotsDir := filepath.Join(dir, MarkerDir)
-	err := os.MkdirAll(dotsDir, 0755)
+	err := os.MkdirAll(dotsDir, 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(dotsDir, MarkerConfig), []byte("version: 1"), 0644)
+	err = os.WriteFile(filepath.Join(dotsDir, MarkerConfig), []byte("version: 1"), 0o644)
 	require.NoError(t, err)
 
 	cfg := create(dir)
@@ -111,16 +111,16 @@ func TestGetModuleDirs_WithModules(t *testing.T) {
 
 	// Create .dots/config.yaml
 	dotsDir := filepath.Join(dir, MarkerDir)
-	err := os.MkdirAll(dotsDir, 0755)
+	err := os.MkdirAll(dotsDir, 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(dotsDir, MarkerConfig), []byte("version: 1"), 0644)
+	err = os.WriteFile(filepath.Join(dotsDir, MarkerConfig), []byte("version: 1"), 0o644)
 	require.NoError(t, err)
 
 	// Create a module with path.yaml
 	modDir := filepath.Join(dir, "Zsh")
-	err = os.MkdirAll(modDir, 0755)
+	err = os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte("files:\n  - source: .zshrc\n    destination: ~/.zshrc"), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte("files:\n  - source: .zshrc\n    destination: ~/.zshrc"), 0o644)
 	require.NoError(t, err)
 
 	cfg := create(dir)
@@ -135,17 +135,17 @@ func TestGetModuleDirs_FilterByName(t *testing.T) {
 
 	// Create .dots/config.yaml
 	dotsDir := filepath.Join(dir, MarkerDir)
-	err := os.MkdirAll(dotsDir, 0755)
+	err := os.MkdirAll(dotsDir, 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(dotsDir, MarkerConfig), []byte("version: 1"), 0644)
+	err = os.WriteFile(filepath.Join(dotsDir, MarkerConfig), []byte("version: 1"), 0o644)
 	require.NoError(t, err)
 
 	// Create modules
 	for _, name := range []string{"Zsh", "Nvim", "Alacritty"} {
 		modDir := filepath.Join(dir, name)
-		err := os.MkdirAll(modDir, 0755)
+		err := os.MkdirAll(modDir, 0o755)
 		require.NoError(t, err)
-		err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte("files: []"), 0644)
+		err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte("files: []"), 0o644)
 		require.NoError(t, err)
 	}
 
@@ -161,7 +161,7 @@ func TestParseModuleMeta(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "path.yaml")
 
-	err := os.WriteFile(path, []byte("type: minimal\nfiles: []"), 0644)
+	err := os.WriteFile(path, []byte("type: minimal\nfiles: []"), 0o644)
 	require.NoError(t, err)
 
 	meta, err := ParseModuleMeta(path)
@@ -173,7 +173,7 @@ func TestParseModuleMeta_NoType(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "path.yaml")
 
-	err := os.WriteFile(path, []byte("files: []"), 0644)
+	err := os.WriteFile(path, []byte("files: []"), 0o644)
 	require.NoError(t, err)
 
 	meta, err := ParseModuleMeta(path)

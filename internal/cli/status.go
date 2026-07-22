@@ -7,12 +7,13 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Wilberucx/dots/internal/config"
-	"github.com/Wilberucx/dots/internal/resolver"
-	"github.com/Wilberucx/dots/internal/ui"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
+
+	"github.com/Wilberucx/dots/internal/config"
+	"github.com/Wilberucx/dots/internal/resolver"
+	"github.com/Wilberucx/dots/internal/ui"
 )
 
 func init() {
@@ -89,7 +90,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// ─── Default (tree) output ──────────────────────────────────────────────────
+// ─── Default (tree) output ──────────────────────────────────────────────────.
 
 type moduleCategory struct {
 	name string
@@ -289,7 +290,7 @@ func displayCategoryWithModules(
 	fmt.Println()
 }
 
-// ─── Table output ───────────────────────────────────────────────────────────
+// ─── Table output ───────────────────────────────────────────────────────────.
 
 func stateSymbol(state resolver.LinkState) string {
 	switch state {
@@ -388,7 +389,7 @@ func renderTable(
 	fmt.Printf("\n%s\n", ui.DimStyle.Render(fmt.Sprintf("Total: %d files", total)))
 }
 
-// ─── JSON output ────────────────────────────────────────────────────────────
+// ─── JSON output ────────────────────────────────────────────────────────────.
 
 func renderJSON(
 	allModules map[string][]resolver.LinkStatus,
@@ -477,7 +478,7 @@ func renderJSON(
 	return nil
 }
 
-// ─── Porcelain output ──────────────────────────────────────────────────────
+// ─── Porcelain output ──────────────────────────────────────────────────────.
 
 func renderPorcelain(
 	allModules map[string][]resolver.LinkStatus,
@@ -519,7 +520,7 @@ func renderPorcelain(
 	}
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────.
 
 func shortDisplayPath(path, homeDir string) string {
 	if strings.HasPrefix(path, homeDir) {

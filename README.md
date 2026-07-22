@@ -69,6 +69,11 @@ That's it. Two commands and your dotfiles are linked.
 | `dots install`      | Install dependencies from config files             |
 | `dots doctor`       | Deep health check for your dotfiles setup          |
 | `dots backup`       | Git commit and optional push                       |
+| `dots backup run`   | Run a backup — git add, commit, and optional push  |
+| `dots backup list`  | List recent backups from git history               |
+| `dots backup diff`  | Show diff since last backup or a specific ref      |
+| `dots completion`   | Generate shell completion scripts (bash/zsh/fish/powershell) |
+| `dots version`      | Show version                                        |
 
 ## Quick examples
 
@@ -85,6 +90,12 @@ dots status
 # Filter by state
 dots status --state unlinked
 
+# Filter by type
+dots status --type editor
+
+# Deep health check
+dots doctor
+
 # Import an existing config
 dots adopt ~/.zshrc
 
@@ -96,6 +107,7 @@ dots install -m Zsh
 
 # Preview without executing
 dots link --dry-run
+dots plan
 
 # List modules
 dots list
@@ -104,6 +116,18 @@ dots list --variant
 # Edit a module
 dots edit Zsh
 dots edit Nvim --config   # open config file directly
+
+# Backup
+dots backup run
+dots backup list --limit 5
+dots backup diff --ref HEAD~3
+
+# Machine-parseable output
+dots status --porcelain
+dots status --format json
+
+# Shell completions
+dots completion bash > /etc/bash_completion.d/dots
 ```
 
 ---
@@ -115,16 +139,24 @@ dots edit Nvim --config   # open config file directly
 | `-m / --module`      | Filter by module name (repeatable)                                                |
 | `-t / --type`        | Filter by module type (repeatable)                                                |
 | `-s / --state`       | Filter by state: `linked`, `unlinked`, `broken`, `missing`, `unsafe` (repeatable) |
-| `-f / --format`      | Output format: `default`, `table`, `json` (solo para `status`)                    |
+| `-f / --format`      | Output format: `default`, `table`, `json`, `porcelain` (`status`, `plan`)        |
 | `--backups`          | Show only mappings with .orig backup files (`status`, `list`)                     |
 | `--linked`           | Show linked modules (solo para `list`)                                            |
 | `--unlinked`         | Show unlinked modules (solo para `list`)                                          |
 | `--broken`           | Show broken modules (solo para `list`)                                            |
-| `--force`            | Overwrite existing symlinks in conflict (solo para `link`)                        |
-| `--variant`          | Select variant for modules with multiple variants (solo para `link`, `list`)      |
+| `--force`            | Overwrite existing symlinks in conflict (`link`, `plan`)                          |
+| `--variant`          | Select variant for modules with multiple variants (`link`, `list`, `plan`)        |
 | `-i / --interactive` | Interactively select modules to link/unlink (`link`, `unlink`)                    |
-| `-y / --yes`         | Skip confirmation prompt (solo para `install`)                                    |
-| `-m / --message`     | Commit message (solo para `backup run`)                                           |
+| `-y / --yes`         | Skip confirmation prompt (`install`)                                              |
+| `-m / --message`     | Commit message (`backup run`)                                                     |
+| `--ref`             | Git ref to compare against HEAD (`backup diff`) — default: `HEAD~1`               |
+| `-n / --limit`      | Number of backups to show (`backup list`) — default: 10                            |
+| `--no-push`         | Skip push to remote after commit (`backup run`)                                   |
+| `--no-sync`         | Skip remote sync check (`backup run`)                                              |
+| `--no-verify`       | Skip git hooks during commit (`backup run`)                                       |
+| `-C / --config`      | Edit the module's config file (`dots.lua`/`path.yaml`) instead of the folder (`edit`) |
+| `--porcelain`        | Machine-parseable tab-separated output (`status`) — overrides `--format`          |
+| `--hints`            | Show migration hints (YAML → Lua) (`doctor`) — default: true                      |
 | `--dry-run`          | Preview without executing                                                         |
 | `--no-hints`         | Suppress migration hints from the syntax checker (persistent)                     |
 

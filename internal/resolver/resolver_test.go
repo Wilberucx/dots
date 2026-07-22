@@ -5,11 +5,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/Wilberucx/dots/internal/config"
 	luacfg "github.com/Wilberucx/dots/internal/lua"
 	"github.com/Wilberucx/dots/internal/yaml"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // setupTestRepo creates a temporary dotfiles repo with the given module structure.
@@ -19,9 +20,9 @@ func setupTestRepo(t *testing.T) *config.DotsConfig {
 
 	// Create marker
 	dotsDir := filepath.Join(repoDir, ".dots")
-	err := os.MkdirAll(dotsDir, 0755)
+	err := os.MkdirAll(dotsDir, 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(dotsDir, "config.yaml"), []byte("version: 1"), 0644)
+	err = os.WriteFile(filepath.Join(dotsDir, "config.yaml"), []byte("version: 1"), 0o644)
 	require.NoError(t, err)
 
 	// Create a home dir and set HOME so IsSafePath works
@@ -43,17 +44,17 @@ func setupTestRepo(t *testing.T) *config.DotsConfig {
 func createModule(t *testing.T, cfg *config.DotsConfig, name, yamlContent string, sourceFiles map[string]string) {
 	t.Helper()
 	modDir := filepath.Join(cfg.RepoRoot, name)
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte(yamlContent), 0o644)
 	require.NoError(t, err)
 
 	for srcPath, content := range sourceFiles {
 		fullPath := filepath.Join(modDir, srcPath)
-		err := os.MkdirAll(filepath.Dir(fullPath), 0755)
+		err := os.MkdirAll(filepath.Dir(fullPath), 0o755)
 		require.NoError(t, err)
-		err = os.WriteFile(fullPath, []byte(content), 0644)
+		err = os.WriteFile(fullPath, []byte(content), 0o644)
 		require.NoError(t, err)
 	}
 }
@@ -61,7 +62,7 @@ func createModule(t *testing.T, cfg *config.DotsConfig, name, yamlContent string
 // createSymlink creates a symlink from target to linkPath.
 func createSymlink(t *testing.T, target, linkPath string) {
 	t.Helper()
-	err := os.MkdirAll(filepath.Dir(linkPath), 0755)
+	err := os.MkdirAll(filepath.Dir(linkPath), 0o755)
 	require.NoError(t, err)
 	err = os.Symlink(target, linkPath)
 	require.NoError(t, err)
@@ -71,28 +72,28 @@ func createSymlink(t *testing.T, target, linkPath string) {
 func createLuaModule(t *testing.T, cfg *config.DotsConfig, name, luaContent string, sourceFiles map[string]string) {
 	t.Helper()
 	modDir := filepath.Join(cfg.RepoRoot, name)
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
-	err = os.WriteFile(filepath.Join(modDir, "dots.lua"), []byte(luaContent), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "dots.lua"), []byte(luaContent), 0o644)
 	require.NoError(t, err)
 
 	for srcPath, content := range sourceFiles {
 		fullPath := filepath.Join(modDir, srcPath)
-		err := os.MkdirAll(filepath.Dir(fullPath), 0755)
+		err := os.MkdirAll(filepath.Dir(fullPath), 0o755)
 		require.NoError(t, err)
-		err = os.WriteFile(fullPath, []byte(content), 0644)
+		err = os.WriteFile(fullPath, []byte(content), 0o644)
 		require.NoError(t, err)
 	}
 }
 
-// ─── luaFileIsLinked unit tests ─────────────────────────────────────────────
+// ─── luaFileIsLinked unit tests ─────────────────────────────────────────────.
 
 func TestLuaFileIsLinked_FileOpFile_Linked(t *testing.T) {
 	srcDir := t.TempDir()
 	destDir := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(srcDir, ".zshrc"), []byte("export FOO=bar"), 0644)
+	err := os.WriteFile(filepath.Join(srcDir, ".zshrc"), []byte("export FOO=bar"), 0o644)
 	require.NoError(t, err)
 	createSymlink(t, filepath.Join(srcDir, ".zshrc"), filepath.Join(destDir, ".zshrc"))
 
@@ -108,7 +109,7 @@ func TestLuaFileIsLinked_FileOpFile_Linked(t *testing.T) {
 func TestLuaFileIsLinked_FileOpFile_NotLinked(t *testing.T) {
 	srcDir := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(srcDir, ".zshrc"), []byte("export FOO=bar"), 0644)
+	err := os.WriteFile(filepath.Join(srcDir, ".zshrc"), []byte("export FOO=bar"), 0o644)
 	require.NoError(t, err)
 
 	f := luacfg.FileOp{
@@ -124,9 +125,9 @@ func TestLuaFileIsLinked_DirTo_Linked(t *testing.T) {
 	srcDir := t.TempDir()
 	destDir := t.TempDir()
 
-	err := os.MkdirAll(filepath.Join(srcDir, "config"), 0755)
+	err := os.MkdirAll(filepath.Join(srcDir, "config"), 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(srcDir, "config", "file.toml"), []byte("setting=true"), 0644)
+	err = os.WriteFile(filepath.Join(srcDir, "config", "file.toml"), []byte("setting=true"), 0o644)
 	require.NoError(t, err)
 
 	// dir():to(): dest itself is a symlink to the source directory
@@ -145,11 +146,11 @@ func TestLuaFileIsLinked_DirTo_NotLinked(t *testing.T) {
 	srcDir := t.TempDir()
 	destDir := t.TempDir()
 
-	err := os.MkdirAll(filepath.Join(srcDir, "config"), 0755)
+	err := os.MkdirAll(filepath.Join(srcDir, "config"), 0o755)
 	require.NoError(t, err)
 
 	// Create real directory at dest, not a symlink
-	err = os.MkdirAll(filepath.Join(destDir, "config"), 0755)
+	err = os.MkdirAll(filepath.Join(destDir, "config"), 0o755)
 	require.NoError(t, err)
 
 	f := luacfg.FileOp{
@@ -165,11 +166,11 @@ func TestLuaFileIsLinked_DirInto_AllLinked(t *testing.T) {
 	srcDir := t.TempDir()
 	destDir := t.TempDir()
 
-	err := os.MkdirAll(filepath.Join(srcDir, "arch"), 0755)
+	err := os.MkdirAll(filepath.Join(srcDir, "arch"), 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(srcDir, "arch", ".zshrc"), []byte("export FOO=bar"), 0644)
+	err = os.WriteFile(filepath.Join(srcDir, "arch", ".zshrc"), []byte("export FOO=bar"), 0o644)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(srcDir, "arch", ".zshenv"), []byte("export PATH=$PATH"), 0644)
+	err = os.WriteFile(filepath.Join(srcDir, "arch", ".zshenv"), []byte("export PATH=$PATH"), 0o644)
 	require.NoError(t, err)
 
 	// All children correctly symlinked
@@ -189,11 +190,11 @@ func TestLuaFileIsLinked_DirInto_PartialLinked(t *testing.T) {
 	srcDir := t.TempDir()
 	destDir := t.TempDir()
 
-	err := os.MkdirAll(filepath.Join(srcDir, "arch"), 0755)
+	err := os.MkdirAll(filepath.Join(srcDir, "arch"), 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(srcDir, "arch", ".zshrc"), []byte("export FOO=bar"), 0644)
+	err = os.WriteFile(filepath.Join(srcDir, "arch", ".zshrc"), []byte("export FOO=bar"), 0o644)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(srcDir, "arch", ".zshenv"), []byte("export PATH=$PATH"), 0644)
+	err = os.WriteFile(filepath.Join(srcDir, "arch", ".zshenv"), []byte("export PATH=$PATH"), 0o644)
 	require.NoError(t, err)
 
 	// Only ONE child symlinked
@@ -212,11 +213,11 @@ func TestLuaFileIsLinked_DirInto_NoneLinked(t *testing.T) {
 	srcDir := t.TempDir()
 	destDir := t.TempDir()
 
-	err := os.MkdirAll(filepath.Join(srcDir, "arch"), 0755)
+	err := os.MkdirAll(filepath.Join(srcDir, "arch"), 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(srcDir, "arch", ".zshrc"), []byte("export FOO=bar"), 0644)
+	err = os.WriteFile(filepath.Join(srcDir, "arch", ".zshrc"), []byte("export FOO=bar"), 0o644)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(srcDir, "arch", ".zshenv"), []byte("export PATH=$PATH"), 0644)
+	err = os.WriteFile(filepath.Join(srcDir, "arch", ".zshenv"), []byte("export PATH=$PATH"), 0o644)
 	require.NoError(t, err)
 
 	f := luacfg.FileOp{
@@ -232,7 +233,7 @@ func TestLuaFileIsLinked_DirInto_EmptyDir(t *testing.T) {
 	srcDir := t.TempDir()
 	destDir := t.TempDir()
 
-	err := os.MkdirAll(filepath.Join(srcDir, "arch"), 0755)
+	err := os.MkdirAll(filepath.Join(srcDir, "arch"), 0o755)
 	require.NoError(t, err)
 
 	f := luacfg.FileOp{
@@ -249,7 +250,7 @@ func TestLuaFileIsLinked_DirInto_SourceNotDir(t *testing.T) {
 	srcDir := t.TempDir()
 
 	// Source is a file, not a directory
-	err := os.WriteFile(filepath.Join(srcDir, "arch"), []byte("not a dir"), 0644)
+	err := os.WriteFile(filepath.Join(srcDir, "arch"), []byte("not a dir"), 0o644)
 	require.NoError(t, err)
 
 	f := luacfg.FileOp{
@@ -265,9 +266,9 @@ func TestLuaFileIsLinked_Glob_AllLinked(t *testing.T) {
 	srcDir := t.TempDir()
 	destDir := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(srcDir, "alacritty.toml"), []byte("[general]"), 0644)
+	err := os.WriteFile(filepath.Join(srcDir, "alacritty.toml"), []byte("[general]"), 0o644)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(srcDir, "kitty.toml"), []byte("[font]"), 0644)
+	err = os.WriteFile(filepath.Join(srcDir, "kitty.toml"), []byte("[font]"), 0o644)
 	require.NoError(t, err)
 
 	createSymlink(t, filepath.Join(srcDir, "alacritty.toml"), filepath.Join(destDir, "alacritty.toml"))
@@ -286,9 +287,9 @@ func TestLuaFileIsLinked_Glob_PartialLinked(t *testing.T) {
 	srcDir := t.TempDir()
 	destDir := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(srcDir, "alacritty.toml"), []byte("[general]"), 0644)
+	err := os.WriteFile(filepath.Join(srcDir, "alacritty.toml"), []byte("[general]"), 0o644)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(srcDir, "kitty.toml"), []byte("[font]"), 0644)
+	err = os.WriteFile(filepath.Join(srcDir, "kitty.toml"), []byte("[font]"), 0o644)
 	require.NoError(t, err)
 
 	createSymlink(t, filepath.Join(srcDir, "alacritty.toml"), filepath.Join(destDir, "alacritty.toml"))
@@ -314,7 +315,7 @@ func TestLuaFileIsLinked_Glob_NoMatches(t *testing.T) {
 	assert.False(t, luaFileIsLinked(f, srcDir, "linux"))
 }
 
-// ─── Integration: GetActiveVariant with DirInto variants ────────────────────
+// ─── Integration: GetActiveVariant with DirInto variants ────────────────────.
 
 func TestGetActiveVariant_LuaDirIntoVariant_AllLinked(t *testing.T) {
 	cfg := setupTestRepo(t)
@@ -450,7 +451,7 @@ func TestGetActiveVariant_LuaGlobVariant_AllLinked(t *testing.T) {
 	assert.Equal(t, "work", active)
 }
 
-// ─── Integration: ResolveModules with DirInto variants ──────────────────────
+// ─── Integration: ResolveModules with DirInto variants ──────────────────────.
 
 func TestResolveModules_LuaDirIntoVariant_AllLinked_Default(t *testing.T) {
 	cfg := setupTestRepo(t)
@@ -528,7 +529,7 @@ func TestResolveModules_LuaDirIntoVariant_NoneLinked_ShowsVariants(t *testing.T)
 	assert.Empty(t, active)
 }
 
-// ─── OLD TESTS (below) ──────────────────────────────────────────────────────
+// ─── OLD TESTS (below) ──────────────────────────────────────────────────────.
 
 func TestExpandPath(t *testing.T) {
 	// Test with absolute path
@@ -572,7 +573,7 @@ func TestResolveModules_LinkedModule(t *testing.T) {
 	createModule(t, cfg, "Zsh", `
 files:
   - source: .zshrc
-    destination: `+	filepath.Join(cfg.HomeDir, ".zshrc")+`
+    destination: `+filepath.Join(cfg.HomeDir, ".zshrc")+`
 `, map[string]string{".zshrc": "export FOO=bar"})
 
 	// Create the symlink
@@ -592,7 +593,7 @@ func TestResolveModules_ConflictModule(t *testing.T) {
 	createModule(t, cfg, "Zsh", `
 files:
   - source: .zshrc
-    destination: `+	filepath.Join(cfg.HomeDir, ".zshrc")+`
+    destination: `+filepath.Join(cfg.HomeDir, ".zshrc")+`
 `, map[string]string{".zshrc": "export FOO=bar"})
 
 	// Create a symlink pointing elsewhere
@@ -613,14 +614,14 @@ func TestResolveModules_WithBackup(t *testing.T) {
 	createModule(t, cfg, "Zsh", `
 files:
   - source: .zshrc
-    destination: `+	filepath.Join(cfg.HomeDir, ".zshrc")+`
+    destination: `+filepath.Join(cfg.HomeDir, ".zshrc")+`
 `, map[string]string{".zshrc": "export FOO=bar"})
 
 	// Create a real file at destination (not a symlink)
 	zshrcDest := filepath.Join(cfg.HomeDir, ".zshrc")
-	err := os.MkdirAll(filepath.Dir(zshrcDest), 0755)
+	err := os.MkdirAll(filepath.Dir(zshrcDest), 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(zshrcDest, []byte("existing content"), 0644)
+	err = os.WriteFile(zshrcDest, []byte("existing content"), 0o644)
 	require.NoError(t, err)
 
 	results, err := ResolveModules(cfg, nil, nil, "")
@@ -778,7 +779,7 @@ func TestExpandPathSafety(t *testing.T) {
 	})
 }
 
-// Test that DotFileMapping and VariantInfo types are accessible
+// Test that DotFileMapping and VariantInfo types are accessible.
 func TestTypesAccessible(t *testing.T) {
 	assert.NotNil(t, yaml.DetectVariants)
 	assert.NotNil(t, yaml.FilterByVariant)

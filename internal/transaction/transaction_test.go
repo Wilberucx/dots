@@ -15,7 +15,7 @@ func TestSymlink(t *testing.T) {
 	src := filepath.Join(dir, "link")
 
 	// Create target
-	err := os.WriteFile(target, []byte("content"), 0644)
+	err := os.WriteFile(target, []byte("content"), 0o644)
 	require.NoError(t, err)
 
 	log := &TransactionLog{}
@@ -35,7 +35,7 @@ func TestSymlink_Rollback(t *testing.T) {
 	target := filepath.Join(dir, "target")
 	src := filepath.Join(dir, "link")
 
-	err := os.WriteFile(target, []byte("content"), 0644)
+	err := os.WriteFile(target, []byte("content"), 0o644)
 	require.NoError(t, err)
 
 	log := &TransactionLog{}
@@ -55,7 +55,7 @@ func TestBackup(t *testing.T) {
 	original := filepath.Join(dir, "original")
 	backupPath := filepath.Join(dir, "original.orig")
 
-	err := os.WriteFile(original, []byte("content"), 0644)
+	err := os.WriteFile(original, []byte("content"), 0o644)
 	require.NoError(t, err)
 
 	log := &TransactionLog{}
@@ -78,7 +78,7 @@ func TestBackup_Rollback(t *testing.T) {
 	original := filepath.Join(dir, "original")
 	backupPath := filepath.Join(dir, "original.orig")
 
-	err := os.WriteFile(original, []byte("content"), 0644)
+	err := os.WriteFile(original, []byte("content"), 0o644)
 	require.NoError(t, err)
 
 	log := &TransactionLog{}
@@ -117,7 +117,7 @@ func TestUnlink(t *testing.T) {
 	target := filepath.Join(dir, "target")
 	link := filepath.Join(dir, "link")
 
-	err := os.WriteFile(target, []byte("content"), 0644)
+	err := os.WriteFile(target, []byte("content"), 0o644)
 	require.NoError(t, err)
 	err = os.Symlink(target, link)
 	require.NoError(t, err)
@@ -138,7 +138,7 @@ func TestUnlink_Rollback(t *testing.T) {
 	target := filepath.Join(dir, "target")
 	link := filepath.Join(dir, "link")
 
-	err := os.WriteFile(target, []byte("content"), 0644)
+	err := os.WriteFile(target, []byte("content"), 0o644)
 	require.NoError(t, err)
 	err = os.Symlink(target, link)
 	require.NoError(t, err)
@@ -161,7 +161,7 @@ func TestMove(t *testing.T) {
 	src := filepath.Join(dir, "source")
 	dest := filepath.Join(dir, "dest", "file")
 
-	err := os.WriteFile(src, []byte("content"), 0644)
+	err := os.WriteFile(src, []byte("content"), 0o644)
 	require.NoError(t, err)
 
 	log := &TransactionLog{}
@@ -184,7 +184,7 @@ func TestMove_Rollback(t *testing.T) {
 	src := filepath.Join(dir, "source")
 	dest := filepath.Join(dir, "dest", "file")
 
-	err := os.WriteFile(src, []byte("content"), 0644)
+	err := os.WriteFile(src, []byte("content"), 0o644)
 	require.NoError(t, err)
 
 	log := &TransactionLog{}
@@ -208,7 +208,7 @@ func TestCommittedNoRollback(t *testing.T) {
 	target := filepath.Join(dir, "target")
 	link := filepath.Join(dir, "link")
 
-	err := os.WriteFile(target, []byte("content"), 0644)
+	err := os.WriteFile(target, []byte("content"), 0o644)
 	require.NoError(t, err)
 
 	log := &TransactionLog{}

@@ -5,10 +5,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Wilberucx/dots/internal/resolver"
 	"github.com/Wilberucx/dots/internal/transaction"
 	"github.com/Wilberucx/dots/internal/ui"
-	"github.com/spf13/cobra"
 )
 
 func init() {

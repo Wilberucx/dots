@@ -9,8 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wilberucx/dots/internal/ui"
 	"github.com/spf13/cobra"
+
+	"github.com/Wilberucx/dots/internal/config"
+	"github.com/Wilberucx/dots/internal/ui"
 )
 
 func init() {
@@ -25,7 +27,7 @@ func init() {
 	}
 }
 
-// ─── backup run ──────────────────────────────────────────────────────────────
+// ─── backup run ──────────────────────────────────────────────────────────────.
 
 func runBackup(cmd *cobra.Command) error {
 	ui.PrintHeader("Dots Backup")
@@ -147,7 +149,7 @@ func runBackupCore(commitMsg, dotsDir string, push, noSync, noVerify bool) error
 	return nil
 }
 
-// ─── Pre-flight checks ───────────────────────────────────────────────────────
+// ─── Pre-flight checks ───────────────────────────────────────────────────────.
 
 func preFlightCheck(dotsDir string) error {
 	// Check 1: Is this a valid git repository?
@@ -196,7 +198,7 @@ func preFlightCheck(dotsDir string) error {
 	return nil
 }
 
-// ─── Staged changes detection ────────────────────────────────────────────────
+// ─── Staged changes detection ────────────────────────────────────────────────.
 
 // hasStagedChanges returns true if there are changes in the index.
 // Distinguishes between "clean" (0) and "error" (2) exit codes from git diff.
@@ -223,10 +225,10 @@ func hasStagedChanges(dotsDir string) (bool, error) {
 	return false, nil
 }
 
-// ─── Remote sync helpers ─────────────────────────────────────────────────────
+// ─── Remote sync helpers ─────────────────────────────────────────────────────.
 
 type syncResult struct {
-	status    string   // "clean", "pulled", "conflicts", "no_upstream", "error"
+	status    string // "clean", "pulled", "conflicts", "no_upstream", "error"
 	conflicts []string
 	ahead     int
 	errMsg    string // populated on error
@@ -401,7 +403,7 @@ func resolveConflictsInteractive(dotsDir string, conflicts []string) bool {
 	return true
 }
 
-// ─── backup list ─────────────────────────────────────────────────────────────
+// ─── backup list ─────────────────────────────────────────────────────────────.
 
 func runBackupList(cmd *cobra.Command) error {
 	ui.PrintHeader("Backup History")
@@ -441,7 +443,7 @@ func runBackupList(cmd *cobra.Command) error {
 	return nil
 }
 
-// ─── backup diff ─────────────────────────────────────────────────────────────
+// ─── backup diff ─────────────────────────────────────────────────────────────.
 
 func runBackupDiff(cmd *cobra.Command, args []string) error {
 	ref := stringFlag(cmd, "ref")
@@ -459,12 +461,62 @@ func runBackupDiff(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("loading config: %w", err)
 	}
 
-	diffCmd := exec.Command("git", "diff", "--stat", ref, "HEAD")
-	diffCmd.Dir = cfg.RepoRoot
-	diffCmd.Stdout = os.Stdout
-	diffCmd.Stderr = os.Stderr
-	if err := diffCmd.Run(); err != nil {
-		return fmt.Errorf("git diff failed: %w", err)
+	modules := stringSliceFlag(cmd, "module")
+
+	modDirs, err := cfg.GetModuleDirs(modules, nil)
+	if err != nil {
+		return fmt.Errorf("listing modules: %w", err)
+	}
+
+	env := append(os.Environ(), "GIT_PAGER=cat")
+	hasOutput := false
+
+	// Per-module diffs
+	for _, mod := range modDirs {
+		diffCmd := exec.Command("git", "diff", "--color=always", ref, "HEAD", "--", mod.Name+"/")
+		diffCmd.Dir = cfg.RepoRoot
+		diffCmd.Env = env
+
+		out, err := diffCmd.Output()
+		if err != nil {
+			var exitErr *exec.ExitError
+			if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+				return fmt.Errorf("git diff failed for module %s: %w", mod.Name, err)
+			}
+		}
+
+		diff := strings.TrimSpace(string(out))
+		if diff == "" {
+			continue
+		}
+
+		fmt.Printf("\n  %s %s\n", ui.DimStyle.Render(ui.IconModule), ui.BoldStyle.Render(mod.Name))
+		fmt.Println(diff)
+		hasOutput = true
+	}
+
+	// Root-level files (init.lua, config.lua, .dots/)
+	rootCmd := exec.Command("git", "diff", "--color=always", ref, "HEAD", "--", "init.lua", "config.lua", config.MarkerDir+"/")
+	rootCmd.Dir = cfg.RepoRoot
+	rootCmd.Env = env
+
+	out, err := rootCmd.Output()
+	if err != nil {
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+			return fmt.Errorf("git diff failed for root files: %w", err)
+		}
+	}
+
+	if diff := strings.TrimSpace(string(out)); diff != "" {
+		fmt.Printf("\n  %s Root\n", ui.DimStyle.Render(ui.IconModule))
+		fmt.Println(diff)
+		hasOutput = true
+	}
+
+	if !hasOutput {
+		fmt.Println()
+		ui.PrintInfo("No changes found.")
 	}
 
 	return nil

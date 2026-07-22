@@ -5,11 +5,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Wilberucx/dots/internal/config"
 	luacfg "github.com/Wilberucx/dots/internal/lua"
 	"github.com/Wilberucx/dots/internal/ui"
 	"github.com/Wilberucx/dots/internal/writer"
-	"github.com/spf13/cobra"
 )
 
 const markerContent = `# .dots/config.yaml — marker for the dots CLI
@@ -66,7 +67,7 @@ func runInit() error {
 		ui.PrintInfo("Created 'init.lua'.")
 	} else {
 		// Create .dots directory and config.yaml (legacy format)
-		if err := os.MkdirAll(markerDir, 0755); err != nil {
+		if err := os.MkdirAll(markerDir, 0o755); err != nil {
 			return fmt.Errorf("creating marker directory: %w", err)
 		}
 
@@ -84,13 +85,13 @@ func runInit() error {
 
 	fmt.Println()
 	fmt.Println(ui.BoldStyle.Render("DOTS_REPO") + ui.DimStyle.Render(" tells dots where to find your dotfiles."))
-	ui.PrintInfo(fmt.Sprintf("Without it, you must be inside your dotfiles directory or use --path."))
+	ui.PrintInfo("Without it, you must be inside your dotfiles directory or use --path.")
 	fmt.Println()
 
 	// Try to create directory if shell config doesn't exist
 	shellConfigDir := filepath.Dir(shellConfig)
 	if _, err := os.Stat(shellConfigDir); os.IsNotExist(err) {
-		if mkErr := os.MkdirAll(shellConfigDir, 0755); mkErr != nil {
+		if mkErr := os.MkdirAll(shellConfigDir, 0o755); mkErr != nil {
 			ui.PrintWarning(fmt.Sprintf("Could not create directory %s: %v", shellConfigDir, mkErr))
 		}
 	}
@@ -123,7 +124,7 @@ func migrateFromLegacy(cwd, markerDir, markerPath, legacyPath string) error {
 		return fmt.Errorf("reading legacy %s: %w", config.LegacyMarker, err)
 	}
 
-	if err := os.MkdirAll(markerDir, 0755); err != nil {
+	if err := os.MkdirAll(markerDir, 0o755); err != nil {
 		return fmt.Errorf("creating marker directory: %w", err)
 	}
 

@@ -12,22 +12,22 @@ import (
 
 // ModuleInfo holds aggregated information about a module.
 type ModuleInfo struct {
-	Name           string
-	LinkState      string // "linked", "unlinked", "broken", "missing"
-	Statuses       []LinkStatus
-	PrimaryDest    string
-	LastBackup     string
-	HasVariants    bool
-	VariantNames   []string
-	ActiveVariant  string
+	Name          string
+	LinkState     string // "linked", "unlinked", "broken", "missing"
+	Statuses      []LinkStatus
+	PrimaryDest   string
+	LastBackup    string
+	HasVariants   bool
+	VariantNames  []string
+	ActiveVariant string
 }
 
 // DotsService aggregates module state and provides high-level queries.
 type DotsService struct {
-	Config    *config.DotsConfig
-	Modules   map[string]ModuleInfo
-	Names     []string
-	Backups   []string
+	Config  *config.DotsConfig
+	Modules map[string]ModuleInfo
+	Names   []string
+	Backups []string
 }
 
 // NewDotsService creates a new DotsService with the given config.

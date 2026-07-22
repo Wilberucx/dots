@@ -1,0 +1,232 @@
+# golangci-lint configuration
+# Docs: https://golangci-lint.run/docs/configuration/
+#
+# Run: golangci-lint run
+# Fix: golangci-lint run --fix
+
+run:
+  timeout: 5m
+  tests: true
+  go: "1.26"
+
+linters:
+  disable-all: true
+  enable:
+    # Standard Go tools
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+    # Code correctness & style
+    - revive
+    - forcetypeassert
+    - unconvert
+    - nilerr
+
+    # Security & robustness
+    - gosec
+    - noctx
+    - bodyclose
+
+    # Formatting & conventions
+    - misspell
+    - godot
+    - gofumpt
+    - goimports
+    - whitespace
+
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment   # Too opinionated for CLI output structs
+      - shadow           # Allows intentional shadowing (common in Go)
+
+  revive:
+    severity: warning
+    rules:
+      - name: exported
+        disabled: true   # Exported comments are project-convention, not enforced
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+        disabled: true
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+      - name: unused-parameter
+        severity: warning
+        arguments:
+          - allowRegex: "^_|^cmd$|^args$"  # Cobra command handlers
+
+  staticcheck:
+    checks: ["all"]
+    # ST1000: missing package comment (project convention)
+    # ST1005: error strings capitalized (Go convention varies)
+    # ST1006: poor method receiver name
+    # ST1008: error naming
+    # ST1016: receiver naming
+    # ST1020: exported function comment
+    # ST1021: exported type comment
+    # ST1022: exported method comment
+    # ST1023: redundant type in declaration
+    disable:
+      - ST1000
+      - ST1005
+      - ST1006
+      - ST1008
+      - ST1016
+      - ST1020
+      - ST1021
+      - ST1022
+
+  gosec:
+    excludes:
+      - G115  # Integer overflow conversion (false positives with int types)
+      - G204  # Subprocess launched with variable (common in CLI tools)
+      - G301  # Directory permissions (project uses 0755 intentionally)
+      - G302  # File permissions (project uses 0644 intentionally)
+      - G304  # File path provided as taint input (false positives)
+      - G306  # WriteFile permissions (project uses 0644 intentionally)
+
+  misspell:
+    locale: US
+    ignore-words:
+      - dots
+
+  godot:
+    scope: toplevel
+    capital: true
+    # Exclude multiline comments that look like sections
+    exclude:
+      - "^// ───"
+
+  gofumpt:
+    module-path: github.com/Wilberucx/dots
+    extra-rules: true
+
+  goimports:
+    local-prefixes: github.com/Wilberucx/dots
+
+issues:
+  exclude-use-default: false
+  exclude:
+    - "use of `//nolint`"
+  exclude-rules:
+    # Test files
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - noctx
+        - bodyclose
+        - forcetypeassert
+        - nilerr
+
+    # Cobra command handlers — cmd/args params are required by interface
+    - path: internal/cli/
+      text: "unused-parameter: parameter '(cmd|args)'"
+      linters:
+        - revive
+
+    # Cobra init functions — cmd parameter required by interface
+    - path: internal/cli/
+      text: "unused-parameter: parameter 'cmd'"
+      linters:
+        - revive
+
+    # filepath.Walk — err ignored intentionally, handled via closure
+    - text: "Error return value of `(filepath\\.Walk|\\.Close|fmt\\.Sscanf|os\\.Setenv|\\.Run)` is not checked"
+      linters:
+        - errcheck
+
+    # Cleanup close operations that are intentionally deferred
+    - text: "Error return value of `resp\\.Body\\.Close` is not checked"
+      linters:
+        - errcheck
+
+    # Deferred file close in writers
+    - path: internal/writer/
+      text: "Error return value of `f\\.Close` is not checked"
+      linters:
+        - errcheck
+
+    # Deferred body close in install
+    - path: internal/cli/install.go
+      text: "Error return value of `resp\\.Body\\.Close` is not checked"
+      linters:
+        - errcheck
+
+    # os.Remove on temp file — not critical if it fails
+    - path: internal/cli/install.go
+      text: "Error return value of `os\\.Remove` is not checked"
+      linters:
+        - errcheck
+
+    # out.Close in install — cleanup
+    - path: internal/cli/install.go
+      text: "Error return value of `out\\.Close` is not checked"
+      linters:
+        - errcheck
+
+    # migrate.go — skip unparseable files intentionally
+    - path: internal/cli/migrate.go
+      linters:
+        - nilerr
+
+    # config.go ParseModuleMeta — unparseable YAML returns empty meta
+    - path: internal/config/config.go
+      linters:
+        - nilerr
+
+    # parser.go — unparseable files return empty results intentionally
+    - path: internal/yaml/parser.go
+      linters:
+        - nilerr
+
+    # updates.go — background cache update, non-critical
+    - path: internal/cli/updates.go
+      text: "Error return value of `(os\\.MkdirAll|os\\.WriteFile|fmt\\.Sscanf)` is not checked"
+      linters:
+        - errcheck
+
+    # abort.Run in backup — best-effort cleanup
+    - path: internal/cli/backup.go
+      text: "Error return value of `abort\\.Run` is not checked"
+      linters:
+        - errcheck
+
+    # backup.go gitDir is used implicitly via git commands
+    - path: internal/cli/backup.go
+      text: "ineffectual assignment to gitDir"
+      linters:
+        - ineffassign
+
+    # lua vm.go — L.DoString error is checked later
+    - path: internal/lua/loader.go
+      text: "Error return value of `L\\.DoString` is not checked"
+      linters:
+        - errcheck
+
+    # selector.go — fmt.Scanln in interactive prompt
+    - path: internal/ui/selector.go
+      text: "Error return value of `fmt\\.Scanln` is not checked"
+      linters:
+        - errcheck

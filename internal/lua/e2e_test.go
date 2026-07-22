@@ -7,30 +7,31 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/Wilberucx/dots/internal/config"
 	luacfg "github.com/Wilberucx/dots/internal/lua"
 	"github.com/Wilberucx/dots/internal/resolver"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-// ─── Test helpers ───────────────────────────────────────────────────────────
+// ─── Test helpers ───────────────────────────────────────────────────────────.
 
 // createLuaModule creates a module directory with dots.lua and optional source files.
 func createLuaModule(t *testing.T, repoRoot, relPath, luaContent string, sourceFiles map[string]string) {
 	t.Helper()
 	modDir := filepath.Join(repoRoot, relPath)
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
-	err = os.WriteFile(filepath.Join(modDir, "dots.lua"), []byte(luaContent), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "dots.lua"), []byte(luaContent), 0o644)
 	require.NoError(t, err)
 
 	for srcPath, content := range sourceFiles {
 		fullPath := filepath.Join(modDir, srcPath)
-		err := os.MkdirAll(filepath.Dir(fullPath), 0755)
+		err := os.MkdirAll(filepath.Dir(fullPath), 0o755)
 		require.NoError(t, err)
-		err = os.WriteFile(fullPath, []byte(content), 0644)
+		err = os.WriteFile(fullPath, []byte(content), 0o644)
 		require.NoError(t, err)
 	}
 }
@@ -38,7 +39,7 @@ func createLuaModule(t *testing.T, repoRoot, relPath, luaContent string, sourceF
 // createSymlink creates a symbolic link ensuring parent directories exist.
 func createSymlink(t *testing.T, target, linkPath string) {
 	t.Helper()
-	err := os.MkdirAll(filepath.Dir(linkPath), 0755)
+	err := os.MkdirAll(filepath.Dir(linkPath), 0o755)
 	require.NoError(t, err)
 	err = os.Symlink(target, linkPath)
 	require.NoError(t, err)
@@ -102,9 +103,7 @@ func makeDotsCfg(t *testing.T, repoDir, homeDir string, modules []luacfg.ModuleD
 	return dotsCfg
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// E2E: Full Lua Pipeline
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────.
 
 func TestE2E_FullLuaPipeline(t *testing.T) {
 	repoDir := t.TempDir()
@@ -120,7 +119,7 @@ func TestE2E_FullLuaPipeline(t *testing.T) {
   module_paths = { "packages/", "configs/" },
   plugins = { "dots.http" },
 }`
-	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(initContent), 0644)
+	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(initContent), 0o644)
 	require.NoError(t, err)
 
 	// ═══════════════════════════════════════════════════════════════════════
@@ -185,7 +184,7 @@ func TestE2E_FullLuaPipeline(t *testing.T) {
   },
 }`, map[string]string{
 		"config/alacritty.toml": "colorscheme = \"catppuccin\"",
-		"config/fonts.toml":    "font = { size = 12 }",
+		"config/fonts.toml":     "font = { size = 12 }",
 	})
 
 	// Root-level module (NOT under module_paths → should NOT be found)
@@ -397,9 +396,7 @@ func TestE2E_FullLuaPipeline(t *testing.T) {
 	}
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// E2E: Root-level modules (no module_paths)
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────.
 
 func TestE2E_RootLevelModules(t *testing.T) {
 	repoDir := t.TempDir()
@@ -410,7 +407,7 @@ func TestE2E_RootLevelModules(t *testing.T) {
 	initContent := `return {
   name = "test/dotfiles",
 }`
-	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(initContent), 0644)
+	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(initContent), 0o644)
 	require.NoError(t, err)
 
 	// Create modules at repo root
@@ -469,15 +466,13 @@ func TestE2E_RootLevelModules(t *testing.T) {
 	assert.Len(t, results["Scripts"], 1) // 1 file in scripts/
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// E2E: Mixed format detection (both dots.lua and path.yaml)
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────.
 
 func TestE2E_MixedFormats(t *testing.T) {
 	repoDir := t.TempDir()
 
 	// Create init.lua at root
-	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0644)
+	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0o644)
 	require.NoError(t, err)
 
 	// Create both dots.lua and path.yaml → Lua wins
@@ -489,18 +484,18 @@ func TestE2E_MixedFormats(t *testing.T) {
 	// Also write path.yaml
 	err = os.WriteFile(filepath.Join(repoDir, "Zsh", "path.yaml"), []byte(`files:
   - source: .zshrc
-    destination: ~/.zshrc`), 0644)
+    destination: ~/.zshrc`), 0o644)
 	require.NoError(t, err)
 
 	// Create a pure YAML module (only path.yaml)
 	yamlModDir := filepath.Join(repoDir, "YAMLOnly")
-	err = os.MkdirAll(yamlModDir, 0755)
+	err = os.MkdirAll(yamlModDir, 0o755)
 	require.NoError(t, err)
 	err = os.WriteFile(filepath.Join(yamlModDir, "path.yaml"), []byte(`files:
   - source: config
-    destination: ~/.config`), 0644)
+    destination: ~/.config`), 0o644)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(yamlModDir, "config"), []byte("export FOO=bar"), 0644)
+	err = os.WriteFile(filepath.Join(yamlModDir, "config"), []byte("export FOO=bar"), 0o644)
 	require.NoError(t, err)
 
 	// Find modules
@@ -535,15 +530,13 @@ func TestE2E_MixedFormats(t *testing.T) {
 	assert.Equal(t, ".zshrc", zshCfg.Files[0].Source)
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// E2E: Config loading error propagation
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────.
 
 func TestE2E_LoadErrors(t *testing.T) {
 	repoDir := t.TempDir()
 
 	// init.lua with syntax error
-	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte("return { broken"), 0644)
+	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte("return { broken"), 0o644)
 	require.NoError(t, err)
 
 	// IsLuaRepo should still detect the file
@@ -559,7 +552,7 @@ func TestE2E_LoadErrors(t *testing.T) {
   files = { file("bad" "syntax") }
 }`, map[string]string{"bad": "content"})
 
-	err = os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0644)
+	err = os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0o644)
 	require.NoError(t, err)
 
 	initCfg, err := luacfg.LoadInitConfig(repoDir)
@@ -575,20 +568,18 @@ func TestE2E_LoadErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "syntax error")
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// E2E: Module with no dots.lua or path.yaml should be ignored
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────.
 
 func TestE2E_NoConfigDirIgnored(t *testing.T) {
 	repoDir := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0644)
+	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0o644)
 	require.NoError(t, err)
 
 	// Create a directory without any config file
-	err = os.MkdirAll(filepath.Join(repoDir, "NoConfig"), 0755)
+	err = os.MkdirAll(filepath.Join(repoDir, "NoConfig"), 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(repoDir, "NoConfig", "readme.txt"), []byte("hello"), 0644)
+	err = os.WriteFile(filepath.Join(repoDir, "NoConfig", "readme.txt"), []byte("hello"), 0o644)
 	require.NoError(t, err)
 
 	// Create a real module
@@ -605,9 +596,7 @@ func TestE2E_NoConfigDirIgnored(t *testing.T) {
 	assert.Equal(t, "RealMod", modules[0].Name)
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// E2E: Per-OS destination resolution
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────.
 
 func TestE2E_PerOSResolution(t *testing.T) {
 	repoDir := t.TempDir()
@@ -622,7 +611,7 @@ func TestE2E_PerOSResolution(t *testing.T) {
   },
 }`, map[string]string{"alacritty.toml": "colorscheme = \"catppuccin\""})
 
-	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0644)
+	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0o644)
 	require.NoError(t, err)
 
 	initCfg, err := luacfg.LoadInitConfig(repoDir)
@@ -667,9 +656,7 @@ func TestE2E_PerOSResolution(t *testing.T) {
 		"should use windows-specific destination on windows OS")
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// E2E: Dependency loading from Lua modules
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────.
 
 func TestE2E_LuaDependencies(t *testing.T) {
 	repoDir := t.TempDir()
@@ -684,7 +671,7 @@ func TestE2E_LuaDependencies(t *testing.T) {
   },
 }`, nil)
 
-	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0644)
+	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0o644)
 	require.NoError(t, err)
 
 	initCfg, err := luacfg.LoadInitConfig(repoDir)
@@ -725,9 +712,7 @@ func TestE2E_LuaDependencies(t *testing.T) {
 	assert.Equal(t, "v1.19.0", modCfg.Dependencies[3].Ref)
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// E2E: Glob pattern matching
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────.
 
 func TestE2E_GlobPatterns(t *testing.T) {
 	repoDir := t.TempDir()
@@ -745,7 +730,7 @@ func TestE2E_GlobPatterns(t *testing.T) {
 		"readme.txt":     "not a toml", // should not match
 	})
 
-	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0644)
+	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0o644)
 	require.NoError(t, err)
 
 	initCfg, err := luacfg.LoadInitConfig(repoDir)
@@ -787,15 +772,13 @@ func TestE2E_GlobPatterns(t *testing.T) {
 	assert.Equal(t, resolver.StateLinked, alacrittyStatus.State, "alacritty.toml should be linked")
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// E2E: Sorting verification — modules sorted by name
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────.
 
 func TestE2E_ModuleSorting(t *testing.T) {
 	repoDir := t.TempDir()
 
 	// No module_paths → scans root
-	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0644)
+	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0o644)
 	require.NoError(t, err)
 
 	// Create modules in unsorted order
@@ -814,9 +797,7 @@ func TestE2E_ModuleSorting(t *testing.T) {
 	assert.Equal(t, "Zsh", modules[3].Name)
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// E2E: Module deduplication across module_paths
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────.
 
 func TestE2E_DeduplicationAcrossPaths(t *testing.T) {
 	repoDir := t.TempDir()
@@ -824,7 +805,7 @@ func TestE2E_DeduplicationAcrossPaths(t *testing.T) {
 	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return {
   name = "test",
   module_paths = { "pkgs1/", "pkgs2/" },
-}`), 0644)
+}`), 0o644)
 	require.NoError(t, err)
 
 	// Create the same module name in both paths
@@ -856,14 +837,12 @@ func TestE2E_DeduplicationAcrossPaths(t *testing.T) {
 		"first path's config should win on dedup")
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// E2E: Empty return from dots.lua (minimal config)
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────.
 
 func TestE2E_EmptyModuleConfig(t *testing.T) {
 	repoDir := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0644)
+	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0o644)
 	require.NoError(t, err)
 
 	// dots.lua that returns {} (no files, no deps)
@@ -885,14 +864,12 @@ func TestE2E_EmptyModuleConfig(t *testing.T) {
 	assert.Empty(t, cfg.Dependencies)
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// E2E: modules at repo root respect hidden/special directory exclusion
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────.
 
 func TestE2E_HiddenDirExclusion(t *testing.T) {
 	repoDir := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0644)
+	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0o644)
 	require.NoError(t, err)
 
 	// Create config in hidden dirs that should be excluded
@@ -917,9 +894,7 @@ func TestE2E_HiddenDirExclusion(t *testing.T) {
 	assert.Equal(t, "RealMod", modules[0].Name)
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Verify the config.IsDotfilesRepo detects init.lua repos
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────.
 
 func TestE2E_IsDotfilesRepoDetection(t *testing.T) {
 	repoDir := t.TempDir()
@@ -928,7 +903,7 @@ func TestE2E_IsDotfilesRepoDetection(t *testing.T) {
 	assert.False(t, config.IsDotfilesRepo(repoDir), "empty dir is not a repo")
 
 	// With init.lua, should be detected
-	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0644)
+	err := os.WriteFile(filepath.Join(repoDir, "init.lua"), []byte(`return { name = "test" }`), 0o644)
 	require.NoError(t, err)
 	assert.True(t, config.IsDotfilesRepo(repoDir), "init.lua should be detected as repo marker")
 

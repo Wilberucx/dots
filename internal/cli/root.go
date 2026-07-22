@@ -5,11 +5,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Wilberucx/dots/internal/checker"
 	"github.com/Wilberucx/dots/internal/config"
 	luacfg "github.com/Wilberucx/dots/internal/lua"
 	"github.com/Wilberucx/dots/internal/ui"
-	"github.com/spf13/cobra"
 )
 
 // rootCmd is the base command for dots.
@@ -266,9 +267,9 @@ func init() {
 
 // listCmd represents the `dots list` command.
 var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List modules or backups",
-	Long:  "List modules or backups with optional filters.",
+	Use:     "list",
+	Short:   "List modules or backups",
+	Long:    "List modules or backups with optional filters.",
 	Aliases: []string{"ls"},
 }
 
@@ -300,7 +301,7 @@ var editCmd = &cobra.Command{
 	Long: `Open a module folder or its config file (dots.lua or path.yaml) in your $EDITOR.
 
 If no module is provided, an interactive selector is shown.`,
-	Args:  cobra.MaximumNArgs(1),
+	Args: cobra.MaximumNArgs(1),
 }
 
 func init() {
@@ -321,8 +322,6 @@ func init() {
 	installCmd.Flags().StringSliceP("module", "m", nil, "Install deps only for specific modules (repeatable)")
 	installCmd.Flags().StringSliceP("type", "t", nil, "Install deps only for modules of this type (repeatable)")
 }
-
-
 
 // ─── backup group (dots backup {run,list,diff}) ──────────────────────────────
 
@@ -360,6 +359,7 @@ func init() {
 	backupListCmd.Flags().IntP("limit", "n", 10, "Number of backups to show")
 
 	backupDiffCmd.Flags().String("ref", "HEAD~1", "Commit or ref to compare against HEAD")
+	backupDiffCmd.Flags().StringSliceP("module", "m", nil, "Show diff only for specific modules (repeatable)")
 
 	backupCmd.AddCommand(backupRunCmd)
 	backupCmd.AddCommand(backupListCmd)

@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ─── findMatchingBrace ──────────────────────────────────────────────────────
+// ─── findMatchingBrace ──────────────────────────────────────────────────────.
 
 func TestFindMatchingBrace_Basic(t *testing.T) {
 	idx := findMatchingBrace("return { files = {} }", 7) // opening brace at 'return {'
@@ -99,12 +99,12 @@ func TestFindMatchingBrace_EscapedQuote(t *testing.T) {
 	assert.Equal(t, len(s)-1, idx, "should handle escaped quotes")
 }
 
-// ─── appendLuaFileEntry — no existing files section ────────────────────────
+// ─── appendLuaFileEntry — no existing files section ────────────────────────.
 
 func writeLuaFile(t *testing.T, dir, content string) string {
 	t.Helper()
 	path := filepath.Join(dir, "dots.lua")
-	err := os.WriteFile(path, []byte(content), 0644)
+	err := os.WriteFile(path, []byte(content), 0o644)
 	require.NoError(t, err)
 	return path
 }
@@ -173,7 +173,7 @@ func TestAppendLuaFileEntry_NoFilesWithDeps(t *testing.T) {
 	assertFileContent(t, luaPath, content)
 }
 
-// ─── appendLuaFileEntry — with existing files section ──────────────────────
+// ─── appendLuaFileEntry — with existing files section ──────────────────────.
 
 func TestAppendLuaFileEntry_ExistingFilesSection(t *testing.T) {
 	dir := t.TempDir()
@@ -317,7 +317,7 @@ func TestAppendLuaFileEntry_FilesThenDepsThenMoreFiles(t *testing.T) {
 	assertFileContent(t, luaPath, content)
 }
 
-// ─── appendLuaFileEntry — with nested braces (per_os, when) ────────────────
+// ─── appendLuaFileEntry — with nested braces (per_os, when) ────────────────.
 
 func TestAppendLuaFileEntry_WithPerOSInFiles(t *testing.T) {
 	dir := t.TempDir()
@@ -371,7 +371,7 @@ func TestAppendLuaFileEntry_WithWhenAndVariant(t *testing.T) {
 	assertFileContent(t, luaPath, content)
 }
 
-// ─── appendLuaFileEntry — error cases ───────────────────────────────────────
+// ─── appendLuaFileEntry — error cases ───────────────────────────────────────.
 
 func TestAppendLuaFileEntry_NoClosingBrace(t *testing.T) {
 	dir := t.TempDir()
@@ -412,7 +412,7 @@ func TestAppendLuaFileEntry_GapValidation(t *testing.T) {
 	assert.Contains(t, err.Error(), "unexpected content between 'files =' and '{'")
 }
 
-// ─── appendLuaFileEntry — real-world integration ───────────────────────────
+// ─── appendLuaFileEntry — real-world integration ───────────────────────────.
 
 func TestAppendLuaFileEntry_RealWorldComplex(t *testing.T) {
 	dir := t.TempDir()

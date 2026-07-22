@@ -19,7 +19,7 @@ var builtinPlugins embed.FS
 //  2. Plugins from the <repo_root>/dots/ directory
 func RegisterPluginLoader(L *lua.LState, repoRoot string) {
 	// Prepend our loader to package.loaders
-	L.DoString(`
+	_ = L.DoString(`
 		if package == nil then package = {} end
 		if package.loaders == nil then package.loaders = {} end
 		table.insert(package.loaders, 1, function(name)
@@ -88,7 +88,7 @@ func LoadModulePlugins(vm *LuaVM, cfg *RootConfig, repoRoot string) {
 }
 
 // loadPlugin attempts to load a plugin by name (built-in or filesystem).
-func loadPlugin(L *lua.LState, name string, repoRoot string) (*lua.LFunction, error) {
+func loadPlugin(L *lua.LState, name, repoRoot string) (*lua.LFunction, error) {
 	// Try built-in
 	builtinName := "plugins/" + name + ".lua"
 	if data, err := builtinPlugins.ReadFile(builtinName); err == nil {

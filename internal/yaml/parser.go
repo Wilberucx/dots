@@ -32,9 +32,9 @@ type Dependency struct {
 
 // VariantInfo holds variant detection results.
 type VariantInfo struct {
-	HasVariants        bool
-	Variants           []string          // source names that share destinations
-	DefaultVariant     string            // last variant (cascade)
+	HasVariants         bool
+	Variants            []string          // source names that share destinations
+	DefaultVariant      string            // last variant (cascade)
 	VariantDestinations map[string]string // source → destination mapping
 }
 
@@ -83,7 +83,7 @@ func ParsePathYAML(yamlPath, currentOS string) ([]DotFileMapping, error) {
 		if osListRaw, ok := f["os"].([]interface{}); ok {
 			found := false
 			for _, o := range osListRaw {
-				if o.(string) == currentOS {
+				if osStr, ok := o.(string); ok && osStr == currentOS {
 					found = true
 					break
 				}
@@ -258,9 +258,9 @@ func DetectVariants(mappings []DotFileMapping) VariantInfo {
 
 	defaultVariant := orderedVariants[len(orderedVariants)-1]
 	return VariantInfo{
-		HasVariants:        true,
-		Variants:           orderedVariants,
-		DefaultVariant:     defaultVariant,
+		HasVariants:         true,
+		Variants:            orderedVariants,
+		DefaultVariant:      defaultVariant,
 		VariantDestinations: variantDests,
 	}
 }

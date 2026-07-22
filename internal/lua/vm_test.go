@@ -5,12 +5,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	lua "github.com/yuin/gopher-lua"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	lua "github.com/yuin/gopher-lua"
 )
 
-// ─── Types helpers ──────────────────────────────────────────────────────────
+// ─── Types helpers ──────────────────────────────────────────────────────────.
 
 func TestLuaValToString(t *testing.T) {
 	tests := []struct {
@@ -52,7 +52,7 @@ func TestLuaTableToStringSlice(t *testing.T) {
 	assert.Equal(t, []string{"one", "two", "three"}, result)
 }
 
-// ─── NewLuaVM ───────────────────────────────────────────────────────────────
+// ─── NewLuaVM ───────────────────────────────────────────────────────────────.
 
 func TestNewLuaVM(t *testing.T) {
 	vm := NewLuaVM()
@@ -65,12 +65,12 @@ func TestNewLuaVM(t *testing.T) {
 	}
 }
 
-// ─── LoadModuleConfig ───────────────────────────────────────────────────────
+// ─── LoadModuleConfig ───────────────────────────────────────────────────────.
 
 func writeLuaFile(t *testing.T, dir, filename, content string) string {
 	t.Helper()
 	path := filepath.Join(dir, filename)
-	err := os.WriteFile(path, []byte(content), 0644)
+	err := os.WriteFile(path, []byte(content), 0o644)
 	require.NoError(t, err)
 	return path
 }
@@ -333,7 +333,7 @@ func TestLoadModuleConfig_AllFeatures(t *testing.T) {
 	assert.Len(t, cfg.Dependencies, 4)
 }
 
-// ─── Error cases ────────────────────────────────────────────────────────────
+// ─── Error cases ────────────────────────────────────────────────────────────.
 
 func TestLoadModuleConfig_NotExists(t *testing.T) {
 	vm := NewLuaVM()
@@ -370,7 +370,7 @@ func TestLoadModuleConfig_NotATable(t *testing.T) {
 	assert.Contains(t, err.Error(), "must return a table")
 }
 
-// ─── LoadRootConfig ─────────────────────────────────────────────────────────
+// ─── LoadRootConfig ─────────────────────────────────────────────────────────.
 
 func TestLoadRootConfig_Simple(t *testing.T) {
 	dir := t.TempDir()
@@ -481,7 +481,7 @@ func TestLoadRootConfig_SyntaxError(t *testing.T) {
 	assert.Contains(t, err.Error(), "syntax error")
 }
 
-// ─── CheckSyntax ────────────────────────────────────────────────────────────
+// ─── CheckSyntax ────────────────────────────────────────────────────────────.
 
 func TestCheckSyntax_Valid(t *testing.T) {
 	dir := t.TempDir()
@@ -509,7 +509,7 @@ func TestCheckSyntax_NotExists(t *testing.T) {
 	assert.Contains(t, err.Error(), "not found")
 }
 
-// ─── parseModuleConfig ──────────────────────────────────────────────────────
+// ─── parseModuleConfig ──────────────────────────────────────────────────────.
 
 func TestParseModuleConfig_Empty(t *testing.T) {
 	tbl := &lua.LTable{}
@@ -530,7 +530,7 @@ func TestParseModuleConfig_TypeOnly(t *testing.T) {
 	assert.Equal(t, "minimal", cfg.Type)
 }
 
-// ─── parseRootConfig ────────────────────────────────────────────────────────
+// ─── parseRootConfig ────────────────────────────────────────────────────────.
 
 func TestParseRootConfig_Empty(t *testing.T) {
 	tbl := &lua.LTable{}
@@ -562,7 +562,7 @@ func TestParseRootConfig_Full(t *testing.T) {
 	assert.Equal(t, []string{"dots.http"}, cfg.Plugins)
 }
 
-// ─── Helper functions ───────────────────────────────────────────────────────
+// ─── Helper functions ───────────────────────────────────────────────────────.
 
 func TestFileOpTypeString(t *testing.T) {
 	tests := []struct {
@@ -597,9 +597,9 @@ func TestDetectDepTypeFromTable(t *testing.T) {
 	assert.Equal(t, "git", detectDepTypeFromTable(tbl3))
 }
 
-// ─── Integration: Full round-trip ───────────────────────────────────────────
+// ─── Integration: Full round-trip ───────────────────────────────────────────.
 
-// ─── Variant tests ────────────────────────────────────────────────────────────
+// ─── Variant tests ────────────────────────────────────────────────────────────.
 
 func TestLoadModuleConfig_FileWithVariant(t *testing.T) {
 	dir := t.TempDir()
@@ -702,7 +702,7 @@ func TestLoadModuleConfig_VariantWithMethods(t *testing.T) {
 	assert.Equal(t, "~/.config/app-linux", cfg.Files[1].PerOS["linux"])
 }
 
-// ─── Integration: Full round-trip ───────────────────────────────────────────
+// ─── Integration: Full round-trip ───────────────────────────────────────────.
 
 func TestIntegration_FileDepRoundTrip(t *testing.T) {
 	dir := t.TempDir()

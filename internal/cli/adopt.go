@@ -7,11 +7,12 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Wilberucx/dots/internal/system"
 	"github.com/Wilberucx/dots/internal/transaction"
 	"github.com/Wilberucx/dots/internal/ui"
 	"github.com/Wilberucx/dots/internal/writer"
-	"github.com/spf13/cobra"
 )
 
 func init() {
@@ -42,7 +43,7 @@ func runAdopt(cmd *cobra.Command, args []string) error {
 	if !system.IsSafePath(absPath) {
 		ui.PrintWarning(fmt.Sprintf("%s is outside HOME.", absPath))
 		if !ui.RunConfirm("Proceed anyway?", false) {
-			ui.PrintInfo("Adoption cancelled.")
+			ui.PrintInfo("Adoption canceled.")
 			return nil
 		}
 	}
@@ -79,7 +80,7 @@ func runAdopt(cmd *cobra.Command, args []string) error {
 				))
 
 				if !ui.RunConfirm(fmt.Sprintf("Add file entry to '%s' config?", existingName), true) {
-					ui.PrintInfo("Adoption cancelled.")
+					ui.PrintInfo("Adoption canceled.")
 					return nil
 				}
 
@@ -146,7 +147,7 @@ func runAdopt(cmd *cobra.Command, args []string) error {
 		ui.PrintInfo(fmt.Sprintf("Module '%s' already declares %s as a destination.", name, destination))
 
 		if !ui.RunConfirm(fmt.Sprintf("Create a new variant in '%s' for this file?", name), true) {
-			ui.PrintInfo("Adoption cancelled.")
+			ui.PrintInfo("Adoption canceled.")
 			return nil
 		}
 
@@ -221,7 +222,7 @@ func adoptExistingSymlink(luaConfigPath, moduleDir, sourceName, destination, mod
 		ui.PrintWarning(fmt.Sprintf("Source file %s not found in module directory", sourceName))
 		ui.PrintInfo(fmt.Sprintf("Expected at: %s", sourcePath))
 		if !ui.RunConfirm("Add entry anyway?", false) {
-			ui.PrintInfo("Adoption cancelled.")
+			ui.PrintInfo("Adoption canceled.")
 			return nil
 		}
 	}
@@ -284,7 +285,7 @@ func appendLuaFileEntry(luaPath, source, destination string) error {
 		filesSection := fmt.Sprintf("  files = {\n    file(%q, %q),\n  },\n", source, destination)
 		before := strings.TrimRight(content[:lastBrace], " \t\r\n")
 		newContent := before + "\n" + filesSection + content[lastBrace:]
-		return os.WriteFile(luaPath, []byte(newContent), 0644)
+		return os.WriteFile(luaPath, []byte(newContent), 0o644)
 	}
 
 	// Find the opening brace of "files = { ... }"
@@ -321,7 +322,7 @@ func appendLuaFileEntry(luaPath, source, destination string) error {
 	// Replace the line containing the closing brace with the new entry
 	// followed by the closing brace (preserving its indentation)
 	newContent := content[:lineStart] + entryIndent + entry + closingIndent + content[closeBraceIdx:]
-	return os.WriteFile(luaPath, []byte(newContent), 0644)
+	return os.WriteFile(luaPath, []byte(newContent), 0o644)
 }
 
 // indexOutsideString finds the first occurrence of substr in s, ignoring occurrences inside strings.

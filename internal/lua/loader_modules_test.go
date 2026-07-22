@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ─── FindModules ────────────────────────────────────────────────────────────
+// ─── FindModules ────────────────────────────────────────────────────────────.
 
 func TestFindModules_EmptyRepo(t *testing.T) {
 	dir := t.TempDir()
@@ -25,9 +25,9 @@ func TestFindModules_LuaModules(t *testing.T) {
 	// Create modules with dots.lua
 	for _, name := range []string{"Zsh", "Nvim", "Kitty"} {
 		modDir := filepath.Join(dir, name)
-		err := os.MkdirAll(modDir, 0755)
+		err := os.MkdirAll(modDir, 0o755)
 		require.NoError(t, err)
-		err = os.WriteFile(filepath.Join(modDir, "dots.lua"), []byte("return {}"), 0644)
+		err = os.WriteFile(filepath.Join(modDir, "dots.lua"), []byte("return {}"), 0o644)
 		require.NoError(t, err)
 	}
 
@@ -52,9 +52,9 @@ func TestFindModules_YAMLModules(t *testing.T) {
 	// Create modules with path.yaml
 	for _, name := range []string{"Alacritty", "Tmux"} {
 		modDir := filepath.Join(dir, name)
-		err := os.MkdirAll(modDir, 0755)
+		err := os.MkdirAll(modDir, 0o755)
 		require.NoError(t, err)
-		err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte("files: []"), 0644)
+		err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte("files: []"), 0o644)
 		require.NoError(t, err)
 	}
 
@@ -68,13 +68,13 @@ func TestFindModules_BothFormats_LuaWins(t *testing.T) {
 	dir := t.TempDir()
 
 	modDir := filepath.Join(dir, "Hyprland")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 
 	// Create both dots.lua and path.yaml
-	err = os.WriteFile(filepath.Join(modDir, "dots.lua"), []byte("return {}"), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "dots.lua"), []byte("return {}"), 0o644)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte("files:\n  - source: x\n    destination: ~/x"), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte("files:\n  - source: x\n    destination: ~/x"), 0o644)
 	require.NoError(t, err)
 
 	modules, err := FindModules(dir, nil)
@@ -90,22 +90,22 @@ func TestFindModules_WithModulePaths(t *testing.T) {
 	// Create modules in packages/ and custom/
 	for _, sub := range []string{"packages", "custom"} {
 		subDir := filepath.Join(dir, sub)
-		err := os.MkdirAll(subDir, 0755)
+		err := os.MkdirAll(subDir, 0o755)
 		require.NoError(t, err)
 
 		modName := sub + "-mod"
 		modDir := filepath.Join(subDir, modName)
-		err = os.MkdirAll(modDir, 0755)
+		err = os.MkdirAll(modDir, 0o755)
 		require.NoError(t, err)
-		err = os.WriteFile(filepath.Join(modDir, "dots.lua"), []byte("return {}"), 0644)
+		err = os.WriteFile(filepath.Join(modDir, "dots.lua"), []byte("return {}"), 0o644)
 		require.NoError(t, err)
 	}
 
 	// Create a module in root (should NOT be found when module_paths restricts)
 	rootMod := filepath.Join(dir, "RootMod")
-	err := os.MkdirAll(rootMod, 0755)
+	err := os.MkdirAll(rootMod, 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(rootMod, "dots.lua"), []byte("return {}"), 0644)
+	err = os.WriteFile(filepath.Join(rootMod, "dots.lua"), []byte("return {}"), 0o644)
 	require.NoError(t, err)
 
 	initCfg := &RootConfig{
@@ -133,17 +133,17 @@ func TestFindModules_SkipsHiddenDirs(t *testing.T) {
 	// Create modules in hidden dirs that should be skipped
 	for _, hidden := range []string{".git", ".dots", "node_modules"} {
 		subDir := filepath.Join(dir, hidden)
-		err := os.MkdirAll(subDir, 0755)
+		err := os.MkdirAll(subDir, 0o755)
 		require.NoError(t, err)
-		err = os.WriteFile(filepath.Join(subDir, "dots.lua"), []byte("return {}"), 0644)
+		err = os.WriteFile(filepath.Join(subDir, "dots.lua"), []byte("return {}"), 0o644)
 		require.NoError(t, err)
 	}
 
 	// Create a real module
 	modDir := filepath.Join(dir, "RealMod")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(modDir, "dots.lua"), []byte("return {}"), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "dots.lua"), []byte("return {}"), 0o644)
 	require.NoError(t, err)
 
 	modules, err := FindModules(dir, nil)
@@ -158,11 +158,11 @@ func TestFindModules_SkipsNoConfig(t *testing.T) {
 	// Create directories without any config file
 	for _, name := range []string{"EmptyDir", "JustFiles"} {
 		subDir := filepath.Join(dir, name)
-		err := os.MkdirAll(subDir, 0755)
+		err := os.MkdirAll(subDir, 0o755)
 		require.NoError(t, err)
 	}
 	// Put a non-config file in JustFiles
-	err := os.WriteFile(filepath.Join(dir, "JustFiles", "readme.txt"), []byte("hello"), 0644)
+	err := os.WriteFile(filepath.Join(dir, "JustFiles", "readme.txt"), []byte("hello"), 0o644)
 	require.NoError(t, err)
 
 	modules, err := FindModules(dir, nil)
@@ -175,15 +175,15 @@ func TestFindModules_DeduplicatesByName(t *testing.T) {
 
 	// Two directories with same name in different scan paths
 	pkg1 := filepath.Join(dir, "pkgs1", "SharedMod")
-	err := os.MkdirAll(pkg1, 0755)
+	err := os.MkdirAll(pkg1, 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(pkg1, "dots.lua"), []byte("return {}"), 0644)
+	err = os.WriteFile(filepath.Join(pkg1, "dots.lua"), []byte("return {}"), 0o644)
 	require.NoError(t, err)
 
 	pkg2 := filepath.Join(dir, "pkgs2", "SharedMod")
-	err = os.MkdirAll(pkg2, 0755)
+	err = os.MkdirAll(pkg2, 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(pkg2, "dots.lua"), []byte("return {}"), 0644)
+	err = os.WriteFile(filepath.Join(pkg2, "dots.lua"), []byte("return {}"), 0o644)
 	require.NoError(t, err)
 
 	initCfg := &RootConfig{
@@ -198,11 +198,11 @@ func TestFindModules_DeduplicatesByName(t *testing.T) {
 	assert.Equal(t, "SharedMod", modules[0].Name)
 }
 
-// ─── IsLuaRepo ──────────────────────────────────────────────────────────────
+// ─── IsLuaRepo ──────────────────────────────────────────────────────────────.
 
 func TestIsLuaRepo_InitLua(t *testing.T) {
 	dir := t.TempDir()
-	err := os.WriteFile(filepath.Join(dir, "init.lua"), []byte("return { name = \"test\" }"), 0644)
+	err := os.WriteFile(filepath.Join(dir, "init.lua"), []byte("return { name = \"test\" }"), 0o644)
 	require.NoError(t, err)
 
 	assert.True(t, IsLuaRepo(dir))
@@ -210,7 +210,7 @@ func TestIsLuaRepo_InitLua(t *testing.T) {
 
 func TestIsLuaRepo_ConfigLua(t *testing.T) {
 	dir := t.TempDir()
-	err := os.WriteFile(filepath.Join(dir, "config.lua"), []byte("return { name = \"test\" }"), 0644)
+	err := os.WriteFile(filepath.Join(dir, "config.lua"), []byte("return { name = \"test\" }"), 0o644)
 	require.NoError(t, err)
 
 	assert.True(t, IsLuaRepo(dir))
@@ -228,15 +228,15 @@ func TestIsLuaRepo_EmptyDir(t *testing.T) {
 func TestIsLuaRepo_InitLuaPriority(t *testing.T) {
 	dir := t.TempDir()
 	// Both exist, init.lua should be detected
-	err := os.WriteFile(filepath.Join(dir, "init.lua"), []byte("return {}"), 0644)
+	err := os.WriteFile(filepath.Join(dir, "init.lua"), []byte("return {}"), 0o644)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(dir, "config.lua"), []byte("return {}"), 0644)
+	err = os.WriteFile(filepath.Join(dir, "config.lua"), []byte("return {}"), 0o644)
 	require.NoError(t, err)
 
 	assert.True(t, IsLuaRepo(dir))
 }
 
-// ─── LoadInitConfig ─────────────────────────────────────────────────────────
+// ─── LoadInitConfig ─────────────────────────────────────────────────────────.
 
 func TestLoadInitConfig_Valid(t *testing.T) {
 	dir := t.TempDir()
@@ -244,7 +244,7 @@ func TestLoadInitConfig_Valid(t *testing.T) {
   name = "test/dotfiles",
   module_paths = "modules/",
   plugins = { "dots.http" },
-}`), 0644)
+}`), 0o644)
 	require.NoError(t, err)
 
 	cfg, err := LoadInitConfig(dir)
@@ -266,7 +266,7 @@ func TestLoadInitConfig_NotExists(t *testing.T) {
 
 func TestLoadInitConfig_InvalidSyntax(t *testing.T) {
 	dir := t.TempDir()
-	err := os.WriteFile(filepath.Join(dir, "init.lua"), []byte("return { broken syntax"), 0644)
+	err := os.WriteFile(filepath.Join(dir, "init.lua"), []byte("return { broken syntax"), 0o644)
 	require.NoError(t, err)
 
 	_, err = LoadInitConfig(dir)
@@ -274,17 +274,17 @@ func TestLoadInitConfig_InvalidSyntax(t *testing.T) {
 	assert.Contains(t, err.Error(), "syntax error")
 }
 
-// ─── LoadModuleConfigForModule ──────────────────────────────────────────────
+// ─── LoadModuleConfigForModule ──────────────────────────────────────────────.
 
 func TestLoadModuleConfigForModule_Lua(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "TestMod")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
 	err = os.WriteFile(filepath.Join(modDir, "dots.lua"), []byte(`return {
   type = "test",
   files = { file("a", "~/.a") },
-}`), 0644)
+}`), 0o644)
 	require.NoError(t, err)
 
 	module := ModuleDir{
@@ -304,9 +304,9 @@ func TestLoadModuleConfigForModule_Lua(t *testing.T) {
 func TestLoadModuleConfigForModule_YAML(t *testing.T) {
 	dir := t.TempDir()
 	modDir := filepath.Join(dir, "YAMLMod")
-	err := os.MkdirAll(modDir, 0755)
+	err := os.MkdirAll(modDir, 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte("files: []"), 0644)
+	err = os.WriteFile(filepath.Join(modDir, "path.yaml"), []byte("files: []"), 0o644)
 	require.NoError(t, err)
 
 	module := ModuleDir{
@@ -333,7 +333,7 @@ func TestLoadModuleConfigForModule_NotExists(t *testing.T) {
 	assert.Contains(t, err.Error(), "not found")
 }
 
-// ─── ConvertYAMLDepsToDepOps ────────────────────────────────────────────────
+// ─── ConvertYAMLDepsToDepOps ────────────────────────────────────────────────.
 
 func TestConvertYAMLDepsToDepOps_Empty(t *testing.T) {
 	result := ConvertYAMLDepsToDepOps(nil)
@@ -357,14 +357,14 @@ func TestConvertYAMLDepsToDepOps_Package(t *testing.T) {
 func TestConvertYAMLDepsToDepOps_Full(t *testing.T) {
 	yamlDeps := []interface{}{
 		map[string]interface{}{
-			"name":         "fd",
-			"type":         "binary",
-			"url":          "https://example.com/fd.tar.gz",
-			"dest":         "~/.local/bin/fd",
-			"extract":      "fd-bin",
-			"version":      "v8.0.0",
+			"name":    "fd",
+			"type":    "binary",
+			"url":     "https://example.com/fd.tar.gz",
+			"dest":    "~/.local/bin/fd",
+			"extract": "fd-bin",
+			"version": "v8.0.0",
 			"arch": map[string]interface{}{
-				"x86_64": "amd64",
+				"x86_64":  "amd64",
 				"aarch64": "arm64",
 			},
 		},
@@ -403,7 +403,7 @@ func TestConvertYAMLDepsToDepOps_WithFallback(t *testing.T) {
 	assert.Equal(t, "https://example.com/starship.tar.gz", result[0].Fallback.URL)
 }
 
-// ─── IsSubdirOf ─────────────────────────────────────────────────────────────
+// ─── IsSubdirOf ─────────────────────────────────────────────────────────────.
 
 func TestIsSubdirOf(t *testing.T) {
 	assert.True(t, isSubdirOf("/a/b/c", "/a", "/a"))
@@ -413,7 +413,7 @@ func TestIsSubdirOf(t *testing.T) {
 	assert.False(t, isSubdirOf("/a/../other", "/a", "/a"))
 }
 
-// ─── SortModules ────────────────────────────────────────────────────────────
+// ─── SortModules ────────────────────────────────────────────────────────────.
 
 func TestSortModules(t *testing.T) {
 	modules := []ModuleDir{

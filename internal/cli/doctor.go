@@ -5,12 +5,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/spf13/cobra"
+
 	"github.com/Wilberucx/dots/internal/checker"
 	"github.com/Wilberucx/dots/internal/config"
 	"github.com/Wilberucx/dots/internal/resolver"
 	"github.com/Wilberucx/dots/internal/ui"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/spf13/cobra"
 )
 
 func init() {

@@ -6,8 +6,9 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/Wilberucx/dots/internal/ui"
 	"github.com/spf13/cobra"
+
+	"github.com/Wilberucx/dots/internal/ui"
 )
 
 func init() {

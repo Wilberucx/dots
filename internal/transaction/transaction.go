@@ -95,7 +95,7 @@ func (t *TransactionLog) Move(src, dest string) error {
 		return nil
 	}
 
-	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
 	}
 
@@ -113,7 +113,7 @@ func (t *TransactionLog) Move(src, dest string) error {
 
 // Mkdir creates a directory and records it.
 func (t *TransactionLog) Mkdir(path string) error {
-	if err := os.MkdirAll(path, 0755); err != nil {
+	if err := os.MkdirAll(path, 0o755); err != nil {
 		return err
 	}
 	t.actions = append(t.actions, LinkAction{

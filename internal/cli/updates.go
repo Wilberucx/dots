@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -38,7 +39,13 @@ func checkForUpdates() {
 
 	go func() {
 		client := &http.Client{Timeout: 2 * time.Second}
-		resp, err := client.Get(githubTagsURL)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, githubTagsURL, nil)
+		if err != nil {
+			return
+		}
+		resp, err := client.Do(req)
 		if err != nil {
 			return
 		}
@@ -70,8 +77,8 @@ func checkForUpdates() {
 		}
 
 		data, _ := json.Marshal(cache)
-		os.MkdirAll(filepath.Dir(cachePath), 0755)
-		os.WriteFile(cachePath, data, 0644)
+		os.MkdirAll(filepath.Dir(cachePath), 0o755)
+		os.WriteFile(cachePath, data, 0o644)
 	}()
 }
 

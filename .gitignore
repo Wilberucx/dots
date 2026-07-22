@@ -58,8 +58,11 @@ env/
 .DS_Store
 Thumbs.db
 
+# Coverage output
+coverage.out
+
 # Go binaries
-dots
+/dots
 
 # Anti-Gravity CLI
 .antigravitycli/

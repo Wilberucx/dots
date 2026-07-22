@@ -7,9 +7,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/Wilberucx/dots/internal/resolver"
 	"github.com/Wilberucx/dots/internal/system"
-	"github.com/spf13/cobra"
 )
 
 func init() {
@@ -89,7 +90,7 @@ func runList(cmd *cobra.Command) error {
 		if home == "" {
 			home = system.HomeDir()
 		}
-		filepath.Walk(home, func(path string, info os.FileInfo, err error) error {
+		if err := filepath.Walk(home, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return nil
 			}
@@ -104,7 +105,9 @@ func runList(cmd *cobra.Command) error {
 				results[path] = true
 			}
 			return nil
-		})
+		}); err != nil {
+			return fmt.Errorf("walking %s: %w", home, err)
+		}
 	}
 
 	// Sort and print

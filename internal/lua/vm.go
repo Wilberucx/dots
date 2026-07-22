@@ -87,7 +87,7 @@ func CheckSyntax(path string) error {
 	return err
 }
 
-// ─── Parsing helpers ────────────────────────────────────────────────────────
+// ─── Parsing helpers ────────────────────────────────────────────────────────.
 
 // parseModuleConfig converts a Lua table (returned by dots.lua) into ModuleConfig.
 func parseModuleConfig(tbl *lua.LTable) (*ModuleConfig, error) {
@@ -255,7 +255,7 @@ func lvToString(lv lua.LValue) string {
 	return strings.TrimSpace(lv.String())
 }
 
-// ─── Helper to create a file-op table with methods ───────────────────────────
+// ─── Helper to create a file-op table with methods ───────────────────────────.
 
 // newFileOpTable creates a Lua table representing a file operation with a metatable
 // for method chaining.
@@ -311,7 +311,7 @@ func (vm *LuaVM) newDepOpTable(depType, name string) *lua.LTable {
 	return obj
 }
 
-// ─── File API method handlers ───────────────────────────────────────────────
+// ─── File API method handlers ───────────────────────────────────────────────.
 
 // fileWhenMethod implements :when(os) for file() objects.
 func (vm *LuaVM) fileWhenMethod(L *lua.LState) int {
@@ -366,7 +366,7 @@ func (vm *LuaVM) dirIntoMethod(L *lua.LState) int {
 	return 1
 }
 
-// ─── Dep API method handlers ────────────────────────────────────────────────
+// ─── Dep API method handlers ────────────────────────────────────────────────.
 
 func (vm *LuaVM) depOnMethod(L *lua.LState) int {
 	obj := L.CheckTable(1)
@@ -440,7 +440,7 @@ func (vm *LuaVM) depFallbackMethod(L *lua.LState) int {
 	return 1
 }
 
-// ─── Ensure all methods are also accessible directly (api*.go) ──────────────
+// ─── Ensure all methods are also accessible directly (api*.go) ──────────────.
 
 // detectDepTypeFromTable returns fallback type detection based on table fields.
 func detectDepTypeFromTable(tbl *lua.LTable) string {

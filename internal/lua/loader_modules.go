@@ -39,7 +39,7 @@ func FindModules(repoRoot string, initCfg *RootConfig) ([]ModuleDir, error) {
 		}
 
 		// Walk recursively, looking for dots.lua or path.yaml
-		filepath.Walk(searchDir, func(path string, info os.FileInfo, err error) error {
+		walkErr := filepath.Walk(searchDir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return nil // skip inaccessible
 			}
@@ -117,6 +117,9 @@ func FindModules(repoRoot string, initCfg *RootConfig) ([]ModuleDir, error) {
 
 			return nil
 		})
+		if walkErr != nil {
+			fmt.Fprintf(os.Stderr, "[WARN] FindModules walk error in %s: %v\n", searchDir, walkErr)
+		}
 	}
 
 	// Sort by name for consistent output
@@ -126,7 +129,7 @@ func FindModules(repoRoot string, initCfg *RootConfig) ([]ModuleDir, error) {
 }
 
 // isSubdirOf returns true if path is a subdirectory of base (or the same).
-func isSubdirOf(path, base string, searchDir string) bool {
+func isSubdirOf(path, base, searchDir string) bool {
 	rel, err := filepath.Rel(base, path)
 	if err != nil {
 		return false

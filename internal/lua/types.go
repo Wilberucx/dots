@@ -2,7 +2,7 @@
 // It embeds gopher-lua to load dots.lua module configs and init.lua root configs.
 package lua
 
-import "github.com/yuin/gopher-lua"
+import lua "github.com/yuin/gopher-lua"
 
 // FileOpType represents the kind of file operation.
 type FileOpType int

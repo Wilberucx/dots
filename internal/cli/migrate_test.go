@@ -8,7 +8,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// ─── Dependency migration ───────────────────────────────────────────────────
+// ─── Dependency migration ───────────────────────────────────────────────────.
 
 func TestMigrateSourceToURL(t *testing.T) {
 	dep := map[string]interface{}{
@@ -145,7 +145,7 @@ func TestMigrateFullDependencyV2ToV3(t *testing.T) {
 	}
 }
 
-// ─── File entry migration ───────────────────────────────────────────────────
+// ─── File entry migration ───────────────────────────────────────────────────.
 
 func TestMigrateDestinationLinuxToPerOS(t *testing.T) {
 	entry := map[string]interface{}{
@@ -167,7 +167,7 @@ func TestMigrateDestinationLinuxToPerOS(t *testing.T) {
 
 func TestMigrateDestinationMacToPerOS(t *testing.T) {
 	entry := map[string]interface{}{
-		"source":         "config/mac.conf",
+		"source":          "config/mac.conf",
 		"destination-mac": "/Users/user/.config/app.conf",
 	}
 	result := migrateFileEntry(entry)
@@ -298,7 +298,7 @@ func TestMigrateOverrideDictMergesWithExistingPerOS(t *testing.T) {
 	}
 }
 
-// ─── File migration integration ─────────────────────────────────────────────
+// ─── File migration integration ─────────────────────────────────────────────.
 
 func TestMigrateFullPathYAMLv2(t *testing.T) {
 	dir := t.TempDir()
@@ -326,14 +326,14 @@ func TestMigrateFullPathYAMLv2(t *testing.T) {
 				"destination-linux": "/home/user/.config/app.conf",
 			},
 			map[string]interface{}{
-				"source":         "mac/config.conf",
+				"source":          "mac/config.conf",
 				"destination-mac": "/Users/user/.config/app.conf",
 			},
 		},
 	}
 
 	out, _ := yaml.Marshal(v2Data)
-	os.WriteFile(pathYAML, out, 0644)
+	os.WriteFile(pathYAML, out, 0o644)
 
 	modified, err := migrateFile(pathYAML, false)
 	if err != nil {
@@ -399,7 +399,7 @@ func TestMigrateAlreadyV3NoChange(t *testing.T) {
 	}
 
 	out, _ := yaml.Marshal(v3Data)
-	os.WriteFile(pathYAML, out, 0644)
+	os.WriteFile(pathYAML, out, 0o644)
 
 	modified, err := migrateFile(pathYAML, false)
 	if err != nil {
@@ -419,7 +419,7 @@ func TestMigrateAlreadyV3NoChange(t *testing.T) {
 	}
 }
 
-// ─── Dry-run ────────────────────────────────────────────────────────────────
+// ─── Dry-run ────────────────────────────────────────────────────────────────.
 
 func TestDryRunDoesNotModifyFile(t *testing.T) {
 	dir := t.TempDir()
@@ -442,7 +442,7 @@ func TestDryRunDoesNotModifyFile(t *testing.T) {
 	}
 
 	out, _ := yaml.Marshal(v2Data)
-	os.WriteFile(pathYAML, out, 0644)
+	os.WriteFile(pathYAML, out, 0o644)
 
 	modified, err := migrateFile(pathYAML, true) // dry-run
 	if err != nil {
@@ -467,7 +467,7 @@ func TestDryRunDoesNotModifyFile(t *testing.T) {
 	}
 }
 
-// ─── Idempotency ────────────────────────────────────────────────────────────
+// ─── Idempotency ────────────────────────────────────────────────────────────.
 
 func TestMigrateTwiceIdempotent(t *testing.T) {
 	dir := t.TempDir()
@@ -490,7 +490,7 @@ func TestMigrateTwiceIdempotent(t *testing.T) {
 	}
 
 	out, _ := yaml.Marshal(v2Data)
-	os.WriteFile(pathYAML, out, 0644)
+	os.WriteFile(pathYAML, out, 0o644)
 
 	// First migration - should modify
 	modified1, err := migrateFile(pathYAML, false)
@@ -544,7 +544,7 @@ func TestMigrateThreeTimesIdempotent(t *testing.T) {
 	}
 
 	out, _ := yaml.Marshal(v2Data)
-	os.WriteFile(pathYAML, out, 0644)
+	os.WriteFile(pathYAML, out, 0o644)
 
 	for i := 0; i < 3; i++ {
 		migrateFile(pathYAML, false)
@@ -566,19 +566,19 @@ func TestMigrateThreeTimesIdempotent(t *testing.T) {
 	}
 }
 
-// ─── File discovery ─────────────────────────────────────────────────────────
+// ─── File discovery ─────────────────────────────────────────────────────────.
 
 func TestFindPathYAMLInSubdirectories(t *testing.T) {
 	dir := t.TempDir()
 
-	os.MkdirAll(filepath.Join(dir, "module1"), 0755)
-	os.WriteFile(filepath.Join(dir, "module1", "path.yaml"), []byte("files: []"), 0644)
+	os.MkdirAll(filepath.Join(dir, "module1"), 0o755)
+	os.WriteFile(filepath.Join(dir, "module1", "path.yaml"), []byte("files: []"), 0o644)
 
-	os.MkdirAll(filepath.Join(dir, "module2", "nested"), 0755)
-	os.WriteFile(filepath.Join(dir, "module2", "nested", "path.yaml"), []byte("files: []"), 0644)
+	os.MkdirAll(filepath.Join(dir, "module2", "nested"), 0o755)
+	os.WriteFile(filepath.Join(dir, "module2", "nested", "path.yaml"), []byte("files: []"), 0o644)
 
-	os.MkdirAll(filepath.Join(dir, "module3"), 0755)
-	os.WriteFile(filepath.Join(dir, "module3", "path.yaml"), []byte("files: []"), 0644)
+	os.MkdirAll(filepath.Join(dir, "module3"), 0o755)
+	os.WriteFile(filepath.Join(dir, "module3", "path.yaml"), []byte("files: []"), 0o644)
 
 	results := findPathYAMLFiles(dir)
 	if len(results) != 3 {
@@ -597,11 +597,11 @@ func TestFindPathYAMLNoneFound(t *testing.T) {
 func TestFindPathYAMLSkipsDotGit(t *testing.T) {
 	dir := t.TempDir()
 
-	os.MkdirAll(filepath.Join(dir, ".git"), 0755)
-	os.WriteFile(filepath.Join(dir, ".git", "path.yaml"), []byte("files: []"), 0644)
+	os.MkdirAll(filepath.Join(dir, ".git"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".git", "path.yaml"), []byte("files: []"), 0o644)
 
-	os.MkdirAll(filepath.Join(dir, "module"), 0755)
-	os.WriteFile(filepath.Join(dir, "module", "path.yaml"), []byte("files: []"), 0644)
+	os.MkdirAll(filepath.Join(dir, "module"), 0o755)
+	os.WriteFile(filepath.Join(dir, "module", "path.yaml"), []byte("files: []"), 0o644)
 
 	results := findPathYAMLFiles(dir)
 	if len(results) != 1 {

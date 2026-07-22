@@ -71,8 +71,7 @@ func BuildLinkPlan(modules map[string][]resolver.LinkStatus, opts BuildOptions) 
 	return p
 }
 
-// actionFromLinkStatus translates a single LinkStatus into an Action.
-// effectiveForce is true if --force was passed OR this module is being variant-swapped.
+// EffectiveForce is true if --force was passed OR this module is being variant-swapped.
 func actionFromLinkStatus(modName string, st resolver.LinkStatus, effectiveForce bool) Action {
 	base := Action{
 		Module:      modName,

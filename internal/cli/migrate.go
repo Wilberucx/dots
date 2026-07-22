@@ -23,12 +23,12 @@ var depFieldMap = map[string]string{
 	"package-managers": "managers",
 }
 
-// ─── File discovery ─────────────────────────────────────────────────────────
+// ─── File discovery ─────────────────────────────────────────────────────────.
 
 // findPathYAMLFiles recursively finds all path.yaml files in repoRoot.
 func findPathYAMLFiles(repoRoot string) []string {
 	var files []string
-	filepath.Walk(repoRoot, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(repoRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // skip inaccessible
 		}
@@ -44,10 +44,13 @@ func findPathYAMLFiles(repoRoot string) []string {
 		}
 		return nil
 	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[WARN] findPathYAMLFiles walk error: %v\n", err)
+	}
 	return files
 }
 
-// ─── File migration ─────────────────────────────────────────────────────────
+// ─── File migration ─────────────────────────────────────────────────────────.
 
 // migrateFile migrates a single path.yaml from v2 to v3.
 // Returns true if the file was modified (or would be modified in dry-run).
@@ -55,12 +58,12 @@ func findPathYAMLFiles(repoRoot string) []string {
 func migrateFile(filePath string, dryRun bool) (bool, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return false, nil
+		return false, nil // skip inaccessible files — not an error
 	}
 
 	var raw map[string]interface{}
 	if err := yamlv3.Unmarshal(data, &raw); err != nil {
-		return false, nil
+		return false, nil // unparseable YAML — skip, not an error
 	}
 
 	if raw == nil {
@@ -118,17 +121,17 @@ func migrateFile(filePath string, dryRun bool) (bool, error) {
 	// Write back
 	out, err := yamlv3.Marshal(raw)
 	if err != nil {
-		return false, nil
+		return false, fmt.Errorf("marshaling %s: %w", filePath, err)
 	}
 
-	if err := os.WriteFile(filePath, out, 0644); err != nil {
+	if err := os.WriteFile(filePath, out, 0o644); err != nil {
 		return false, fmt.Errorf("writing %s: %w", filePath, err)
 	}
 
 	return true, nil
 }
 
-// ─── Dependency migration ───────────────────────────────────────────────────
+// ─── Dependency migration ───────────────────────────────────────────────────.
 
 // migrateDependency migrates a single dependency from v2 to v3.
 func migrateDependency(dep map[string]interface{}) map[string]interface{} {
@@ -152,7 +155,7 @@ func migrateDependency(dep map[string]interface{}) map[string]interface{} {
 	return result
 }
 
-// ─── File entry migration ───────────────────────────────────────────────────
+// ─── File entry migration ───────────────────────────────────────────────────.
 
 // migrateFileEntry migrates a single file entry from v2 to v3.
 func migrateFileEntry(entry map[string]interface{}) map[string]interface{} {
@@ -207,7 +210,7 @@ func migrateFileEntry(entry map[string]interface{}) map[string]interface{} {
 	return result
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────.
 
 // copyMap returns a shallow copy of a map.
 func copyMap(m map[string]interface{}) map[string]interface{} {
@@ -227,5 +230,3 @@ func popField(m map[string]interface{}, key string) interface{} {
 	}
 	return nil
 }
-
-

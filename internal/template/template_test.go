@@ -61,7 +61,7 @@ func TestBuildContext_NoVersion(t *testing.T) {
 
 func TestResolveArch(t *testing.T) {
 	archMap := map[string]string{
-		"x86_64": "amd64",
+		"x86_64":  "amd64",
 		"aarch64": "arm64",
 	}
 	arch := ResolveArch(archMap)

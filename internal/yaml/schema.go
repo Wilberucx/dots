@@ -127,7 +127,8 @@ func ValidateFileMapping(raw map[string]interface{}, yamlPath string) []string {
 	}
 	prefix := fmt.Sprintf("[%s] file mapping '%s'", yamlPath, source)
 
-	if raw["source"] == nil || raw["source"].(string) == "" {
+	src, ok := raw["source"].(string)
+	if !ok || src == "" {
 		errors = append(errors, fmt.Sprintf("%s: missing 'source'", prefix))
 	}
 
