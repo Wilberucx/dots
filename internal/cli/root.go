@@ -90,11 +90,17 @@ func loadConfig() (*config.DotsConfig, error) {
 				// Non-fatal: repo still works without init.lua
 				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 			} else if initCfg != nil {
-				internalCfg := &config.RootConfig{
-					Name:        initCfg.Name,
-					ModulePaths: initCfg.ModulePaths,
-					Plugins:     initCfg.Plugins,
+			internalCfg := &config.RootConfig{
+				Name:        initCfg.Name,
+				ModulePaths: initCfg.ModulePaths,
+				Plugins:     initCfg.Plugins,
+			}
+			if initCfg.Output != nil {
+				internalCfg.Output = &config.OutputConfig{
+					Status: initCfg.Output.Status,
+					Plan:   initCfg.Output.Plan,
 				}
+			}
 				cfg.SetInitConfig(internalCfg)
 
 				// Discover Lua/YAML modules

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/table"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
 	"github.com/Wilberucx/dots/internal/config"
@@ -21,7 +23,8 @@ func init() {
 		Long: `Show the plan of actions that 'dots link' would perform.
 
 Displays all symlink operations (create, replace, backup, skip) grouped
-by module. Use --module to filter and --format json for machine output.`,
+by module. Use --module to filter and --format table, json, porcelain
+for machine-parseable output.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runPlan(cmd)
 		},
@@ -31,7 +34,8 @@ by module. Use --module to filter and --format json for machine output.`,
 	planCmd.Flags().StringSliceP("type", "t", nil, "Show plan only for modules of this type (repeatable)")
 	planCmd.Flags().StringP("variant", "V", "", "Show plan for a specific variant")
 	planCmd.Flags().Bool("force", false, "Show plan with --force applied (conflicts become replacements)")
-	planCmd.Flags().StringP("format", "f", "default", "Output format: default, json")
+	planCmd.Flags().StringP("format", "f", "default", "Output format: default, table, json, porcelain")
+	planCmd.Flags().Bool("porcelain", false, "Machine-parseable tab-separated output (module\\taction\\tsource\\tdestination)")
 
 	rootCmd.AddCommand(planCmd)
 }
@@ -46,6 +50,15 @@ func runPlan(cmd *cobra.Command) error {
 	types := stringSliceFlag(cmd, "type")
 	variant := stringFlag(cmd, "variant")
 	format := stringFlag(cmd, "format")
+
+	// --porcelain flag overrides --format
+	porcelain, _ := cmd.Flags().GetBool("porcelain")
+	if porcelain {
+		format = "porcelain"
+	}
+
+	// Check config default for plan format
+	format = resolvePlanFormat(format, cfg)
 
 	// ── Variant validation ────────────────────────────────────────────
 	force := boolFlag(cmd, "force")
@@ -76,9 +89,18 @@ func runPlan(cmd *cobra.Command) error {
 	p := plan.BuildLinkPlan(allModules, opts)
 
 	switch format {
+	case "table":
+		// Show auto-swap info before the table
+		for _, modName := range sortedSwapModules(variantSwapModules) {
+			active, _ := resolver.GetActiveVariant(cfg, modName)
+			ui.PrintInfo(fmt.Sprintf("Auto-swap: %s variant '%s' → '%s'", modName, active, variant))
+		}
+		renderPlanTable(p, cfg)
 	case "json":
 		// JSON output must be pure JSON from first byte — no UI output before it
 		return renderPlanJSON(p, cfg)
+	case "porcelain":
+		renderPlanPorcelain(p, cfg)
 	default:
 		// Human-readable format: print auto-swap info before the plan
 		for _, modName := range sortedSwapModules(variantSwapModules) {
@@ -89,6 +111,89 @@ func runPlan(cmd *cobra.Command) error {
 	}
 
 	return nil
+}
+
+// resolvePlanFormat resolves the output format for plan.
+// If format is "default" (the flag default), it falls back to the config's
+// output.plan, then to "default" if no config default is set.
+func resolvePlanFormat(format string, cfg *config.DotsConfig) string {
+	if format != "default" {
+		return format
+	}
+	if cfg != nil && cfg.InitCfg != nil && cfg.InitCfg.Output != nil && cfg.InitCfg.Output.Plan != "" {
+		return cfg.InitCfg.Output.Plan
+	}
+	return "default"
+}
+
+// renderPlanTable renders the plan in table format.
+func renderPlanTable(p *plan.Plan, cfg *config.DotsConfig) {
+	columns := []table.Column{
+		{Title: "Module", Width: 16},
+		{Title: "Action", Width: 14},
+		{Title: "Source", Width: 20},
+		{Title: "Destination", Width: 30},
+	}
+
+	t := table.New(
+		table.WithColumns(columns),
+		table.WithFocused(false),
+	)
+
+	var rows []table.Row
+	total := 0
+
+	for _, modName := range p.ModuleNames() {
+		actions := p.ActionsByModule()[modName]
+		firstRow := true
+		for _, a := range actions {
+			modCell := ""
+			if firstRow {
+				modCell = modName
+				firstRow = false
+			}
+
+			shortDest := shortDisplayPath(a.Destination, cfg.HomeDir)
+			srcName := filepath.Base(a.Source)
+			actionName := string(a.Kind)
+
+			rows = append(rows, table.Row{
+				modCell,
+				actionName,
+				srcName,
+				shortDest,
+			})
+			total++
+		}
+	}
+
+	if total == 0 {
+		ui.PrintWarning("No actions in plan.")
+		return
+	}
+
+	t.SetRows(rows)
+	tableStyle := lipgloss.NewStyle().Padding(0, 1)
+	fmt.Println(tableStyle.Render(ui.DimStyle.Render(t.View())))
+	fmt.Printf("\n%s\n", ui.DimStyle.Render(fmt.Sprintf("Total: %d actions", total)))
+}
+
+// renderPlanPorcelain renders the plan as tab-separated lines.
+func renderPlanPorcelain(p *plan.Plan, cfg *config.DotsConfig) {
+	for _, modName := range p.ModuleNames() {
+		actions := p.ActionsByModule()[modName]
+		for _, a := range actions {
+			shortDest := shortDisplayPath(a.Destination, cfg.HomeDir)
+			srcName := filepath.Base(a.Source)
+			// Tab-separated: module, action, source, destination
+			fmt.Printf("%s\t%s\t%s\t%s\n",
+				modName,
+				string(a.Kind),
+				srcName,
+				shortDest,
+			)
+		}
+	}
 }
 
 // renderPlanDefault renders the plan in human-readable tree format.

@@ -87,6 +87,12 @@ func makeDotsCfg(t *testing.T, repoDir, homeDir string, modules []luacfg.ModuleD
 			ModulePaths: initCfg.ModulePaths,
 			Plugins:     initCfg.Plugins,
 		}
+		if initCfg.Output != nil {
+			internalCfg.Output = &config.OutputConfig{
+				Status: initCfg.Output.Status,
+				Plan:   initCfg.Output.Plan,
+			}
+		}
 		dotsCfg.SetInitConfig(internalCfg)
 	}
 

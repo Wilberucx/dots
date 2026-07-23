@@ -70,11 +70,18 @@ type ModuleDir struct {
 	Type ModuleType // Lua or YAML
 }
 
+// OutputConfig holds output format preferences per command.
+type OutputConfig struct {
+	Status string // default format for `dots status` (default, table, json, porcelain)
+	Plan   string // default format for `dots plan` (default, table, json, porcelain)
+}
+
 // RootConfig represents the parsed result of init.lua.
 type RootConfig struct {
 	Name        string
 	ModulePaths []string // empty = default scan; one or more paths = scan only there
 	Plugins     []string // built-in plugins to load
+	Output      *OutputConfig
 }
 
 // LuaValToString recursively extracts a Go string value from a Lua value.

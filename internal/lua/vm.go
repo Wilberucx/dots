@@ -239,6 +239,31 @@ func parseRootConfig(tbl *lua.LTable) (*RootConfig, error) {
 		}
 	}
 
+	// output: table of per-command output preferences
+	if outTbl := tbl.RawGetString("output"); outTbl != lua.LNil {
+		if t, ok := outTbl.(*lua.LTable); ok {
+			outCfg := &OutputConfig{}
+
+			// output.status: string (default, table, json, porcelain)
+			if status := lvToString(t.RawGetString("status")); status != "" {
+				switch status {
+				case "default", "table", "json", "porcelain":
+					outCfg.Status = status
+				}
+			}
+
+			// output.plan: string (default, table, json, porcelain)
+			if plan := lvToString(t.RawGetString("plan")); plan != "" {
+				switch plan {
+				case "default", "table", "json", "porcelain":
+					outCfg.Plan = plan
+				}
+			}
+
+			cfg.Output = outCfg
+		}
+	}
+
 	// If name is empty, derive from the init.lua path
 	if cfg.Name == "" {
 		cfg.Name = "dotfiles"

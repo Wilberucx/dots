@@ -33,11 +33,18 @@ type DotsConfig struct {
 	cachedModuleDirs []ModuleDir
 }
 
+// OutputConfig mirrors lua.OutputConfig for external use.
+type OutputConfig struct {
+	Status string // default format for `dots status`
+	Plan   string // default format for `dots plan`
+}
+
 // RootConfig mirrors lua.RootConfig for external use.
 type RootConfig struct {
 	Name        string
 	ModulePaths []string
 	Plugins     []string
+	Output      *OutputConfig
 }
 
 // SetCachedModuleDirs sets the cached module directories (used by Lua repos).

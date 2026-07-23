@@ -40,6 +40,9 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		format = "porcelain"
 	}
 
+	// If no explicit format, check config default
+	format = resolveStatusFormat(format, cfg)
+
 	allModules, err := resolver.ResolveModules(cfg, modules, types, "")
 	if err != nil {
 		return fmt.Errorf("resolving modules: %w", err)
@@ -521,6 +524,20 @@ func renderPorcelain(
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────.
+
+// resolveStatusFormat resolves the output format for status.
+// If format is "default" (the flag default), it falls back to the config's
+// output.status, then to "default" if no config default is set.
+// Any explicit format from --format or --porcelain is returned as-is.
+func resolveStatusFormat(format string, cfg *config.DotsConfig) string {
+	if format != "default" {
+		return format
+	}
+	if cfg != nil && cfg.InitCfg != nil && cfg.InitCfg.Output != nil && cfg.InitCfg.Output.Status != "" {
+		return cfg.InitCfg.Output.Status
+	}
+	return "default"
+}
 
 func shortDisplayPath(path, homeDir string) string {
 	if strings.HasPrefix(path, homeDir) {

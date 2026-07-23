@@ -441,6 +441,122 @@ func TestLoadRootConfig_WithPlugins(t *testing.T) {
 	require.NotNil(t, cfg)
 
 	assert.Equal(t, []string{"dots.http", "dots.archive", "dots.git"}, cfg.Plugins)
+	assert.Nil(t, cfg.Output, "Output should be nil when not set")
+}
+
+func TestLoadRootConfig_WithOutputStatus(t *testing.T) {
+	dir := t.TempDir()
+	luaPath := writeLuaFile(t, dir, "init.lua", `return {
+  name = "dotfiles",
+  output = { status = "table" },
+}`)
+
+	vm := NewLuaVM()
+	defer vm.Close()
+
+	cfg, err := vm.LoadRootConfig(luaPath)
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	require.NotNil(t, cfg.Output)
+	assert.Equal(t, "table", cfg.Output.Status)
+}
+
+func TestLoadRootConfig_WithInvalidOutputStatus(t *testing.T) {
+	dir := t.TempDir()
+	luaPath := writeLuaFile(t, dir, "init.lua", `return {
+  name = "dotfiles",
+  output = { status = "invalid" },
+}`)
+
+	vm := NewLuaVM()
+	defer vm.Close()
+
+	cfg, err := vm.LoadRootConfig(luaPath)
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	// Invalid values should be silently ignored — Output is still created but Status is empty
+	require.NotNil(t, cfg.Output)
+	assert.Empty(t, cfg.Output.Status)
+}
+
+func TestLoadRootConfig_WithAllOutputFormats(t *testing.T) {
+	dir := t.TempDir()
+	luaPath := writeLuaFile(t, dir, "init.lua", `return {
+  name = "dotfiles",
+  output = { status = "porcelain" },
+}`)
+
+	vm := NewLuaVM()
+	defer vm.Close()
+
+	cfg, err := vm.LoadRootConfig(luaPath)
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	require.NotNil(t, cfg.Output)
+	assert.Equal(t, "porcelain", cfg.Output.Status)
+}
+
+func TestLoadRootConfig_WithOutputPlan(t *testing.T) {
+	dir := t.TempDir()
+	luaPath := writeLuaFile(t, dir, "init.lua", `return {
+  name = "dotfiles",
+  output = { plan = "table" },
+}`)
+
+	vm := NewLuaVM()
+	defer vm.Close()
+
+	cfg, err := vm.LoadRootConfig(luaPath)
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	require.NotNil(t, cfg.Output)
+	assert.Equal(t, "table", cfg.Output.Plan)
+	// Status should be empty when not set
+	assert.Empty(t, cfg.Output.Status)
+}
+
+func TestLoadRootConfig_WithInvalidOutputPlan(t *testing.T) {
+	dir := t.TempDir()
+	luaPath := writeLuaFile(t, dir, "init.lua", `return {
+  name = "dotfiles",
+  output = { plan = "invalid" },
+}`)
+
+	vm := NewLuaVM()
+	defer vm.Close()
+
+	cfg, err := vm.LoadRootConfig(luaPath)
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	require.NotNil(t, cfg.Output)
+	assert.Empty(t, cfg.Output.Plan)
+}
+
+func TestLoadRootConfig_WithOutputBothFields(t *testing.T) {
+	dir := t.TempDir()
+	luaPath := writeLuaFile(t, dir, "init.lua", `return {
+  name = "dotfiles",
+  output = {
+    status = "table",
+    plan = "json",
+  },
+}`)
+
+	vm := NewLuaVM()
+	defer vm.Close()
+
+	cfg, err := vm.LoadRootConfig(luaPath)
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	require.NotNil(t, cfg.Output)
+	assert.Equal(t, "table", cfg.Output.Status)
+	assert.Equal(t, "json", cfg.Output.Plan)
 }
 
 func TestLoadRootConfig_NotExists(t *testing.T) {

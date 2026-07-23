@@ -77,6 +77,14 @@ return {
   -- Plugins to load (optional)
   -- Plugins are loaded via require() and become available as globals
   plugins = { "dots.http", "dots.archive", "dots.git" },
+
+  -- Output format preferences (optional)
+  -- Each key is a command name, value is the default format for that command
+  -- CLI flags (--format, --porcelain) always override these settings
+  output = {
+    status = "table",     -- default format for `dots status` (default, table, json, porcelain)
+    plan   = "json",      -- default format for `dots plan` (default, table, json, porcelain)
+  },
 }
 ```
 
