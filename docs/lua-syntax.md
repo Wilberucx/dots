@@ -882,6 +882,10 @@ return {
   name         = "string",        -- Repo name (default: "dotfiles")
   module_paths = "path/" | {...}, -- Search paths (default: root)
   plugins      = { "dots.http" }, -- Plugins to load
+  output       = {                 -- Default output format per command (optional)
+    status = "table",              -- "default" | "table" | "json" | "porcelain"
+    plan   = "json",               -- "default" | "table" | "json" | "porcelain"
+  },
 }
 ```
 

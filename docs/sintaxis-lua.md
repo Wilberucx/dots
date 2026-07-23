@@ -79,6 +79,14 @@ return {
   -- Plugins a cargar (opcional)
   -- Los plugins se cargan vía require() y quedan disponibles como globales
   plugins = { "dots.http", "dots.archive", "dots.git" },
+
+  -- Preferencias de formato de salida (opcional)
+  -- Cada clave es un comando, el valor es el formato por defecto para ese comando
+  -- Los flags CLI (--format, --porcelain) siempre sobreescriben estas configuraciones
+  output = {
+    status = "table",     -- formato por defecto para `dots status` (default, table, json, porcelain)
+    plan   = "json",      -- formato por defecto para `dots plan` (default, table, json, porcelain)
+  },
 }
 ```
 
@@ -880,6 +888,10 @@ return {
   name         = "string",        -- Nombre del repo (default: "dotfiles")
   module_paths = "path/" | {...}, -- Rutas de búsqueda (default: raíz)
   plugins      = { "dots.http" }, -- Plugins a cargar
+  output       = {                 -- Formato de salida por defecto por comando (opcional)
+    status = "table",              -- "default" | "table" | "json" | "porcelain"
+    plan   = "json",               -- "default" | "table" | "json" | "porcelain"
+  },
 }
 ```
 

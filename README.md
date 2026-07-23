@@ -125,6 +125,8 @@ dots backup diff --ref HEAD~3
 # Machine-parseable output
 dots status --porcelain
 dots status --format json
+dots plan --porcelain
+dots plan --format table
 
 # Shell completions
 dots completion bash > /etc/bash_completion.d/dots
@@ -155,10 +157,33 @@ dots completion bash > /etc/bash_completion.d/dots
 | `--no-sync`         | Skip remote sync check (`backup run`)                                              |
 | `--no-verify`       | Skip git hooks during commit (`backup run`)                                       |
 | `-C / --config`      | Edit the module's config file (`dots.lua`/`path.yaml`) instead of the folder (`edit`) |
-| `--porcelain`        | Machine-parseable tab-separated output (`status`) — overrides `--format`          |
+| `--porcelain`        | Machine-parseable tab-separated output (`status`, `plan`) — overrides `--format`  |
 | `--hints`            | Show migration hints (YAML → Lua) (`doctor`) — default: true                      |
 | `--dry-run`          | Preview without executing                                                         |
 | `--no-hints`         | Suppress migration hints from the syntax checker (persistent)                     |
+
+---
+
+## init.lua Configuration
+
+Default behaviors can be customized via `init.lua` at the root of your repo.
+All fields are optional.
+
+```lua
+-- ~/dotfiles/init.lua
+return {
+  name = "user/dotfiles",
+
+  -- Default output format per command
+  -- CLI flags (--format, --porcelain) always override these settings
+  output = {
+    status = "table",     -- "default" | "table" | "json" | "porcelain"
+    plan   = "json",      -- "default" | "table" | "json" | "porcelain"
+  },
+}
+```
+
+See [Lua Syntax Reference](docs/lua-syntax.md) for the full configuration guide.
 
 ---
 

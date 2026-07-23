@@ -113,6 +113,8 @@ dots backup diff --ref HEAD~3
 # Salida para scripting
 dots status --porcelain
 dots status --format json
+dots plan --porcelain
+dots plan --format table
 
 # Completado para el shell
 dots completion bash > /etc/bash_completion.d/dots
@@ -143,10 +145,33 @@ dots completion bash > /etc/bash_completion.d/dots
 | `--no-sync`         | Saltar verificación de sincronización remota (`backup run`)                        |
 | `--no-verify`       | Saltar hooks de git durante el commit (`backup run`)                               |
 | `-C / --config`      | Editar el archivo de configuración del módulo (`dots.lua`/`path.yaml`) en vez de la carpeta (`edit`) |
-| `--porcelain`        | Salida tabulada apta para scripting (`status`) — invalida `--format`               |
+| `--porcelain`        | Salida tabulada apta para scripting (`status`, `plan`) — invalida `--format`       |
 | `--hints`            | Mostrar sugerencias de migración (YAML → Lua) (`doctor`) — default: true           |
 | `--dry-run`          | Vista previa sin ejecutar                                                          |
 | `--no-hints`         | Suprimir sugerencias de migración del syntax checker (persistente)                |
+
+---
+
+## Configuración via `init.lua`
+
+Puedes personalizar comportamientos por defecto desde `init.lua` en la raíz de tu repo.
+Todos los campos son opcionales.
+
+```lua
+-- ~/dotfiles/init.lua
+return {
+  name = "usuario/dotfiles",
+
+  -- Formato de salida por defecto por comando
+  -- Los flags CLI (--format, --porcelain) siempre sobreescriben estas configuraciones
+  output = {
+    status = "table",     -- "default" | "table" | "json" | "porcelain"
+    plan   = "json",      -- "default" | "table" | "json" | "porcelain"
+  },
+}
+```
+
+Ver [Referencia de sintaxis Lua](docs/sintaxis-lua.md) para la guía completa.
 
 ---
 
