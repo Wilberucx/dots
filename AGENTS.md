@@ -8,12 +8,16 @@ We follow a strict `dev` / `main` isolation strategy:
 
 - **`main` branch**: Contains only **STABLE** code. Code merged to `main` must be tagged as a release (e.g., `v0.1.0`, `v0.2.0`). End users install from the latest GitHub Release.
 - **`dev` branch**: All development MUST happen here. This is the integration branch where new features, bug fixes, and refactors are introduced.
+- **`feature/*` branches**: Long-running feature branches based on `dev`. They follow the same guidelines below.
+  - `feature/unified-init` — init.lua como entry point único (Neovim-like).
+    See [docs/unified-init-spec.md](docs/unified-init-spec.md) for the spec.
 
 ### Development Workflow for Agents
 
-1. **Verify you are in `dev`**: 
+1. **Verify you are in the correct branch**:
+   - Feature work goes in its `feature/*` branch.
    - Never commit directly to `main` unless you are instructed to perform a release merge.
-   - Run `git branch` to confirm. If not in `dev`, `git checkout dev`.
+   - Run `git branch` to confirm.
 
 2. **Making Changes**:
    - Write Go code (no Python — the Python port is archived).

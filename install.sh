@@ -120,6 +120,15 @@ install_from_source() {
     fi
 }
 
+# ─── Eliminar versión experimental existente ───────────────────────────────
+if [[ -f "$BINARY" ]]; then
+    current_version=$("$BINARY" --version 2>/dev/null || echo "")
+    if echo "$current_version" | grep -q "experimental"; then
+        warning "Removing experimental build before installing stable..."
+        rm -f "$BINARY"
+    fi
+fi
+
 # ─── Install / Update ────────────────────────────────────────────────────────
 INSTALL_MODE="install"
 if [[ -f "$BINARY" ]]; then

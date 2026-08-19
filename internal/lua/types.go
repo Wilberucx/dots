@@ -77,11 +77,14 @@ type OutputConfig struct {
 }
 
 // RootConfig represents the parsed result of init.lua.
+// It embeds ModuleConfig to inherit Files and Dependencies,
+// allowing init.lua to declare files and deps directly.
 type RootConfig struct {
 	Name        string
 	ModulePaths []string // empty = default scan; one or more paths = scan only there
 	Plugins     []string // built-in plugins to load
 	Output      *OutputConfig
+	ModuleConfig          // embed: Files, Dependencies, Type
 }
 
 // LuaValToString recursively extracts a Go string value from a Lua value.

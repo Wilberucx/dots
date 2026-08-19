@@ -39,12 +39,43 @@ type OutputConfig struct {
 	Plan   string // default format for `dots plan`
 }
 
+// FileOpConfig is a lightweight version of luacfg.FileOp for config package.
+// Avoids circular import: config cannot import the lua package.
+type FileOpConfig struct {
+	Type        int               // FileOpFile=0, FileOpDirTo=1, FileOpDirInto=2, FileOpGlob=3
+	Source      string
+	Destination string
+	Pattern     string
+	OSFilter    string
+	PerOS       map[string]string
+	VariantName string
+	Module      string
+}
+
+// DepOpConfig is a lightweight version of luacfg.DepOp for config package.
+type DepOpConfig struct {
+	Name        string
+	Type        string // "package", "binary", "git"
+	URL         string
+	Destination string
+	Version     string
+	Ref         string
+	Extract     string
+	Arch        map[string]string
+	Managers    map[string]string
+	Bin         string
+	PostInstall string
+	Fallback    *DepOpConfig
+}
+
 // RootConfig mirrors lua.RootConfig for external use.
 type RootConfig struct {
-	Name        string
-	ModulePaths []string
-	Plugins     []string
-	Output      *OutputConfig
+	Name         string
+	ModulePaths  []string
+	Plugins      []string
+	Output       *OutputConfig
+	Files        []FileOpConfig   // files from init.lua
+	Dependencies []DepOpConfig    // dependencies from init.lua
 }
 
 // SetCachedModuleDirs sets the cached module directories (used by Lua repos).

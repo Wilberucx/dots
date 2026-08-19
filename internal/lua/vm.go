@@ -217,6 +217,7 @@ func parseSingleDepOp(tbl *lua.LTable) DepOp {
 }
 
 // parseRootConfig converts a Lua table (returned by init.lua) into RootConfig.
+// It reuses parseModuleConfig to handle files and dependencies fields.
 func parseRootConfig(tbl *lua.LTable) (*RootConfig, error) {
 	cfg := &RootConfig{
 		Name: lvToString(tbl.RawGetString("name")),
@@ -261,6 +262,16 @@ func parseRootConfig(tbl *lua.LTable) (*RootConfig, error) {
 			}
 
 			cfg.Output = outCfg
+		}
+	}
+
+	// Parse files and dependencies from init.lua (reusing module parsing logic)
+	// Since RootConfig embeds ModuleConfig, these fields are set directly.
+	if modCfg, err := parseModuleConfig(tbl); err == nil {
+		cfg.Files = modCfg.Files
+		cfg.Dependencies = modCfg.Dependencies
+		if cfg.Type == "" {
+			cfg.Type = modCfg.Type
 		}
 	}
 

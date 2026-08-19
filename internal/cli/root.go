@@ -24,6 +24,13 @@ dependencies, backups, and cross-platform configuration.`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Show experimental binary warning once per session
+		if IsDev == "1" && !devWarningShown {
+			devWarningShown = true
+			fmt.Fprintf(os.Stderr, "%s\n", ui.WarningStyle.Render("⚠ dots — experimental binary ("+Version+")"))
+			fmt.Fprintf(os.Stderr, "%s\n\n", ui.DimStyle.Render("  This is an unstable development version. Use 'install.sh' for the stable release."))
+		}
+
 		// Check for updates in background goroutine
 		go checkForUpdates()
 
@@ -50,7 +57,11 @@ dependencies, backups, and cross-platform configuration.`,
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if v, _ := cmd.Flags().GetBool("version"); v {
-			fmt.Println(Version)
+			if IsDev == "1" {
+				fmt.Println("⚠ " + Version + " (experimental)")
+			} else {
+				fmt.Println(Version)
+			}
 			return nil
 		}
 		return cmd.Help()
@@ -91,9 +102,11 @@ func loadConfig() (*config.DotsConfig, error) {
 				fmt.Fprintf(os.Stderr, "Warning: %v\n", err)
 			} else if initCfg != nil {
 			internalCfg := &config.RootConfig{
-				Name:        initCfg.Name,
-				ModulePaths: initCfg.ModulePaths,
-				Plugins:     initCfg.Plugins,
+				Name:         initCfg.Name,
+				ModulePaths:  initCfg.ModulePaths,
+				Plugins:      initCfg.Plugins,
+				Files:        toConfigFileOps(initCfg.Files),
+				Dependencies: toConfigDepOps(initCfg.Dependencies),
 			}
 			if initCfg.Output != nil {
 				internalCfg.Output = &config.OutputConfig{
@@ -388,7 +401,76 @@ func init() {
 	rootCmd.Flags().BoolP("version", "v", false, "Show version and exit")
 }
 
+// ─── Helpers for config type conversion ───────────────────────────────────
+
+// toConfigFileOps converts lua.FileOp slice to config.FileOpConfig slice.
+// Avoids importing lua package from config (circular import protection).
+func toConfigFileOps(src []luacfg.FileOp) []config.FileOpConfig {
+	if src == nil {
+		return nil
+	}
+	dst := make([]config.FileOpConfig, len(src))
+	for i, f := range src {
+		dst[i] = config.FileOpConfig{
+			Type:        int(f.Type),
+			Source:      f.Source,
+			Destination: f.Destination,
+			Pattern:     f.Pattern,
+			OSFilter:    f.OSFilter,
+			PerOS:       f.PerOS,
+			VariantName: f.VariantName,
+			Module:      "", // populated in Phase 3
+		}
+	}
+	return dst
+}
+
+// toConfigDepOps converts lua.DepOp slice to config.DepOpConfig slice.
+func toConfigDepOps(src []luacfg.DepOp) []config.DepOpConfig {
+	if src == nil {
+		return nil
+	}
+	dst := make([]config.DepOpConfig, len(src))
+	for i, d := range src {
+		dst[i] = config.DepOpConfig{
+			Name:        d.Name,
+			Type:        d.Type,
+			URL:         d.URL,
+			Destination: d.Destination,
+			Version:     d.Version,
+			Ref:         d.Ref,
+			Extract:     d.Extract,
+			Arch:        d.Arch,
+			Managers:    d.Managers,
+			Bin:         d.Bin,
+			PostInstall: d.PostInstall,
+		}
+		if d.Fallback != nil {
+			dst[i].Fallback = &config.DepOpConfig{
+				Name:        d.Fallback.Name,
+				Type:        d.Fallback.Type,
+				URL:         d.Fallback.URL,
+				Destination: d.Fallback.Destination,
+				Version:     d.Fallback.Version,
+				Ref:         d.Fallback.Ref,
+				Extract:     d.Fallback.Extract,
+				Arch:        d.Fallback.Arch,
+				Managers:    d.Fallback.Managers,
+				Bin:         d.Fallback.Bin,
+				PostInstall: d.Fallback.PostInstall,
+			}
+		}
+	}
+	return dst
+}
+
 // Version is set at build time via -ldflags.
 var Version = "0.15.0"
+
+// IsDev is set to "1" at build time via -ldflags for experimental/dev builds.
+var IsDev = ""
+
+// showDevWarning prints the experimental binary warning once per session.
+var devWarningShown bool
 
 // checkForUpdates and notifyIfNeeded are implemented in updates.go
